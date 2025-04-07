@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { Repository, FileNode, buildFileTree, GithubTreeItem, fetchFileContent as fetchContent, isFileOfType } from "@/utils/githubUtils";
+import { Repository, FileNode, buildFileTree, GithubTreeItem, fetchFileContent as fetchContent } from "@/utils/githubUtils";
 
 interface UseGithubApiReturn {
   repositories: Repository[];
@@ -10,7 +10,6 @@ interface UseGithubApiReturn {
   loadingFileStructure: boolean;
   fetchFileStructure: (repo: Repository) => Promise<FileNode[]>;
   fetchFileContent: (repo: Repository, filePath: string) => Promise<string | null>;
-  isRamlFile: (fileName: string) => boolean;
 }
 
 export function useGithubApi(): UseGithubApiReturn {
@@ -123,10 +122,6 @@ export function useGithubApi(): UseGithubApiReturn {
     }
   }, []);
 
-  const isRamlFile = useCallback((fileName: string): boolean => {
-    return isFileOfType(fileName, 'raml');
-  }, []);
-
   return {
     repositories,
     loadingRepositories,
@@ -134,7 +129,6 @@ export function useGithubApi(): UseGithubApiReturn {
     fileStructure,
     loadingFileStructure,
     fetchFileStructure,
-    fetchFileContent,
-    isRamlFile
+    fetchFileContent
   };
 }
