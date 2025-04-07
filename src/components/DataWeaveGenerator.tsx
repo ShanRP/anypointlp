@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Loader2, ArrowLeft, FileCode, Check, Folder, File } from 'lucide-react';
@@ -17,7 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Json } from '@/integrations/supabase/types';
 import { BackButton } from './ui/BackButton';
 import { useNavigate } from 'react-router-dom';
-import { buildFileTree, fetchFileContent, findDataWeaveFiles } from '@/utils/githubUtils';
+import { buildFileTree, fetchFileContent, findDataWeaveFiles, isFileOfType } from '@/utils/githubUtils';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
 
