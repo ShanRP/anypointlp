@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -17,12 +16,12 @@ import { RefreshCw, RotateCcw, Check, Upload, ArrowLeft, File, Folder, FolderTre
 import { FileNode, isFileOfType } from '@/utils/githubUtils';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
-import { SidebarTask } from '@/types/tasks';
+import { WorkspaceTask } from '@/hooks/useWorkspaceTasks';
 import { Animation } from './ui/Animation';
 
 export interface IntegrationGeneratorProps {
   onBack: () => void;
-  onTaskCreated?: (task: SidebarTask) => void;
+  onTaskCreated?: (task: WorkspaceTask) => void;
   selectedWorkspaceId?: string;
   onSaveTask?: () => void;
 }
