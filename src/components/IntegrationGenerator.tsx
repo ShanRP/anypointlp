@@ -900,7 +900,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
               />
             </div>
 
-            {selectedOption === 'noRepository' && (
+            {(selectedOption === 'noRepository' || selectedOption === 'withRepository' ||  selectedOption === 'uploadComputer') && (
               <div>
                 <label className="block font-medium mb-2">
                   RAML
