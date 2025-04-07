@@ -16,14 +16,14 @@ import { RefreshCw, RotateCcw, Check, Upload, ArrowLeft, File, Folder, FolderTre
 import { FileNode, isFileOfType } from '@/utils/githubUtils';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
-import { WorkspaceTask, IntegrationGeneratorProps } from '@/hooks/useWorkspaceTasks';
+import { WorkspaceTask } from '@/hooks/useWorkspaceTasks';
 import { Animation } from './ui/Animation';
 
-export interface IntegrationGeneratorProps {
+interface IntegrationGeneratorProps {
   onBack: () => void;
   onTaskCreated?: (task: WorkspaceTask) => void;
   selectedWorkspaceId?: string;
-  onSaveTask?: () => void;
+  onSaveTask?: (taskId: string) => void;
 }
 
 const apiTypes = ['REST', 'SOAP', 'GraphQL', 'Database', 'File', 'JMS', 'AMQP', 'WebSockets', 'gRPC'];
@@ -628,7 +628,6 @@ ${xmlConfig}
                 </div>
               </div>
 
-              {/* RAML Section - Added for all source types */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-gray-700">
@@ -726,7 +725,9 @@ ${xmlConfig}
                           Copy to Clipboard
                         </Button>
                         {onSaveTask && (
-                          <Button onClick={onSaveTask}>
+                          <Button 
+                            onClick={() => onSaveTask && onSaveTask("generated-task-id")}
+                          >
                             Save as Task
                           </Button>
                         )}

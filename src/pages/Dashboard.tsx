@@ -36,55 +36,6 @@ interface SidebarTask {
   workspace_id: string;
 }
 
-type DashboardAgentCardProps = {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  selected?: boolean;
-  onClick?: () => void;
-};
-
-const DashboardAgentCard: React.FC<DashboardAgentCardProps> = ({
-  title,
-  description,
-  icon,
-  selected = false,
-  onClick
-}) => {
-  return (
-    <motion.div 
-      onClick={onClick} 
-      className={`p-6 rounded-xl flex flex-col cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-md hover:shadow-lg ${
-        selected 
-          ? 'bg-black text-white dark:bg-gray-800' 
-          : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
-      }`} 
-      whileHover={{
-        y: -5
-      }} 
-      transition={{
-        duration: 0.2
-      }}
-    >
-      <div className="flex items-center mb-4">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
-          selected 
-            ? 'bg-gray-800 dark:bg-gray-700' 
-            : 'bg-gray-100 dark:bg-gray-700'
-        }`}>
-          {icon}
-        </div>
-        <h3 className="text-lg font-bold">{title}</h3>
-      </div>
-      <p className={`text-sm ${
-        selected 
-          ? 'text-gray-300' 
-          : 'text-gray-600 dark:text-gray-300'
-      }`}>{description}</p>
-    </motion.div>
-  );
-};
-
 type AgentCategoryProps = {
   title: string;
   description: string;
@@ -498,7 +449,9 @@ const Dashboard = () => {
                 onTaskCreated={handleTaskCreated} 
                 selectedWorkspaceId={selectedWorkspace?.id} 
                 onBack={handleBackToDashboard} 
-                onSaveTask={() => {}} 
+                onSaveTask={(taskId: string) => {
+                  console.log(`Saving task with ID: ${taskId}`);
+                }} 
               />
             </motion.div>}
           
