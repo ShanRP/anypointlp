@@ -11,8 +11,8 @@ export interface WorkspaceTask {
   task_name: string;
   created_at: string;
   workspace_id: string; // Added to track which workspace this task belongs to
-  category?: string; // Added this field since it's used in the sidebar
-  description?: string; // Adding optional description field
+  category?: string; // Category of the task (dataweave, raml, integration, etc.)
+  description?: string; // Optional description field
 }
 
 export interface TaskDetails {
@@ -26,7 +26,8 @@ export interface TaskDetails {
   generated_scripts: any[];
   created_at: string;
   workspace_id: string; // Added to track which workspace this task belongs to
-  description?: string; // Adding optional description field
+  category?: string; // Category of the task
+  description?: string; // Optional description field
 }
 
 export interface IntegrationGeneratorProps {
@@ -56,7 +57,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       if (error) throw error;
       
-      // Ensure each task is associated with the current workspace
+      // Ensure each task is associated with the current workspace and has a category
       const workspaceTasks = (data as Array<{
         id: string;
         task_id: string;
@@ -68,7 +69,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         ...task,
         workspace_id: workspaceId, // Explicitly set workspace_id
         description: task.description || '', // Include description with fallback
-        category: task.category || 'dataweave' // Set default category if not present
+        category: task.category || 'dataweave', // Set default category if not present
+        task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}` // Ensure a proper task_id is set
       }));
       
       setTasks(workspaceTasks);
@@ -105,6 +107,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           notes: string;
           generated_scripts: Json;
           created_at: string;
+          category?: string;
           description?: string; // Making this optional since it might not be in the RPC return
         };
         
@@ -112,7 +115,9 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         const taskWithWorkspace = {
           ...taskDetails,
           workspace_id: workspaceId,
-          description: taskDetails.description || '' // Ensure description exists with a fallback
+          category: taskDetails.category || 'dataweave', // Default category
+          description: taskDetails.description || '', // Ensure description exists with a fallback
+          task_id: taskDetails.task_id || `T-${taskDetails.id.substring(0, 8).toUpperCase()}` // Ensure task_id
         } as TaskDetails;
         
         setSelectedTask(taskWithWorkspace);
@@ -131,7 +136,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
 
   const saveTask = async (task: {
     workspace_id: string;
-    task_id: string;
+    task_id?: string;
     task_name: string;
     input_format: string;
     input_samples: any[];
@@ -139,13 +144,17 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     notes?: string;
     generated_scripts: any[];
     user_id: string;
+    category?: string; // Adding category field
     description?: string; // Adding optional description field
   }) => {
     try {
+      // Generate a unique task_id if not provided
+      const taskId = task.task_id || `T-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
+      
       // Ensure workspace_id is set correctly
       const taskData = {
         workspace_id: task.workspace_id,
-        task_id: task.task_id,
+        task_id: taskId,
         task_name: task.task_name,
         input_format: task.input_format,
         input_samples: JSON.parse(JSON.stringify(task.input_samples)) as Json,
@@ -154,6 +163,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
         user_id: task.user_id,
         username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
+        category: task.category || 'dataweave', // Set default category if not specified
         description: task.description
       };
 

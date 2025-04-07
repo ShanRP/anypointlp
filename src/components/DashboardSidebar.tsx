@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,17 +19,20 @@ import {
   PlusCircle,
   Layers,
   Clock,
-  X
+  X,
+  Info,
+  MoreVertical
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useLanguage } from '@/providers/LanguageProvider';
 import { WorkspaceOption, useWorkspaces } from '@/hooks/useWorkspaces';
 import { useWorkspaceTasks, type WorkspaceTask } from '@/hooks/useWorkspaceTasks';
 import { Button } from '@/components/ui/button';
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
+import WorkspaceDetailsDialog from './workspace/WorkspaceDetailsDialog';
 import CodingAssistantDialog from './ai/CodingAssistantDialog';
 import { useAnimations } from '@/utils/animationUtils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet";
@@ -86,6 +90,7 @@ interface ActivityItemProps {
   title: string;
   time: string;
   icon: React.ReactNode;
+  category: string;
   onClick?: () => void;
 }
 
@@ -94,6 +99,7 @@ const ActivityItem: React.FC<ActivityItemProps> = ({
   title,
   time,
   icon,
+  category,
   onClick
 }) => {
   return (
@@ -108,7 +114,12 @@ const ActivityItem: React.FC<ActivityItemProps> = ({
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           #{id} - {title}
         </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{time}</p>
+        <div className="flex items-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mr-2">{time}</p>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
+            {category}
+          </span>
+        </div>
       </div>
       <Button
         variant="ghost"
@@ -140,12 +151,13 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { t } = useLanguage();
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [isCreateWorkspaceDialogOpen, setIsCreateWorkspaceDialogOpen] = useState(false);
+  const [isWorkspaceDetailsOpen, setIsWorkspaceDetailsOpen] = useState(false);
+  const [selectedWorkspaceForDetails, setSelectedWorkspaceForDetails] = useState<WorkspaceOption | null>(null);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
-  const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace } = useWorkspaces();
+  const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace, updateWorkspace, deleteWorkspace } = useWorkspaces();
   const { tasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
   const { fadeIn } = useAnimations();
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
@@ -153,18 +165,11 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const handleSignOut = async () => {
     try {
       await signOut();
-      toast({
-        title: t('auth.signedOut'),
-        description: t('auth.signedOutSuccess'),
-      });
+      toast.success('Signed out successfully');
       navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
-      toast({
-        variant: "destructive",
-        title: t('common.error'),
-        description: t('auth.signOutError'),
-      });
+      toast.error('Failed to sign out');
     }
   };
 
@@ -172,6 +177,34 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     setIsActivitySheetOpen(true);
     if (onViewAllActivities) {
       onViewAllActivities();
+    }
+  };
+
+  const handleOpenWorkspaceDetails = (workspace: WorkspaceOption, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedWorkspaceForDetails(workspace);
+    setIsWorkspaceDetailsOpen(true);
+    setWorkspaceDropdownOpen(false);
+  };
+
+  // Function to get appropriate icon based on task category
+  const getTaskIcon = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'raml':
+        return <FileCode2 className="h-4 w-4" />;
+      case 'integration':
+        return <RefreshCcw className="h-4 w-4" />;
+      case 'document':
+        return <FileText className="h-4 w-4" />;
+      case 'diagram':
+        return <FileQuestion className="h-4 w-4" />;
+      case 'munit':
+        return <TestTube2 className="h-4 w-4" />;
+      case 'sampledata':
+        return <Database className="h-4 w-4" />;
+      case 'dataweave':
+      default:
+        return <FileCode2 className="h-4 w-4" />;
     }
   };
 
@@ -199,7 +232,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       return {
         id: task.id,
         task_id: task.task_id || task.id.slice(0, 4),
-        title: task.task_name || 'DataWeave Generator',
+        title: task.task_name || 'Task',
         time: timeDisplay,
         category: task.category || 'dataweave',
       };
@@ -273,23 +306,40 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   {workspaces.map(workspace => (
                     <div
                       key={workspace.id}
-                      onClick={() => {
-                        selectWorkspace(workspace);
-                        if (onWorkspaceChange) onWorkspaceChange(workspace);
-                        setWorkspaceDropdownOpen(false);
-                      }}
                       className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
                         selectedWorkspace?.id === workspace.id ? 'bg-gray-100 dark:bg-gray-700' : ''
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-md flex items-center justify-center bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 font-medium">
+                      <div 
+                        className="w-8 h-8 rounded-md flex items-center justify-center bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 font-medium"
+                        onClick={() => {
+                          selectWorkspace(workspace);
+                          if (onWorkspaceChange) onWorkspaceChange(workspace);
+                          setWorkspaceDropdownOpen(false);
+                        }}
+                      >
                         {workspace.initial}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div 
+                        className="flex-1 min-w-0"
+                        onClick={() => {
+                          selectWorkspace(workspace);
+                          if (onWorkspaceChange) onWorkspaceChange(workspace);
+                          setWorkspaceDropdownOpen(false);
+                        }}
+                      >
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                           {workspace.name}
                         </p>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={(e) => handleOpenWorkspaceDetails(workspace, e)}
+                      >
+                        <Info className="h-4 w-4" />
+                      </Button>
                       {selectedWorkspace?.id === workspace.id && (
                         <div className="w-2 h-2 rounded-full bg-purple-500"></div>
                       )}
@@ -417,7 +467,8 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                       id={task.task_id}
                       title={task.title}
                       time={task.time}
-                      icon={<FileText className="h-4 w-4" />}
+                      category={task.category}
+                      icon={getTaskIcon(task.category)}
                       onClick={() => onTaskSelect && onTaskSelect(task.id)}
                     />
                   ))
@@ -478,11 +529,16 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         onClose={() => setIsCreateWorkspaceDialogOpen(false)}
         onCreateWorkspace={(name) => {
           createWorkspace(name);
-          toast({
-            title: 'Workspace Created',
-            description: `${name} workspace has been created successfully.`,
-          });
+          toast.success(`${name} workspace has been created successfully.`);
         }}
+      />
+      
+      <WorkspaceDetailsDialog
+        isOpen={isWorkspaceDetailsOpen}
+        onClose={() => setIsWorkspaceDetailsOpen(false)}
+        workspace={selectedWorkspaceForDetails}
+        onDelete={deleteWorkspace}
+        onUpdate={updateWorkspace}
       />
       
       <CodingAssistantDialog 
@@ -495,11 +551,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           <SheetHeader className="p-6 border-b">
             <div className="flex items-center justify-between">
               <SheetTitle className="text-xl font-bold">All Activities</SheetTitle>
-              {/* <SheetClose asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                  <X className="h-4 w-4" />
-                </Button>
-              </SheetClose> */}
             </div>
           </SheetHeader>
           <div className="p-6 overflow-y-auto max-h-[calc(100vh-120px)]">
@@ -534,7 +585,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                         }}
                       >
                         <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                          <FileText className="h-5 w-5" />
+                          {getTaskIcon(task.category || 'dataweave')}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-base font-medium text-gray-900 dark:text-gray-100">
@@ -545,7 +596,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                               {timeDisplay}
                             </span>
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
-                              {task.category || 'Task'}
+                              {task.category || 'dataweave'}
                             </span>
                           </div>
                           {task.description && (
