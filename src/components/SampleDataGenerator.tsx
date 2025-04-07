@@ -39,6 +39,8 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [currentDirectory, setCurrentDirectory] = useState<string>('/');
   
+  // Add missing projectFolderRef
+  const projectFolderRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if a file matches the selected format
