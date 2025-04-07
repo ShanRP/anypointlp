@@ -1,143 +1,98 @@
 
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import React from 'react';
+import { ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 
-const testimonials = [
-  {
-    id: 1,
-    content: "This React framework has completely transformed our development process. We're shipping features faster than ever before!",
-    author: "Sarah Johnson",
-    role: "CTO, TechNova",
-    avatar: "SJ",
-  },
-  {
-    id: 2,
-    content: "The developer experience is unmatched. Documentation is clear, and the community support has been excellent.",
-    author: "Michael Chen",
-    role: "Lead Developer, StartupX",
-    avatar: "MC",
-  },
-  {
-    id: 3,
-    content: "We switched our entire stack to this framework, and it was the best decision we made this year. Our team productivity has increased by 50%.",
-    author: "Alex Rodriguez",
-    role: "Engineering Manager, DataFlow",
-    avatar: "AR",
-  },
-];
+type TestimonialProps = {
+  quote: string;
+  name: string;
+  role: string;
+  className?: string;
+};
 
-const Testimonials = () => {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  const handleNext = () => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-    setActiveIndex((prevIndex) => (prevIndex + 1) % testimonials.length);
-    setTimeout(() => setIsAnimating(false), 500);
-  };
-
-  const handlePrev = () => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-    setActiveIndex((prevIndex) => (prevIndex - 1 + testimonials.length) % testimonials.length);
-    setTimeout(() => setIsAnimating(false), 500);
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      handleNext();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isAnimating]);
-
+const Testimonial: React.FC<TestimonialProps> = ({ quote, name, role, className = '' }) => {
   return (
-    <section id="testimonials" className="py-16 md:py-24">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+    <div className={`bg-white rounded-xl p-8 shadow-sm border border-gray-100 ${className}`}>
+      <Quote size={36} className="text-purple-200 mb-4" />
+      <p className="text-lg text-gray-700 mb-6 italic">{quote}</p>
+      <div className="flex items-center">
+        <div className="w-9 h-9 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+          <span className="text-purple-700 font-bold">{name.charAt(0)}</span>
+        </div>
+        <div>
+          <p className="font-semibold text-gray-900">{name}</p>
+          <p className="text-gray-500 text-sm">{role}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const Testimonials: React.FC = () => {
+  return (
+    <section className="py-20 bg-purple-50 relative overflow-hidden">
+      {/* Background Elements */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-100/50 rounded-full blur-3xl -z-10"></div>
+      <div className="absolute -bottom-48 right-1/4 w-96 h-96 bg-purple-100/50 rounded-full blur-3xl -z-10"></div>
+      
+      <div className="container px-4 mx-auto">
+        {/* Section Header */}
+        <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            What Our <span className="text-gradient">Users</span> Say
+            Why developers and architects choose us
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Don't just take our word for it - hear from some of our satisfied users.
+          <p className="text-xl text-gray-600">
+            Hear from the MuleSoft professionals who've experienced the difference
           </p>
         </div>
-
-        <div className="relative max-w-4xl mx-auto">
-          <div className="overflow-hidden">
-            <div 
-              className="flex transition-transform duration-500 ease-in-out"
-              style={{ transform: `translateX(-${activeIndex * 100}%)` }}
-            >
-              {testimonials.map((testimonial) => (
-                <div key={testimonial.id} className="w-full flex-shrink-0 px-4">
-                  <div className="bg-card shadow-lg rounded-2xl p-8 border border-border">
-                    <div className="flex mb-4">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
-                      ))}
-                    </div>
-                    <blockquote className="text-lg md:text-xl italic mb-6">
-                      "{testimonial.content}"
-                    </blockquote>
-                    <div className="flex items-center">
-                      <Avatar className="h-12 w-12 mr-4">
-                        <AvatarImage src="" alt={testimonial.author} />
-                        <AvatarFallback className="bg-blue-100 text-blue-800">
-                          {testimonial.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-semibold">{testimonial.author}</div>
-                        <div className="text-sm text-muted-foreground">{testimonial.role}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-center mt-8 gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handlePrev}
-              disabled={isAnimating}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex space-x-2">
-              {testimonials.map((_, index) => (
-                <button
-                  key={index}
-                  className={`h-2.5 w-2.5 rounded-full transition-colors ${
-                    activeIndex === index ? "bg-blue-600" : "bg-gray-300"
-                  }`}
-                  onClick={() => {
-                    if (isAnimating) return;
-                    setIsAnimating(true);
-                    setActiveIndex(index);
-                    setTimeout(() => setIsAnimating(false), 500);
-                  }}
-                ></button>
-              ))}
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleNext}
-              disabled={isAnimating}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+        
+        {/* Testimonials Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Testimonial 
+            quote="I use Anypoint Learning Platform for all my projects. After comparing it with other tools, only this platform produced working DataWeave code on the first attempt."
+            name="Maria Rodriguez"
+            role="MuleSoft Consultant/Mentor"
+            className="animate-fade-up"
+          />
+          
+          <Testimonial 
+            quote="DataWeave mappings are typically complex. I tried a few difficult mappings with this platform and it works perfectly! Other tools couldn't solve the same problems."
+            name="James Chen"
+            role="MuleSoft Developer"
+            className="animate-fade-up animate-delay-100"
+          />
+          
+          <Testimonial 
+            quote="I used the code review agent for a client project and it found optimization opportunities we hadn't considered. Feels like magic!"
+            name="Sarah Johnson"
+            role="Integration Architect"
+            className="animate-fade-up animate-delay-200"
+          />
+          
+          <Testimonial 
+            quote="The documentation generator has saved me countless hours. It creates detailed API documentation that I can directly share with my clients."
+            name="Michael Okonkwo"
+            role="API Specialist"
+            className="animate-fade-up animate-delay-100 lg:col-span-1.5"
+          />
+          
+          <Testimonial 
+            quote="The certification resources helped me pass my MuleSoft Developer certification on the first try. The practice questions were spot on!"
+            name="Priya Sharma"
+            role="Junior MuleSoft Developer"
+            className="animate-fade-up animate-delay-200 lg:col-span-1.5"
+          />
+        </div>
+        
+        {/* Navigation Controls */}
+        <div className="flex justify-center mt-10 space-x-4">
+          <button className="p-2 rounded-full border border-gray-300 text-gray-600 hover:bg-white hover:text-purple-600 transition-colors">
+            <ChevronLeft size={24} />
+          </button>
+          <button className="p-2 rounded-full border border-gray-300 text-gray-600 hover:bg-white hover:text-purple-600 transition-colors">
+            <ChevronRight size={24} />
+          </button>
         </div>
       </div>
     </section>
   );
 };
-
-export default Testimonials;

@@ -333,33 +333,6 @@ export type Database = {
         }
         Relationships: []
       }
-      apl_user_sessions: {
-        Row: {
-          created_at: string
-          device_info: string | null
-          id: string
-          last_active: string
-          session_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          device_info?: string | null
-          id?: string
-          last_active?: string
-          session_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          device_info?: string | null
-          id?: string
-          last_active?: string
-          session_id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       apl_workspaces: {
         Row: {
           created_at: string

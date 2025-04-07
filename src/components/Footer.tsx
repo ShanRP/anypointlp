@@ -1,111 +1,87 @@
 
-import { Github, Twitter, Instagram, Facebook, ArrowUp } from "lucide-react";
+import React from 'react';
+import { Logo } from './assets/Logo';
+import { Github, Linkedin, Twitter, Mail, ArrowRight } from 'lucide-react';
 
-const Footer = () => {
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-  };
-
+export const Footer: React.FC = () => {
   return (
-    <footer className="bg-background border-t border-border py-12">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          <div>
-            <h3 className="text-xl font-bold text-blue-600 mb-4">React<span className="text-foreground">App</span></h3>
-            <p className="text-muted-foreground mb-4">
-              Building amazing web experiences with modern React.
+    <footer className="bg-gray-50 border-t border-gray-200">
+      <div className="container px-4 mx-auto py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+          {/* Company Info */}
+          <div className="col-span-1 lg:col-span-1">
+            <Logo className="mb-4" />
+            <p className="text-gray-600 mb-4">
+              A centralized hub for MuleSoft developers to access resources, tools, and community support.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                <Github className="h-5 w-5" />
-                <span className="sr-only">GitHub</span>
+              <a href="#" className="text-gray-500 hover:text-purple-600 transition-colors">
+                <Github size={20} />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                <Twitter className="h-5 w-5" />
-                <span className="sr-only">Twitter</span>
+              <a href="#" className="text-gray-500 hover:text-purple-600 transition-colors">
+                <Linkedin size={20} />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                <Instagram className="h-5 w-5" />
-                <span className="sr-only">Instagram</span>
+              <a href="#" className="text-gray-500 hover:text-purple-600 transition-colors">
+                <Twitter size={20} />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                <Facebook className="h-5 w-5" />
-                <span className="sr-only">Facebook</span>
+              <a href="#" className="text-gray-500 hover:text-purple-600 transition-colors">
+                <Mail size={20} />
               </a>
             </div>
           </div>
           
+          {/* Quick Links */}
           <div>
-            <h3 className="font-semibold mb-4">Resources</h3>
+            <h3 className="font-bold text-gray-900 mb-4">Platform</h3>
             <ul className="space-y-2">
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                  Documentation
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                  Tutorials
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                  Blog
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                  Community
-                </a>
-              </li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">Features</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">AI Tools</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">Community</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">Marketplace</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">Certification</a></li>
             </ul>
           </div>
           
+          {/* Resources */}
           <div>
-            <h3 className="font-semibold mb-4">Company</h3>
+            <h3 className="font-bold text-gray-900 mb-4">Resources</h3>
             <ul className="space-y-2">
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                  About Us
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                  Careers
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                  Privacy Policy
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-blue-600 transition-colors">
-                  Terms of Service
-                </a>
-              </li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">Documentation</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">Tutorials</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">Blog</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">FAQs</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-purple-600 transition-colors">Support</a></li>
             </ul>
+          </div>
+          
+          {/* Newsletter */}
+          <div>
+            <h3 className="font-bold text-gray-900 mb-4">Stay Updated</h3>
+            <p className="text-gray-600 mb-4">Subscribe to our newsletter for the latest updates and features.</p>
+            <div className="flex">
+              <input 
+                type="email" 
+                placeholder="Your email address" 
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+              <button className="bg-purple-600 text-white p-2 rounded-r-md hover:bg-purple-700 transition-colors">
+                <ArrowRight size={20} />
+              </button>
+            </div>
           </div>
         </div>
         
-        <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-muted-foreground text-sm mb-4 md:mb-0">
-            © {new Date().getFullYear()} ReactApp. All rights reserved.
+        <div className="border-t border-gray-200 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
+          <p className="text-gray-500 text-sm mb-4 md:mb-0">
+            &copy; {new Date().getFullYear()} Anypoint Learning Platform. All rights reserved.
           </p>
-          <button 
-            onClick={scrollToTop}
-            className="flex items-center text-sm text-muted-foreground hover:text-blue-600 transition-colors"
-          >
-            Back to top
-            <ArrowUp className="ml-1 h-4 w-4" />
-          </button>
+          <div className="flex space-x-6">
+            <a href="#" className="text-gray-500 hover:text-purple-600 text-sm transition-colors">Terms of Service</a>
+            <a href="#" className="text-gray-500 hover:text-purple-600 text-sm transition-colors">Privacy Policy</a>
+            <a href="#" className="text-gray-500 hover:text-purple-600 text-sm transition-colors">Cookies</a>
+          </div>
         </div>
       </div>
     </footer>
   );
 };
-
-export default Footer;
