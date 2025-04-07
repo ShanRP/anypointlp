@@ -596,8 +596,7 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
             return input.includes(',') || input.includes('\n');
           case 'YAML':
             return input.includes(':') && !input.includes('{') && !input.includes('[');
-          case 'EDI':
-            return input.includes('~') || input.includes('*') || input.includes(':');
+          
           default:
             return true;
         }
@@ -849,7 +848,7 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
                     <SelectItem value="XML" className="text-gray-800">XML</SelectItem>
                     <SelectItem value="YAML" className="text-gray-800">YAML</SelectItem>
                     <SelectItem value="CSV" className="text-gray-800">CSV</SelectItem>
-                    <SelectItem value="EDI" className="text-gray-800">EDI</SelectItem>
+                    
                   </SelectContent>
                 </Select>
               </div>
