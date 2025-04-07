@@ -12,7 +12,7 @@ import ExchangeItemDetails from '@/components/Exchange/ExchangeItemDetails';
 import ExchangePublish from '@/components/Exchange/ExchangePublish';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+import { useWorkspaceTasks, WorkspaceTask } from '@/hooks/useWorkspaceTasks';
 import TaskDetailsView from '@/components/TaskDetailsView';
 import { WorkspaceOption, useWorkspaces } from '@/hooks/useWorkspaces';
 import JobBoard from '@/components/JobBoard/JobBoard';
@@ -302,13 +302,37 @@ const Dashboard = () => {
     }
   };
 
-  const handleTaskCreated = (task: SidebarTask) => {
-    const taskWithWorkspace = {
-      ...task,
+  const handleTaskCreated = (task: WorkspaceTask) => {
+    const sidebarTask: SidebarTask = {
+      id: task.id,
+      label: task.task_name || 'Task',
+      category: task.category || 'dataweave',
+      icon: getTaskIcon(task.category || 'dataweave'),
       workspace_id: selectedWorkspace?.id || ''
     };
-    setTasks(prevTasks => [...prevTasks, taskWithWorkspace]);
-    toast.success(`Task ${task.id} created successfully!`);
+    
+    setTasks(prevTasks => [...prevTasks, sidebarTask]);
+    toast.success(`Task ${task.task_id || task.id} created successfully!`);
+  };
+
+  const getTaskIcon = (category: string): React.ReactNode => {
+    switch (category.toLowerCase()) {
+      case 'raml':
+        return <FileCode2 className="h-5 w-5" />;
+      case 'integration':
+        return <RefreshCw className="h-5 w-5" />;
+      case 'document':
+        return <FileText className="h-5 w-5" />;
+      case 'diagram':
+        return <FileQuestion className="h-5 w-5" />;
+      case 'munit':
+        return <TestTube2 className="h-5 w-5" />;
+      case 'sampledata':
+        return <Database className="h-5 w-5" />;
+      case 'dataweave':
+      default:
+        return <FileCode2 className="h-5 w-5" />;
+    }
   };
 
   const handleTaskSelect = (taskId: string) => {
