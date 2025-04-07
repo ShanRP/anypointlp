@@ -17,11 +17,27 @@ import { FileNode, isFileOfType } from '@/utils/githubUtils';
 
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 
-interface IntegrationGeneratorProps {
-  onBack: () => void;
+interface SidebarTask {
+  id: string;
+  label: string;
+  category: string;
+  icon: React.ReactNode;
+  workspace_id: string;
 }
 
-const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack }) => {
+interface IntegrationGeneratorProps {
+  onBack: () => void;
+  onTaskCreated?: (task: SidebarTask) => void;
+  selectedWorkspaceId?: string;
+  onSaveTask?: () => void;
+}
+
+const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ 
+  onBack,
+  onTaskCreated,
+  selectedWorkspaceId,
+  onSaveTask 
+}) => {
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
   const [description, setDescription] = useState('');
   const [raml, setRaml] = useState('');
