@@ -202,7 +202,6 @@ export function usePeerJS() {
             debug: 1, // Reduced debug level
             ...serverConfig,
             pingInterval: 5000, // More frequent ping to detect connection issues
-            retryTimers: [1000, 3000, 5000, 10000], // More aggressive retry timers
           });
           
           // Wait for the peer to open or error
@@ -1222,5 +1221,3 @@ export function usePeerJS() {
     chatMessages
   };
 }
-
-

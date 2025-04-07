@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -187,7 +186,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     setWorkspaceDropdownOpen(false);
   };
 
-  // Function to get appropriate icon based on task category
   const getTaskIcon = (category: string) => {
     switch (category.toLowerCase()) {
       case 'raml':
@@ -542,7 +540,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       />
       
       <CodingAssistantDialog 
-        open={isCodingAssistantOpen} 
+        isOpen={isCodingAssistantOpen} 
         onOpenChange={setIsCodingAssistantOpen} 
       />
 
