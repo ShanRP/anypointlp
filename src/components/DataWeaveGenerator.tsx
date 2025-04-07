@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Loader2, ArrowLeft, FileCode, Check, Folder, File } from 'lucide-react';
@@ -20,7 +21,6 @@ import { useNavigate } from 'react-router-dom';
 import { buildFileTree, fetchFileContent, findDataWeaveFiles, isFileOfType } from '@/utils/githubUtils';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
-import { WorkspaceTask } from '@/hooks/useWorkspaceTasks';
 
 type GeneratorMode = 'noRepository' | 'withRepository' | 'uploadFromComputer';
 
@@ -55,10 +55,10 @@ interface DataWeaveFile {
 }
 
 interface DataWeaveGeneratorProps {
-  onTaskCreated?: (task: WorkspaceTask) => void;
+  onTaskCreated?: (task: { id: string; label: string; category: string; icon: React.ReactNode }) => void;
   selectedWorkspaceId?: string;
-  onBack?: () => void;
   onSaveTask?: (taskId: string) => void;
+  onBack?: () => void;
 }
 
 const Header = () => (

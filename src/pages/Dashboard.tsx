@@ -12,7 +12,7 @@ import ExchangeItemDetails from '@/components/Exchange/ExchangeItemDetails';
 import ExchangePublish from '@/components/Exchange/ExchangePublish';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { useWorkspaceTasks, WorkspaceTask } from '@/hooks/useWorkspaceTasks';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import TaskDetailsView from '@/components/TaskDetailsView';
 import { WorkspaceOption, useWorkspaces } from '@/hooks/useWorkspaces';
 import JobBoard from '@/components/JobBoard/JobBoard';
@@ -35,6 +35,55 @@ interface SidebarTask {
   icon: React.ReactNode;
   workspace_id: string;
 }
+
+type DashboardAgentCardProps = {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  selected?: boolean;
+  onClick?: () => void;
+};
+
+const DashboardAgentCard: React.FC<DashboardAgentCardProps> = ({
+  title,
+  description,
+  icon,
+  selected = false,
+  onClick
+}) => {
+  return (
+    <motion.div 
+      onClick={onClick} 
+      className={`p-6 rounded-xl flex flex-col cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-md hover:shadow-lg ${
+        selected 
+          ? 'bg-black text-white dark:bg-gray-800' 
+          : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
+      }`} 
+      whileHover={{
+        y: -5
+      }} 
+      transition={{
+        duration: 0.2
+      }}
+    >
+      <div className="flex items-center mb-4">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+          selected 
+            ? 'bg-gray-800 dark:bg-gray-700' 
+            : 'bg-gray-100 dark:bg-gray-700'
+        }`}>
+          {icon}
+        </div>
+        <h3 className="text-lg font-bold">{title}</h3>
+      </div>
+      <p className={`text-sm ${
+        selected 
+          ? 'text-gray-300' 
+          : 'text-gray-600 dark:text-gray-300'
+      }`}>{description}</p>
+    </motion.div>
+  );
+};
 
 type AgentCategoryProps = {
   title: string;
@@ -253,37 +302,13 @@ const Dashboard = () => {
     }
   };
 
-  const handleTaskCreated = (task: WorkspaceTask) => {
-    const sidebarTask: SidebarTask = {
-      id: task.id,
-      label: task.task_name || 'Task',
-      category: task.category || 'dataweave',
-      icon: getTaskIcon(task.category || 'dataweave'),
-      workspace_id: task.workspace_id || selectedWorkspace?.id || ''
+  const handleTaskCreated = (task: SidebarTask) => {
+    const taskWithWorkspace = {
+      ...task,
+      workspace_id: selectedWorkspace?.id || ''
     };
-    
-    setTasks(prevTasks => [...prevTasks, sidebarTask]);
-    toast.success(`Task ${task.task_id || task.id} created successfully!`);
-  };
-
-  const getTaskIcon = (category: string): React.ReactNode => {
-    switch (category.toLowerCase()) {
-      case 'raml':
-        return <FileCode2 className="h-5 w-5" />;
-      case 'integration':
-        return <RefreshCw className="h-5 w-5" />;
-      case 'document':
-        return <FileText className="h-5 w-5" />;
-      case 'diagram':
-        return <FileQuestion className="h-5 w-5" />;
-      case 'munit':
-        return <TestTube2 className="h-5 w-5" />;
-      case 'sampledata':
-        return <Database className="h-5 w-5" />;
-      case 'dataweave':
-      default:
-        return <FileCode2 className="h-5 w-5" />;
-    }
+    setTasks(prevTasks => [...prevTasks, taskWithWorkspace]);
+    toast.success(`Task ${task.id} created successfully!`);
   };
 
   const handleTaskSelect = (taskId: string) => {
@@ -371,35 +396,35 @@ const Dashboard = () => {
         </div>
 
         <header className="relative z-10 h-16 flex items-center px-8 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
-            <div className="relative w-[400px]">
-              <input
-                type="text"
-                placeholder="Search or type a command..."
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="w-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 pr-8 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
-              />
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                <Search className="h-4 w-4" />
-              </div>
-              {searchQuery.length > 0 && (
-                <div 
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer" 
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFilteredAgents([]);
-                  }}
-                >
-                  <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-3">
-            {/* Other header content */}
-          </div>
-        </header>
+  <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
+    <div className="relative w-[400px]"> {/* Added relative positioning container */}
+      <input
+        type="text"
+        placeholder="Search or type a command..."
+        value={searchQuery}
+        onChange={(e) => handleSearch(e.target.value)}
+        className="w-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 pr-8 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+      />
+      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+        <Search className="h-4 w-4" />
+      </div>
+      {searchQuery.length > 0 && (
+        <div 
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer" 
+          onClick={() => {
+            setSearchQuery('');
+            setFilteredAgents([]);
+          }}
+        >
+          <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+        </div>
+      )}
+    </div>
+  </div>
+  <div className="ml-auto flex items-center gap-3">
+    {/* Other header content */}
+  </div>
+</header>
 
         
         <div className="relative z-10 flex-1 overflow-auto">
@@ -435,12 +460,7 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }}>
-              <DataWeaveGenerator 
-                onTaskCreated={handleTaskCreated} 
-                selectedWorkspaceId={selectedWorkspace?.id} 
-                onSaveTask={() => {}} 
-                onBack={handleBackToDashboard} 
-              />
+              <DataWeaveGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onSaveTask={() => {}} onBack={handleBackToDashboard} />
             </motion.div>}
           
           {currentPage === 'integration' && <motion.div initial={{
@@ -450,14 +470,7 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }}>
-              <IntegrationGenerator 
-                onTaskCreated={handleTaskCreated} 
-                selectedWorkspaceId={selectedWorkspace?.id} 
-                onBack={handleBackToDashboard} 
-                onSaveTask={(taskId: string) => {
-                  console.log(`Saving task with ID: ${taskId}`);
-                }} 
-              />
+              <IntegrationGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onBack={handleBackToDashboard} onSaveTask={() => {}} />
             </motion.div>}
           
           {currentPage === 'raml' && <motion.div initial={{
