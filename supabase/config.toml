@@ -113,3 +113,5 @@ enabled = true
 [functions.get-api-key]
 verify_jwt = true
 
+[functions.APL_generate-raml]
+verify_jwt = true
