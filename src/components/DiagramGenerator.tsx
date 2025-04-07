@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, FileCode, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
@@ -34,37 +33,12 @@ const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({ onBack }) => {
   const { repositories, loadingRepositories, fetchRepositories, 
           fileStructure, loadingFileStructure, fetchFileStructure,
           fetchFileContent } = useGithubApi();
-  const { selectedRepository } = useRepositoryData();
+  const { selectedRepository, toggleFileSelection } = useRepositoryData();
   
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [fileContent, setFileContent] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [currentDirectory, setCurrentDirectory] = useState<string>('/');
-  const [ramlFiles, setRamlFiles] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Find RAML files in the current directory structure
-    if (fileStructure && fileStructure.length > 0) {
-      const findRamlFiles = (nodes: any[]): any[] => {
-        let result: any[] = [];
-        
-        for (const node of nodes) {
-          if (node.type === 'file' && node.name.toLowerCase().endsWith('.raml')) {
-            result.push(node);
-          }
-          
-          if (node.children && node.children.length > 0) {
-            result = [...result, ...findRamlFiles(node.children)];
-          }
-        }
-        
-        return result;
-      };
-      
-      const foundRamlFiles = findRamlFiles(fileStructure);
-      setRamlFiles(foundRamlFiles);
-    }
-  }, [fileStructure]);
 
   const handleReset = () => {
     setSourceType('no-repository');
@@ -84,30 +58,18 @@ const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({ onBack }) => {
       const files = Array.from(event.target.files);
       setUploadedFiles(files);
       
-      // Check for RAML files
-      const ramlFile = files.find(file => file.name.toLowerCase().endsWith('.raml'));
-      
-      if (ramlFile) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            setFileContent(e.target.result as string);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setFileContent(e.target.result as string);
+          
+          const fileName = files[0].name.toLowerCase();
+          if (fileName.endsWith('.raml')) {
             setRaml(e.target.result as string);
-            setSelectedFile(ramlFile.name);
-            toast.success(`RAML file ${ramlFile.name} loaded automatically`);
           }
-        };
-        reader.readAsText(ramlFile);
-      } else {
-        // If no RAML file, load the first file
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            setFileContent(e.target.result as string);
-          }
-        };
-        reader.readAsText(files[0]);
-      }
+        }
+      };
+      reader.readAsText(files[0]);
       
       toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded successfully`);
     }
@@ -175,10 +137,8 @@ const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({ onBack }) => {
           if (content) {
             setFileContent(content);
             
-            // If it's a RAML file, auto-load it into the RAML section
             if (file.name.toLowerCase().endsWith('.raml')) {
               setRaml(content);
-              toast.success(`RAML file "${file.name}" loaded into the specification`);
             }
             
             toast.success(`File "${file.name}" loaded successfully`);
@@ -188,38 +148,6 @@ const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({ onBack }) => {
         }
       }
     }
-  };
-
-  const handleSelectRamlFile = async (file: any) => {
-    if (selectedRepository) {
-      try {
-        setSelectedFile(file.path);
-        const content = await fetchFileContent(selectedRepository, file.path);
-        if (content) {
-          setRaml(content);
-          toast.success(`RAML file "${file.name}" loaded into the specification`);
-        }
-      } catch (error) {
-        toast.error(`Failed to load RAML file: ${file.name}`);
-      }
-    }
-  };
-
-  const handleUploadedFileSelect = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setFileContent(e.target.result as string);
-        
-        if (file.name.toLowerCase().endsWith('.raml')) {
-          setRaml(e.target.result as string);
-          toast.success(`RAML file ${file.name} loaded into the specification`);
-        }
-        
-        setSelectedFile(file.name);
-      }
-    };
-    reader.readAsText(file);
   };
 
   const handleGenerate = async () => {
@@ -409,90 +337,55 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
                   )}
                   
                   {selectedRepository && (
-                    <>
-                      <div className="mt-4">
-                        <h4 className="font-medium mb-2">Files</h4>
-                        <div className="border rounded-md overflow-hidden">
-                          <div className="bg-gray-100 p-2 flex items-center border-b">
-                            <button 
-                              onClick={goUpDirectory}
-                              disabled={currentDirectory === '/'} 
-                              className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-                            >
-                              <ArrowLeft size={16} />
-                            </button>
-                            <span className="text-sm font-medium truncate">
-                              {currentDirectory === '/' ? 'Root' : currentDirectory}
-                            </span>
-                          </div>
-                          
-                          <div className="max-h-60 overflow-y-auto">
-                            {getCurrentDirectoryContents().length === 0 ? (
-                              <div className="p-4 text-center text-gray-500">
-                                No files found in this directory
-                              </div>
-                            ) : (
-                              <div className="divide-y">
-                                {getCurrentDirectoryContents().map((item: any, index: number) => (
-                                  <div 
-                                    key={index}
-                                    onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-                                    className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-                                      selectedFile === item.path
-                                        ? 'bg-purple-50' 
-                                        : ''
-                                    }`}
-                                  >
-                                    {item.type === 'directory' ? (
-                                      <Folder className="h-4 w-4 mr-2 text-blue-500" />
-                                    ) : item.name.toLowerCase().endsWith('.raml') ? (
-                                      <FileCode className="h-4 w-4 mr-2 text-purple-500" />
-                                    ) : (
-                                      <File className="h-4 w-4 mr-2 text-gray-500" />
-                                    )}
-                                    <span className={`truncate ${item.name.toLowerCase().endsWith('.raml') ? 'text-purple-700 font-medium' : ''}`}>
-                                      {item.name}
-                                    </span>
-                                    {selectedFile === item.path && (
-                                      <Check className="h-4 w-4 ml-auto text-purple-600" />
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                    <div className="mt-4">
+                      <h4 className="font-medium mb-2">Files</h4>
+                      <div className="border rounded-md overflow-hidden">
+                        <div className="bg-gray-100 p-2 flex items-center border-b">
+                          <button 
+                            onClick={goUpDirectory}
+                            disabled={currentDirectory === '/'} 
+                            className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                          >
+                            <ArrowLeft size={16} />
+                          </button>
+                          <span className="text-sm font-medium truncate">
+                            {currentDirectory === '/' ? 'Root' : currentDirectory}
+                          </span>
                         </div>
-                      </div>
-                      
-                      {/* RAML Files Section */}
-                      {ramlFiles.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="font-medium mb-2 text-purple-700 flex items-center">
-                            <FileCode size={16} className="mr-2" />
-                            RAML Files
-                          </h4>
-                          <div className="bg-purple-50 border border-purple-200 rounded-md p-2">
-                            <div className="max-h-40 overflow-y-auto">
-                              {ramlFiles.map((file, index) => (
+                        
+                        <div className="max-h-60 overflow-y-auto">
+                          {getCurrentDirectoryContents().length === 0 ? (
+                            <div className="p-4 text-center text-gray-500">
+                              No files found in this directory
+                            </div>
+                          ) : (
+                            <div className="divide-y">
+                              {getCurrentDirectoryContents().map((item: any, index: number) => (
                                 <div 
                                   key={index}
-                                  onClick={() => handleSelectRamlFile(file)}
-                                  className={`flex items-center p-2 rounded cursor-pointer hover:bg-purple-100 ${
-                                    selectedFile === file.path ? 'bg-purple-200' : ''
+                                  onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                                  className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                                    selectedFile === item.path
+                                      ? 'bg-purple-50' 
+                                      : ''
                                   }`}
                                 >
-                                  <FileCode className="h-4 w-4 mr-2 text-purple-500" />
-                                  <span className="text-sm">{file.name}</span>
-                                  {selectedFile === file.path && (
+                                  {item.type === 'directory' ? (
+                                    <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                                  ) : (
+                                    <File className="h-4 w-4 mr-2 text-gray-500" />
+                                  )}
+                                  <span className="truncate">{item.name}</span>
+                                  {selectedFile === item.path && (
                                     <Check className="h-4 w-4 ml-auto text-purple-600" />
                                   )}
                                 </div>
                               ))}
                             </div>
-                          </div>
+                          )}
                         </div>
-                      )}
-                    </>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -520,58 +413,11 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
                   {uploadedFiles.length > 0 && (
                     <div className="mt-4">
                       <h4 className="font-medium mb-2">Uploaded Files ({uploadedFiles.length})</h4>
-                      <div className="divide-y border rounded-md overflow-hidden">
+                      <div className="bg-gray-100 p-2 rounded text-sm max-h-40 overflow-y-auto">
                         {uploadedFiles.map((file, index) => (
-                          <div 
-                            key={index} 
-                            onClick={() => handleUploadedFileSelect(file)}
-                            className={`flex items-center p-3 cursor-pointer hover:bg-gray-50 ${
-                              selectedFile === file.name ? 'bg-purple-50' : ''
-                            }`}
-                          >
-                            {file.name.toLowerCase().endsWith('.raml') ? (
-                              <FileCode className="h-4 w-4 mr-2 text-purple-500" />
-                            ) : (
-                              <File className="h-4 w-4 mr-2 text-gray-500" />
-                            )}
-                            <span className={`${file.name.toLowerCase().endsWith('.raml') ? 'text-purple-700 font-medium' : ''}`}>
-                              {file.name}
-                            </span>
-                            {selectedFile === file.name && (
-                              <Check className="h-4 w-4 ml-auto text-purple-600" />
-                            )}
-                          </div>
+                          <div key={index} className="py-1">{file.name}</div>
                         ))}
                       </div>
-                      
-                      {/* Highlight RAML files */}
-                      {uploadedFiles.some(file => file.name.toLowerCase().endsWith('.raml')) && (
-                        <div className="mt-4">
-                          <h4 className="font-medium mb-2 text-purple-700 flex items-center">
-                            <FileCode size={16} className="mr-2" />
-                            RAML Files
-                          </h4>
-                          <div className="bg-purple-50 border border-purple-200 rounded-md p-2">
-                            {uploadedFiles
-                              .filter(file => file.name.toLowerCase().endsWith('.raml'))
-                              .map((file, index) => (
-                                <div 
-                                  key={index}
-                                  onClick={() => handleUploadedFileSelect(file)}
-                                  className={`flex items-center p-2 rounded cursor-pointer hover:bg-purple-100 ${
-                                    selectedFile === file.name ? 'bg-purple-200' : ''
-                                  }`}
-                                >
-                                  <FileCode className="h-4 w-4 mr-2 text-purple-500" />
-                                  <span className="text-sm">{file.name}</span>
-                                  {selectedFile === file.name && (
-                                    <Check className="h-4 w-4 ml-auto text-purple-600" />
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
