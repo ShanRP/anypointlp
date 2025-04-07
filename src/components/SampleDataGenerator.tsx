@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check } from 'lucide-react';
+import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
@@ -14,6 +14,7 @@ import MonacoEditor from './MonacoEditor';
 import { toast } from 'sonner';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
+import { FileNode } from '@/utils/githubUtils';
 
 type GenerationType = 'JSON' | 'XML' | 'CSV' | 'YAML';
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
@@ -26,6 +27,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const [result, setResult] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState('input');
+  const [isLoadingFile, setIsLoadingFile] = useState(false);
   
   const { repositories, loadingRepositories, fetchRepositories, 
           fileStructure, loadingFileStructure, fetchFileStructure,
@@ -132,6 +134,8 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
 
   const handleSelectRepository = async (repo: any) => {
     try {
+      setCurrentDirectory('/');
+      setSelectedFile(null);
       await fetchFileStructure(repo);
       setSelectedRepository(repo);
       toast.success(`Repository ${repo.name} loaded successfully`);
@@ -157,17 +161,22 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     }
   };
 
+  // Enhanced directory navigation function
   const getCurrentDirectoryContents = () => {
+    if (!fileStructure || fileStructure.length === 0) {
+      return [];
+    }
+    
     if (currentDirectory === '/') {
       return fileStructure;
     }
     
-    const findDirectory = (nodes: any[], path: string): any[] | null => {
+    const findDirectory = (nodes: FileNode[], path: string): FileNode[] | null => {
       for (const node of nodes) {
         if (node.path === path && node.type === 'directory') {
           return node.children || [];
         }
-        if (node.children) {
+        if (node.children && node.children.length > 0) {
           const result = findDirectory(node.children, path);
           if (result) return result;
         }
@@ -179,7 +188,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     return dirContents || [];
   };
 
-  const navigateDirectory = (dir: any) => {
+  const navigateDirectory = (dir: FileNode) => {
     if (dir.type === 'directory') {
       setCurrentDirectory(dir.path);
       toast.success(`Navigated to ${dir.name}`);
@@ -191,12 +200,13 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     
     const pathParts = currentDirectory.split('/');
     pathParts.pop();
-    const parentPath = pathParts.length === 1 ? '/' : pathParts.join('/');
+    const parentPath = pathParts.length === 0 ? '/' : pathParts.join('/');
     
     setCurrentDirectory(parentPath);
   };
 
-  const handleFileSelect = async (file: any) => {
+  // Enhanced file selection with better content extraction
+  const handleFileSelect = async (file: FileNode) => {
     if (file.type === 'file') {
       if (!isValidFileForFormat(file.name)) {
         toast.error(`This file format does not match the selected ${generationType} format`);
@@ -204,6 +214,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       }
       
       setSelectedFile(file.path);
+      setIsLoadingFile(true);
       
       if (selectedRepository) {
         try {
@@ -214,11 +225,14 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
             toast.success(`File "${file.name}" loaded successfully`);
             setActiveTab('input');
           } else {
-            toast.error(`Could not load content from "${file.name}"`);
+            throw new Error(`Could not load content from "${file.name}"`);
           }
         } catch (error) {
           console.error("Error fetching file content:", error);
           toast.error(`Error loading file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          setSelectedFile(null);
+        } finally {
+          setIsLoadingFile(false);
         }
       }
     }
@@ -237,6 +251,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     }
     
     setSelectedFile(file.name);
+    setIsLoadingFile(true);
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -248,8 +263,13 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
         toast.success(`File "${file.name}" loaded successfully`);
       }
     };
-    reader.onerror = () => {
+    reader.onerror = (error) => {
+      console.error("Error reading file:", error);
       toast.error(`Failed to read file "${file.name}"`);
+      setSelectedFile(null);
+    };
+    reader.onloadend = () => {
+      setIsLoadingFile(false);
     };
     reader.readAsText(file);
   };
@@ -266,6 +286,13 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       }
     }
   }, [generationType]);
+
+  // Load repositories when component mounts or when source type changes
+  useEffect(() => {
+    if (sourceType === 'with-repository') {
+      fetchRepositories();
+    }
+  }, [sourceType, fetchRepositories]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -375,13 +402,18 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                         </div>
                         
                         <div className="max-h-60 overflow-y-auto">
-                          {getCurrentDirectoryContents().length === 0 ? (
+                          {loadingFileStructure ? (
+                            <div className="p-4 text-center">
+                              <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
+                              <p className="text-sm">Loading files...</p>
+                            </div>
+                          ) : getCurrentDirectoryContents().length === 0 ? (
                             <div className="p-4 text-center text-gray-500">
                               No files found in this directory
                             </div>
                           ) : (
                             <div className="divide-y">
-                              {getCurrentDirectoryContents().map((item: any, index: number) => {
+                              {getCurrentDirectoryContents().map((item, index) => {
                                 const isValidFile = item.type === 'file' && isValidFileForFormat(item.name);
                                 return (
                                 <div 
@@ -515,22 +547,38 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
               </div>
 
               <div className="space-y-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Schema <span className="text-red-500">*</span>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Schema <span className="text-red-500">*</span>
+                  </label>
                   {selectedFile && (
-                    <span className="ml-2 text-sm text-purple-700 font-medium">
-                      (Using file: {selectedFile.split('/').pop()})
-                    </span>
+                    <div className="flex items-center text-sm text-purple-700 font-medium">
+                      <File className="h-4 w-4 mr-1" />
+                      {selectedFile.split('/').pop()}
+                      {isLoadingFile && <RefreshCw size={14} className="ml-2 animate-spin" />}
+                    </div>
                   )}
-                </label>
+                </div>
                 
-                <div className="border rounded-md overflow-hidden" style={{ height: '200px' }}>
-                  <MonacoEditor
-                    value={schema}
-                    onChange={(value) => setSchema(value || '')}
-                    language={generationType.toLowerCase()}
-                    height="200px"
-                  />
+                <div className="border rounded-md overflow-hidden" style={{ height: "300px" }}>
+                  {isLoadingFile ? (
+                    <div className="flex items-center justify-center h-full bg-gray-50">
+                      <RefreshCw size={24} className="animate-spin mr-2" />
+                      <span>Loading file content...</span>
+                    </div>
+                  ) : (
+                    <MonacoEditor
+                      value={schema}
+                      onChange={(value) => setSchema(value || '')}
+                      language={generationType.toLowerCase() === 'yaml' ? 'yaml' : generationType.toLowerCase()}
+                      height="300px"
+                      options={{
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                      }}
+                    />
+                  )}
                 </div>
                 
                 <div className="text-sm text-gray-500">
@@ -559,7 +607,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                 </Button>
                 <Button 
                   onClick={handleGenerate}
-                  disabled={isGenerating || !schema.trim()}
+                  disabled={isGenerating || !schema.trim() || isLoadingFile}
                   className="flex items-center gap-2"
                 >
                   {isGenerating ? (

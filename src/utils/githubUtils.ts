@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 
 export interface FileNode {
@@ -130,28 +131,46 @@ export function buildFileTree(items: GithubTreeItem[]): FileNode[] {
 /**
  * Fetches file content from GitHub repository
  */
-export const fetchFileContent = async (repo: Repository, filePath: string): Promise<string | null> => {
+export const fetchFileContent = async (repo: Repository, filePath: string, retryCount = 0): Promise<string | null> => {
   try {
     const token = localStorage.getItem('APL_githubToken');
     if (!token) {
       throw new Error('GitHub token not found');
     }
 
-    const response = await fetch(`https://api.github.com/repos/${repo.full_name}/contents/${filePath}`, {
+    // Encoding filePath for special characters
+    const encodedFilePath = filePath.split('/').map(part => encodeURIComponent(part)).join('/');
+    
+    const response = await fetch(`https://api.github.com/repos/${repo.full_name}/contents/${encodedFilePath}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/vnd.github.v3.raw'
       }
     });
 
+    if (response.status === 404) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
     if (!response.ok) {
-      throw new Error(`Failed to fetch file: ${response.statusText}`);
+      throw new Error(`Failed to fetch file (${response.status}): ${response.statusText}`);
     }
 
     return await response.text();
   } catch (error) {
     console.error('Error fetching file content:', error);
-    toast.error('Failed to fetch file content');
+    
+    // Implement retry mechanism for network errors
+    if (retryCount < 2 && error instanceof Error && (
+      error.message.includes('network') || 
+      error.message.includes('timeout') ||
+      error.message.includes('rate limit')
+    )) {
+      console.log(`Retrying file fetch (${retryCount + 1}/2): ${filePath}`);
+      return fetchFileContent(repo, filePath, retryCount + 1);
+    }
+    
+    toast.error(`Failed to fetch file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return null;
   }
 };
