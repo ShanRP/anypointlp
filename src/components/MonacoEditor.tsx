@@ -24,7 +24,11 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
   const getLanguage = (format: string) => {
-    switch (format.toLowerCase()) {
+    // Normalize format to lowercase
+    const normalizedFormat = format.toLowerCase();
+    
+    // Map specific file extensions to their Monaco language
+    switch (normalizedFormat) {
       case 'xml':
         return 'xml';
       case 'json':
@@ -35,16 +39,23 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
         return 'yaml';
       case 'csv':
         return 'plaintext';
-      case 'edi':
-        return 'plaintext';
+      case 'markdown':
+      case 'md':
+        return 'markdown';
       case 'dataweave':
       case 'dwl':
       case 'dw':
         return 'javascript'; // Using JavaScript highlighting for DataWeave for better syntax highlighting
-      case 'markdown':
-      case 'md':
-        return 'markdown';
+      // Add any additional formats as needed
       default:
+        // Check if this is a filename with an extension
+        if (format.includes('.')) {
+          const extension = format.split('.').pop()?.toLowerCase();
+          if (extension) {
+            return getLanguage(extension);
+          }
+        }
+        
         return 'plaintext';
     }
   };

@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 export interface FileNode {
@@ -8,7 +7,10 @@ export interface FileNode {
   children?: FileNode[];
   isDataWeave?: boolean;
   isRaml?: boolean;  
-  isXml?: boolean;   // This property was added
+  isXml?: boolean;   
+  isJson?: boolean;  // Added for JSON files
+  isCsv?: boolean;   // Added for CSV files
+  isYaml?: boolean;  // Added for YAML files
   selected?: boolean;
 }
 
@@ -68,9 +70,15 @@ export function buildFileTree(items: GithubTreeItem[]): FileNode[] {
       const pathParts = item.path.split('/');
       const fileName = pathParts.pop() || '';
       const parentPath = pathParts.join('/');
-      const isDataWeave = fileName.toLowerCase().endsWith('.dwl');
-      const isRaml = fileName.toLowerCase().endsWith('.raml');
-      const isXml = fileName.toLowerCase().endsWith('.xml'); // Add XML detection
+      const lowerFileName = fileName.toLowerCase();
+      
+      // Check file types
+      const isDataWeave = lowerFileName.endsWith('.dwl');
+      const isRaml = lowerFileName.endsWith('.raml');
+      const isXml = lowerFileName.endsWith('.xml');
+      const isJson = lowerFileName.endsWith('.json');
+      const isCsv = lowerFileName.endsWith('.csv');
+      const isYaml = lowerFileName.endsWith('.yaml') || lowerFileName.endsWith('.yml');
 
       const fileNode: FileNode = {
         name: fileName,
@@ -78,7 +86,10 @@ export function buildFileTree(items: GithubTreeItem[]): FileNode[] {
         type: 'file',
         isDataWeave,
         isRaml,
-        isXml
+        isXml,
+        isJson,
+        isCsv,
+        isYaml
       };
 
       if (parentPath === '') {
@@ -175,6 +186,52 @@ export const findRamlFiles = (nodes: FileNode[]): FileNode[] => {
   const traverse = (nodes: FileNode[]) => {
     for (const node of nodes) {
       if (node.type === 'file' && node.isRaml) {
+        result.push(node);
+      }
+      if (node.children?.length) {
+        traverse(node.children);
+      }
+    }
+  };
+  
+  traverse(nodes);
+  return result;
+};
+
+/**
+ * Checks if a file is of a specific format
+ */
+export const isFileOfType = (fileName: string, format: string): boolean => {
+  const extension = fileName.split('.').pop()?.toLowerCase() || '';
+  
+  switch(format.toLowerCase()) {
+    case 'json':
+      return extension === 'json';
+    case 'xml':
+      return extension === 'xml';
+    case 'csv':
+      return extension === 'csv';
+    case 'yaml':
+      return extension === 'yaml' || extension === 'yml';
+    case 'dataweave':
+    case 'dwl':
+      return extension === 'dwl';
+    case 'raml':
+      return extension === 'raml';
+    default:
+      return false;
+  }
+};
+
+/**
+ * Finds all files of a specific format in a file structure
+ */
+export const findFilesByFormat = (nodes: FileNode[], format: string): FileNode[] => {
+  const result: FileNode[] = [];
+  
+  const traverse = (nodes: FileNode[]) => {
+    for (const node of nodes) {
+      if (node.type === 'file' && isFileOfType(node.name, format)) {
         result.push(node);
       }
       if (node.children?.length) {

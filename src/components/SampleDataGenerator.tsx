@@ -41,6 +41,24 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Check if a file matches the selected format
+  const isValidFileForFormat = (fileName: string): boolean => {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    
+    switch(generationType) {
+      case 'JSON':
+        return extension === 'json';
+      case 'XML':
+        return extension === 'xml';
+      case 'CSV':
+        return extension === 'csv';
+      case 'YAML':
+        return extension === 'yaml' || extension === 'yml';
+      default:
+        return false;
+    }
+  };
+
   const handleGenerate = async () => {
     if (!schema.trim()) {
       toast.error('Please provide a schema');
@@ -131,15 +149,21 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       const files = Array.from(event.target.files);
       setUploadedFiles(files);
       
-      // Read the first file's content
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          setFileContent(e.target.result as string);
-          setSchema(e.target.result as string);
-        }
-      };
-      reader.readAsText(files[0]);
+      // If there are files matching the current format, read the first one
+      const matchingFiles = files.filter(file => isValidFileForFormat(file.name));
+      
+      if (matchingFiles.length > 0) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            setFileContent(e.target.result as string);
+            setSchema(e.target.result as string);
+            setSelectedFile(matchingFiles[0].name);
+            toast.success(`Loaded content from ${matchingFiles[0].name}`);
+          }
+        };
+        reader.readAsText(matchingFiles[0]);
+      }
       
       toast.success(`${files.length} files uploaded successfully`);
     }
@@ -186,6 +210,12 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
 
   const handleFileSelect = async (file: any) => {
     if (file.type === 'file') {
+      // Check if file matches the current format
+      if (!isValidFileForFormat(file.name)) {
+        toast.error(`This file format does not match the selected ${generationType} format`);
+        return;
+      }
+      
       setSelectedFile(file.path);
       
       if (selectedRepository) {
@@ -198,6 +228,47 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       }
     }
   };
+
+  const handleProjectFolderClick = () => {
+    if (projectFolderRef.current) {
+      projectFolderRef.current.click();
+    }
+  };
+
+  // Handle individual uploaded file selection
+  const handleUploadedFileSelect = (file: File) => {
+    if (!isValidFileForFormat(file.name)) {
+      toast.error(`This file format does not match the selected ${generationType} format`);
+      return;
+    }
+    
+    setSelectedFile(file.name);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setFileContent(e.target.result as string);
+        setSchema(e.target.result as string);
+        toast.success(`File "${file.name}" loaded successfully`);
+      }
+    };
+    reader.readAsText(file);
+  };
+  
+  // Update schema when format changes
+  React.useEffect(() => {
+    // Clear selected file if format changes
+    setSelectedFile(null);
+    
+    // If there are uploaded files matching the new format, read the first one
+    if (sourceType === 'upload' && uploadedFiles.length > 0) {
+      const matchingFiles = uploadedFiles.filter(file => isValidFileForFormat(file.name));
+      
+      if (matchingFiles.length > 0) {
+        handleUploadedFileSelect(matchingFiles[0]);
+      }
+    }
+  }, [generationType]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -314,7 +385,9 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                             </div>
                           ) : (
                             <div className="divide-y">
-                              {getCurrentDirectoryContents().map((item: any, index: number) => (
+                              {getCurrentDirectoryContents().map((item: any, index: number) => {
+                                const isValidFile = item.type === 'file' && isValidFileForFormat(item.name);
+                                return (
                                 <div 
                                   key={index}
                                   onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
@@ -322,19 +395,28 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                                     selectedFile === item.path
                                       ? 'bg-purple-50' 
                                       : ''
-                                  }`}
+                                  } ${isValidFile ? 'text-purple-700' : ''}`}
                                 >
                                   {item.type === 'directory' ? (
                                     <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                                  ) : isValidFile ? (
+                                    <File className="h-4 w-4 mr-2 text-purple-600" />
                                   ) : (
-                                    <File className="h-4 w-4 mr-2 text-gray-500" />
+                                    <File className="h-4 w-4 mr-2 text-gray-400" />
                                   )}
-                                  <span className="truncate">{item.name}</span>
+                                  <span className={`truncate ${isValidFile ? 'font-medium' : ''}`}>
+                                    {item.name}
+                                    {item.type === 'file' && !isValidFileForFormat(item.name) && (
+                                      <span className="text-xs text-gray-400 ml-2">
+                                        (not {generationType.toLowerCase()})
+                                      </span>
+                                    )}
+                                  </span>
                                   {selectedFile === item.path && (
                                     <Check className="h-4 w-4 ml-auto text-purple-600" />
                                   )}
                                 </div>
-                              ))}
+                              )})}
                             </div>
                           )}
                         </div>
@@ -354,6 +436,9 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                     >
                       <Upload size={24} className="mb-2 text-gray-400" />
                       <span className="text-sm text-gray-600">Drag and drop files here, or click to browse</span>
+                      <span className="text-xs text-gray-500 mt-1">
+                        Currently accepting {generationType.toLowerCase()} files
+                      </span>
                       <input 
                         id="schema-file-upload" 
                         type="file" 
@@ -367,16 +452,45 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                   {uploadedFiles.length > 0 && (
                     <div className="mt-4">
                       <h4 className="font-medium mb-2">Uploaded Files ({uploadedFiles.length})</h4>
-                      <div className="bg-gray-100 p-2 rounded text-sm max-h-40 overflow-y-auto">
-                        {uploadedFiles.map((file, index) => (
-                          <div key={index} className="py-1">{file.name}</div>
-                        ))}
+                      <div className="bg-gray-100 p-2 rounded border">
+                        <div className="max-h-40 overflow-y-auto divide-y">
+                          {uploadedFiles.map((file, index) => {
+                            const isValidFile = isValidFileForFormat(file.name);
+                            return (
+                              <div 
+                                key={index} 
+                                onClick={() => isValidFile && handleUploadedFileSelect(file)}
+                                className={`py-2 px-3 flex items-center ${
+                                  selectedFile === file.name ? 'bg-purple-50' : ''
+                                } ${isValidFile ? 'cursor-pointer hover:bg-gray-50 text-purple-700' : 'text-gray-400'}`}
+                              >
+                                {isValidFile ? (
+                                  <File className="h-4 w-4 mr-2 text-purple-600" />
+                                ) : (
+                                  <File className="h-4 w-4 mr-2 text-gray-400" />
+                                )}
+                                <span className={isValidFile ? 'font-medium' : ''}>
+                                  {file.name}
+                                </span>
+                                {!isValidFile && (
+                                  <span className="text-xs text-gray-400 ml-2">
+                                    (not {generationType.toLowerCase()})
+                                  </span>
+                                )}
+                                {selectedFile === file.name && (
+                                  <Check className="h-4 w-4 ml-auto text-purple-600" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
               )}
-<div className="space-y-2">
+
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
                   Format <span className="text-red-500">*</span>
                 </label>
@@ -406,7 +520,12 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
 
               <div className="space-y-4">
                 <label className="block text-sm font-medium text-gray-700">
-                  Dataweave <span className="text-red-500">*</span>
+                  Schema <span className="text-red-500">*</span>
+                  {selectedFile && (
+                    <span className="ml-2 text-sm text-purple-700 font-medium">
+                      (Using file: {selectedFile.split('/').pop()})
+                    </span>
+                  )}
                 </label>
                 
                 <div className="border rounded-md overflow-hidden" style={{ height: '200px' }}>
@@ -432,34 +551,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                   className="min-h-[100px]"
                 />
               </div>
-
-              {/* <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Format <span className="text-red-500">*</span>
-                </label>
-                <RadioGroup 
-                  value={generationType} 
-                  onValueChange={(value) => setGenerationType(value as GenerationType)}
-                  className="flex flex-wrap gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="JSON" id="json" />
-                    <Label htmlFor="json">JSON</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="XML" id="xml" />
-                    <Label htmlFor="xml">XML</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="CSV" id="csv" />
-                    <Label htmlFor="csv">CSV</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="YAML" id="yaml" />
-                    <Label htmlFor="yaml">YAML</Label>
-                  </div>
-                </RadioGroup>
-              </div> */}
 
               <div className="flex justify-between">
                 <Button 

@@ -36,13 +36,14 @@ Input:\n${formattedInputSamples}\n\nExpected Output:\n${formattedOutputSamples}
     
 ${notes ? `Additional requirements: ${notes}\n\n` : ''}
 
-IMPORTANT: Return ONLY the DataWeave script with the following requirements:
+IMPORTANT: Return ONLY the DataWeave script with the following strict requirements:
 1. Start with "%dw 2.0" line
 2. Include "output application/json" line
-3. Include the "---" separator
-4. Then write the transformation logic
-5. DO NOT include any explanations, comments (except for inline code comments), or markdown formatting
-6. DO NOT prefix or suffix your response with any additional text, ONLY provide the script
+3. Include the "---" separator line
+4. Write the transformation logic
+5. DO NOT include any explanations, markdown formatting, or additional text
+6. DO NOT include multiple %dw 2.0 directives
+7. STRICTLY PROVIDE ONLY the executable script - nothing else before or after
 
 The script must be optimized for production use in MuleSoft Anypoint Studio.`;
     
@@ -57,6 +58,7 @@ The script must be optimized for production use in MuleSoft Anypoint Studio.`;
       body: JSON.stringify({
         model: 'mistral-large-latest',
         messages: [
+          { role: 'system', content: 'You are a DataWeave expert that provides only clean, executable DataWeave code without any additional text, comments, or formatting.' },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
@@ -77,11 +79,11 @@ The script must be optimized for production use in MuleSoft Anypoint Studio.`;
 
     // Extract actual DataWeave code if wrapped in markdown code blocks
     if (generatedScript.includes('```dataweave')) {
-      generatedScript = generatedScript.replace(/```dataweave\n([\s\S]*?)```/g, '$1').trim();
+      generatedScript = generatedScript.replace(/```dataweave\n([\s\S]*?)\n```/g, '$1').trim();
     } else if (generatedScript.includes('```dw')) {
-      generatedScript = generatedScript.replace(/```dw\n([\s\S]*?)```/g, '$1').trim();
+      generatedScript = generatedScript.replace(/```dw\n([\s\S]*?)\n```/g, '$1').trim();
     } else if (generatedScript.includes('```')) {
-      generatedScript = generatedScript.replace(/```\n?([\s\S]*?)```/g, '$1').trim();
+      generatedScript = generatedScript.replace(/```\n?([\s\S]*?)\n```/g, '$1').trim();
     }
 
     // Strip any remaining explanation text
@@ -95,8 +97,11 @@ The script must be optimized for production use in MuleSoft Anypoint Studio.`;
     if (dwLines.length > 1) {
       // Keep only the first %dw line
       const firstDwLine = dwLines[0];
-      const restOfScript = generatedScript.substring(generatedScript.indexOf(firstDwLine) + firstDwLine.length);
-      generatedScript = firstDwLine + restOfScript;
+      // Find the position of the first and second %dw lines
+      const firstIndex = generatedScript.indexOf(firstDwLine);
+      const secondIndex = generatedScript.indexOf(dwLines[1], firstIndex + firstDwLine.length);
+      // Keep the script up to the second %dw line
+      generatedScript = generatedScript.substring(0, secondIndex).trim();
     }
 
     // Ensure script starts with %dw if not present
@@ -107,22 +112,36 @@ The script must be optimized for production use in MuleSoft Anypoint Studio.`;
     // Clean up any double separators
     generatedScript = generatedScript.replace(/---\s*---/g, '---');
 
-    // Remove any text after the script
+    // Remove any text after the script by finding the last meaningful line of code
     const lines = generatedScript.split('\n');
     let endIndex = lines.length;
+    
+    // Find where the actual script ends
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i].trim();
       if (line === '' || line.startsWith('//')) continue;
-      if (line.startsWith('Note:') || line.startsWith('Explanation:') || 
-          line.toLowerCase().includes('this script') || line.startsWith('In this')) {
+      
+      // Check for common explanation markers
+      if (line.startsWith('Note:') || 
+          line.startsWith('Explanation:') || 
+          line.toLowerCase().includes('this script') || 
+          line.startsWith('In this') ||
+          line.startsWith('The script')) {
         endIndex = i;
       } else {
         break;
       }
     }
+    
     generatedScript = lines.slice(0, endIndex).join('\n');
+    
+    // Final cleanup - remove any trailing comments or explanations
+    const cleanedScript = generatedScript
+      .replace(/\/\*[\s\S]*?\*\/$/gm, '') // Remove trailing multiline comments
+      .replace(/\/\/.*?explanation.*$/gim, '') // Remove trailing single line comments about explanations
+      .trim();
 
-    return new Response(JSON.stringify({ script: generatedScript }), {
+    return new Response(JSON.stringify({ script: cleanedScript }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
