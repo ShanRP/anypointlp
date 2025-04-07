@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from "framer-motion";
 import { Canvas, useFrame } from "@react-three/fiber";
@@ -110,10 +109,10 @@ export const Hero = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 text-white">
+            <h1 className="text-5xl md:text-6xl font-medium font-geist mb-6 text-white">
               Revolutionize Your MuleSoft Development
             </h1>
-            <p className="text-xl text-gray-200 mb-8">
+            <p className="text-xl text-gray-200 mb-8 font-geist">
               Harness the power of AI to streamline your integration workflows, automate DataWeave transformations, and accelerate API development by up to 10x.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -122,7 +121,7 @@ export const Hero = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link to="/auth?signup=true">
-                  <Button size="lg" className="px-8 py-6 text-lg font-semibold bg-white text-black hover:bg-gray-200">
+                  <Button size="lg" className="px-8 py-6 text-lg font-semibold font-geist bg-white text-black hover:bg-gray-200">
                     Start Building for Free
                   </Button>
                 </Link>
@@ -132,7 +131,7 @@ export const Hero = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link to="/dashboard">
-                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg font-semibold border-white text-white hover:bg-white/10">
+                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg font-semibold font-geist bg-white text-black hover:bg-gray-200">
                     Explore Features
                   </Button>
                 </Link>
@@ -149,7 +148,7 @@ export const Hero = () => {
             <div className="h-64 w-full rounded-xl overflow-hidden">
               <ErrorBoundary fallback={
                 <div className="h-64 w-full bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-xl flex items-center justify-center">
-                  <div className="text-white text-center">
+                  <div className="text-white text-center font-geist">
                     <p className="text-lg font-semibold">Interactive 3D Experience</p>
                     <p className="text-sm opacity-70">Visualize your integrations</p>
                   </div>
@@ -161,7 +160,7 @@ export const Hero = () => {
                   </Canvas>
                 ) : (
                   <div className="h-64 w-full bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-xl flex items-center justify-center">
-                    <div className="text-white text-center">
+                    <div className="text-white text-center font-geist">
                       <p className="text-lg font-semibold">Interactive Experience</p>
                       <p className="text-sm opacity-70">Visualize your integrations</p>
                     </div>
@@ -175,9 +174,9 @@ export const Hero = () => {
                 <AnimatedNumber
                   value={10}
                   suffix="x"
-                  className="text-5xl font-bold text-white mb-4"
+                  className="text-5xl font-bold text-white mb-4 font-geist"
                 />
-                <p className="text-gray-200">
+                <p className="text-gray-200 font-geist">
                   Faster development cycles with AI assistance
                 </p>
               </div>
@@ -185,9 +184,9 @@ export const Hero = () => {
                 <AnimatedNumber
                   value={85}
                   suffix="%"
-                  className="text-5xl font-bold text-white mb-4"
+                  className="text-5xl font-bold text-white mb-4 font-geist"
                 />
-                <p className="text-gray-200">
+                <p className="text-gray-200 font-geist">
                   Reduced errors in integration projects
                 </p>
               </div>

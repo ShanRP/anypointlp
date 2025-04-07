@@ -181,12 +181,12 @@ const SettingsPage = () => {
             >
               {t('settings.user')}
             </TabsTrigger>
-            <TabsTrigger 
+            {/* <TabsTrigger 
               value="workspace" 
               className="px-5 py-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-purple-600 dark:data-[state=active]:border-purple-400 data-[state=active]:shadow-none text-base"
             >
               {t('settings.workspace')}
-            </TabsTrigger>
+            </TabsTrigger> */}
             <TabsTrigger 
               value="repositories" 
               className="px-5 py-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-purple-600 dark:data-[state=active]:border-purple-400 data-[state=active]:shadow-none text-base"
@@ -474,7 +474,7 @@ const SettingsPage = () => {
           </AnimatePresence>
         </TabsContent>
         
-        <TabsContent value="workspace" className="pt-4">
+        {/* <TabsContent value="workspace" className="pt-4">
           <AnimatePresence mode="wait">
             {selectedWorkspace ? (
               <WorkspaceSettings key={selectedWorkspace.id} />
@@ -484,7 +484,7 @@ const SettingsPage = () => {
               </div>
             )}
           </AnimatePresence>
-        </TabsContent>
+        </TabsContent> */}
         
         <TabsContent value="repositories" className="pt-4">
           <RepositorySettings />
