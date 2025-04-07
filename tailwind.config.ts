@@ -21,26 +21,18 @@ export default {
     extend: {
       fontFamily: {
         sans: [
-          'apple-system', 
+          'Inter',
           'system-ui', 
           'BlinkMacSystemFont', 
           '"Segoe UI"', 
           'Roboto', 
-          '"Helvetica Neue"', 
-          '"Fira Sans"', 
-          'Ubuntu', 
-          'Oxygen', 
-          '"Oxygen Sans"', 
-          'Cantarell', 
-          '"Droid Sans"', 
-          '"Apple Color Emoji"', 
-          '"Segoe UI Emoji"', 
-          '"Segoe UI Symbol"', 
-          '"Lucida Grande"', 
-          'Helvetica', 
-          'Arial', 
           'sans-serif'
         ],
+        display: [
+          'Montserrat',
+          'system-ui',
+          'sans-serif'
+        ]
       },
       colors: {
         border: "hsl(var(--border))",
@@ -122,12 +114,26 @@ export default {
             transform: "translate(0px, 0px) scale(1)",
           },
         },
+        "number-count": {
+          "0%": { transform: "translateY(0)" },
+          "10%": { transform: "translateY(-10%)" },
+          "20%": { transform: "translateY(-20%)" },
+          "30%": { transform: "translateY(-30%)" },
+          "40%": { transform: "translateY(-40%)" },
+          "50%": { transform: "translateY(-50%)" },
+          "60%": { transform: "translateY(-60%)" },
+          "70%": { transform: "translateY(-70%)" },
+          "80%": { transform: "translateY(-80%)" },
+          "90%": { transform: "translateY(-90%)" },
+          "100%": { transform: "translateY(-100%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fadeIn": "fadeIn 0.3s ease-in-out",
         "blob": "blob 7s infinite",
+        "number-count": "number-count 2s ease-out forwards",
       },
       backdropFilter: {
         'none': 'none',

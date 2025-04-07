@@ -18,7 +18,10 @@ import {
   PlusCircle,
   Layers,
   Clock,
-  X
+  X,
+  Edit,
+  Trash2,
+  UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,6 +35,11 @@ import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import CodingAssistantDialog from './ai/CodingAssistantDialog';
 import { useAnimations } from '@/utils/animationUtils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -145,10 +153,14 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [isCreateWorkspaceDialogOpen, setIsCreateWorkspaceDialogOpen] = useState(false);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
-  const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace } = useWorkspaces();
+  const { workspaces, selectedWorkspace, createWorkspace, updateWorkspace, selectWorkspace, generateInviteLink, refreshWorkspaces } = useWorkspaces();
   const { tasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
   const { fadeIn } = useAnimations();
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
+  const [activeWorkspaceMenu, setActiveWorkspaceMenu] = useState<string | null>(null);
+  const [isEditWorkspaceOpen, setIsEditWorkspaceOpen] = useState(false);
+  const [isDeleteWorkspaceOpen, setIsDeleteWorkspaceOpen] = useState(false);
+  const [isInviteWorkspaceOpen, setIsInviteWorkspaceOpen] = useState(false);
   
   const handleSignOut = async () => {
     try {
@@ -172,6 +184,69 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     setIsActivitySheetOpen(true);
     if (onViewAllActivities) {
       onViewAllActivities();
+    }
+  };
+
+  const handleUpdateWorkspace = async (name: string) => {
+    if (!selectedWorkspace) return;
+    
+    const initial = name.charAt(0).toUpperCase();
+    const success = await updateWorkspace(selectedWorkspace.id, { name, initial });
+    
+    if (success) {
+      toast({
+        title: "Workspace Updated",
+        description: "Workspace name has been updated.",
+      });
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!selectedWorkspace || !user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('apl_workspaces')
+        .delete()
+        .eq('id', selectedWorkspace.id)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      toast.success("Workspace deleted successfully");
+      refreshWorkspaces();
+      
+      if (workspaces.length > 1) {
+        // Select another workspace
+        const newSelectedWorkspace = workspaces.find(w => w.id !== selectedWorkspace.id);
+        if (newSelectedWorkspace) {
+          selectWorkspace(newSelectedWorkspace);
+          if (onWorkspaceChange) onWorkspaceChange(newSelectedWorkspace);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting workspace:', error);
+      toast.error("Failed to delete workspace");
+    }
+  };
+
+  const handleGenerateInviteLink = async () => {
+    if (!selectedWorkspace) return;
+    
+    const inviteLink = await generateInviteLink(selectedWorkspace.id);
+    
+    if (inviteLink) {
+      toast.success("Invite link generated successfully");
+    } else {
+      toast.error("Failed to generate invite link");
+    }
+  };
+
+  const toggleWorkspaceMenu = (workspaceId: string) => {
+    if (activeWorkspaceMenu === workspaceId) {
+      setActiveWorkspaceMenu(null);
+    } else {
+      setActiveWorkspaceMenu(workspaceId);
     }
   };
 
@@ -199,7 +274,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       return {
         id: task.id,
         task_id: task.task_id || task.id.slice(0, 4),
-        title: task.task_name || 'DataWeave Generator',
+        title: task.task_name || 'Task',
         time: timeDisplay,
         category: task.category || 'dataweave',
       };
@@ -255,7 +330,10 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-full bg-white dark:bg-gray-800 shadow-sm"
-                onClick={() => setWorkspaceDropdownOpen(!workspaceDropdownOpen)}
+                onClick={() => {
+                  setWorkspaceDropdownOpen(!workspaceDropdownOpen);
+                  setActiveWorkspaceMenu(null);
+                }}
               >
                 <ChevronDown className="h-4 w-4" />
               </Button>
@@ -271,27 +349,67 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               >
                 <div className="py-2 max-h-64 overflow-y-auto">
                   {workspaces.map(workspace => (
-                    <div
-                      key={workspace.id}
-                      onClick={() => {
-                        selectWorkspace(workspace);
-                        if (onWorkspaceChange) onWorkspaceChange(workspace);
-                        setWorkspaceDropdownOpen(false);
-                      }}
-                      className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                        selectedWorkspace?.id === workspace.id ? 'bg-gray-100 dark:bg-gray-700' : ''
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-md flex items-center justify-center bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 font-medium">
-                        {workspace.initial}
+                    <div key={workspace.id} className="relative">
+                      <div
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                          selectedWorkspace?.id === workspace.id ? 'bg-gray-100 dark:bg-gray-700' : ''
+                        }`}
+                      >
+                        <div 
+                          className="flex-1 flex items-center gap-3"
+                          onClick={() => {
+                            selectWorkspace(workspace);
+                            if (onWorkspaceChange) onWorkspaceChange(workspace);
+                            setWorkspaceDropdownOpen(false);
+                          }}
+                        >
+                          <div className="w-8 h-8 rounded-md flex items-center justify-center bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 font-medium">
+                            {workspace.initial}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {workspace.name}
+                            </p>
+                          </div>
+                          {selectedWorkspace?.id === workspace.id && (
+                            <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleWorkspaceMenu(workspace.id);
+                          }}
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {workspace.name}
-                        </p>
-                      </div>
-                      {selectedWorkspace?.id === workspace.id && (
-                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                      
+                      {activeWorkspaceMenu === workspace.id && (
+                        <WorkspaceActionMenu
+                          workspace={workspace}
+                          onEditClick={() => {
+                            selectWorkspace(workspace);
+                            setActiveWorkspaceMenu(null);
+                            setWorkspaceDropdownOpen(false);
+                            setIsEditWorkspaceOpen(true);
+                          }}
+                          onDeleteClick={() => {
+                            selectWorkspace(workspace);
+                            setActiveWorkspaceMenu(null);
+                            setWorkspaceDropdownOpen(false);
+                            setIsDeleteWorkspaceOpen(true);
+                          }}
+                          onInviteClick={() => {
+                            selectWorkspace(workspace);
+                            setActiveWorkspaceMenu(null);
+                            setWorkspaceDropdownOpen(false);
+                            setIsInviteWorkspaceOpen(true);
+                          }}
+                        />
                       )}
                     </div>
                   ))}
@@ -417,7 +535,15 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                       id={task.task_id}
                       title={task.title}
                       time={task.time}
-                      icon={<FileText className="h-4 w-4" />}
+                      icon={
+                        task.category === 'dataweave' ? <Database className="h-4 w-4" /> : 
+                        task.category === 'raml' ? <FileCode2 className="h-4 w-4" /> : 
+                        task.category === 'integration' ? <FileCode2 className="h-4 w-4" /> : 
+                        task.category === 'munit' ? <TestTube2 className="h-4 w-4" /> : 
+                        task.category === 'document' ? <FileText className="h-4 w-4" /> : 
+                        task.category === 'diagram' ? <FileQuestion className="h-4 w-4" /> : 
+                        <FileText className="h-4 w-4" />
+                      }
                       onClick={() => onTaskSelect && onTaskSelect(task.id)}
                     />
                   ))
@@ -486,8 +612,29 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       />
       
       <CodingAssistantDialog 
-        open={isCodingAssistantOpen} 
+        isOpen={isCodingAssistantOpen} 
         onOpenChange={setIsCodingAssistantOpen} 
+      />
+      
+      <EditWorkspaceDialog
+        isOpen={isEditWorkspaceOpen}
+        onClose={() => setIsEditWorkspaceOpen(false)}
+        workspace={selectedWorkspace}
+        onSave={handleUpdateWorkspace}
+      />
+      
+      <DeleteWorkspaceDialog
+        isOpen={isDeleteWorkspaceOpen}
+        onClose={() => setIsDeleteWorkspaceOpen(false)}
+        workspace={selectedWorkspace}
+        onConfirm={handleDeleteWorkspace}
+      />
+      
+      <InviteWorkspaceDialog
+        isOpen={isInviteWorkspaceOpen}
+        onClose={() => setIsInviteWorkspaceOpen(false)}
+        workspace={selectedWorkspace}
+        onGenerateLink={handleGenerateInviteLink}
       />
 
       <Sheet open={isActivitySheetOpen} onOpenChange={setIsActivitySheetOpen}>
@@ -495,11 +642,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           <SheetHeader className="p-6 border-b">
             <div className="flex items-center justify-between">
               <SheetTitle className="text-xl font-bold">All Activities</SheetTitle>
-              {/* <SheetClose asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                  <X className="h-4 w-4" />
-                </Button>
-              </SheetClose> */}
             </div>
           </SheetHeader>
           <div className="p-6 overflow-y-auto max-h-[calc(100vh-120px)]">
@@ -534,7 +676,13 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                         }}
                       >
                         <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                          <FileText className="h-5 w-5" />
+                          {task.category === 'dataweave' ? <Database className="h-5 w-5" /> : 
+                          task.category === 'raml' ? <FileCode2 className="h-5 w-5" /> : 
+                          task.category === 'integration' ? <FileCode2 className="h-5 w-5" /> : 
+                          task.category === 'munit' ? <TestTube2 className="h-5 w-5" /> : 
+                          task.category === 'document' ? <FileText className="h-5 w-5" /> : 
+                          task.category === 'diagram' ? <FileQuestion className="h-5 w-5" /> : 
+                          <FileText className="h-5 w-5" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-base font-medium text-gray-900 dark:text-gray-100">

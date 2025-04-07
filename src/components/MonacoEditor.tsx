@@ -82,7 +82,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
         language={getLanguage(language)}
         value={value}
         onChange={onChange}
-        theme="vs-dark"
+        theme="vs" // Changed from "vs-dark" to "vs" for light theme
         options={{ ...defaultOptions, ...options }}
         className="flex-1"
       />
