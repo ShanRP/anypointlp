@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,8 +20,7 @@ import {
   Clock,
   X,
   Info,
-  MoreVertical,
-  ChevronRight
+  MoreVertical
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -30,14 +28,13 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useLanguage } from '@/providers/LanguageProvider';
 import { WorkspaceOption, useWorkspaces } from '@/hooks/useWorkspaces';
-import { useWorkspaceTasks, type WorkspaceTask, TASK_CATEGORIES } from '@/hooks/useWorkspaceTasks';
+import { useWorkspaceTasks, type WorkspaceTask } from '@/hooks/useWorkspaceTasks';
 import { Button } from '@/components/ui/button';
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import WorkspaceDetailsDialog from './workspace/WorkspaceDetailsDialog';
 import CodingAssistantDialog from './ai/CodingAssistantDialog';
 import { useAnimations } from '@/utils/animationUtils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -143,41 +140,6 @@ interface DashboardSidebarProps {
   onViewAllActivities?: () => void;
 }
 
-// Helper function to get task category label
-const getCategoryLabel = (category: string): string => {
-  switch (category) {
-    case 'dataweave': return 'DataWeave';
-    case 'raml': return 'RAML';
-    case 'integration': return 'Integration';
-    case 'munit': return 'MUnit';
-    case 'sampledata': return 'Sample Data';
-    case 'document': return 'Document';
-    case 'diagram': return 'Diagram';
-    default: return category.charAt(0).toUpperCase() + category.slice(1);
-  }
-};
-
-// Helper function to get task icon
-const getTaskIcon = (category: string) => {
-  switch (category.toLowerCase()) {
-    case 'raml':
-      return <FileCode2 className="h-4 w-4" />;
-    case 'integration':
-      return <RefreshCcw className="h-4 w-4" />;
-    case 'document':
-      return <FileText className="h-4 w-4" />;
-    case 'diagram':
-      return <FileQuestion className="h-4 w-4" />;
-    case 'munit':
-      return <TestTube2 className="h-4 w-4" />;
-    case 'sampledata':
-      return <Database className="h-4 w-4" />;
-    case 'dataweave':
-    default:
-      return <FileCode2 className="h-4 w-4" />;
-  }
-};
-
 const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   onNavigate,
   currentPage,
@@ -195,27 +157,9 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const [selectedWorkspaceForDetails, setSelectedWorkspaceForDetails] = useState<WorkspaceOption | null>(null);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
   const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace, updateWorkspace, deleteWorkspace } = useWorkspaces();
-  const { tasks, getTasksByCategory } = useWorkspaceTasks(selectedWorkspace?.id || '');
+  const { tasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
   const { fadeIn } = useAnimations();
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
-  
-  // Track expanded categories
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    dataweave: true,
-    integration: true,
-    raml: true,
-    munit: true,
-    sampledata: true,
-    document: true,
-    diagram: true
-  });
-  
-  const toggleCategory = (category: string) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [category]: !prev[category]
-    }));
-  };
   
   const handleSignOut = async () => {
     try {
@@ -240,6 +184,26 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     setSelectedWorkspaceForDetails(workspace);
     setIsWorkspaceDetailsOpen(true);
     setWorkspaceDropdownOpen(false);
+  };
+
+  const getTaskIcon = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'raml':
+        return <FileCode2 className="h-4 w-4" />;
+      case 'integration':
+        return <RefreshCcw className="h-4 w-4" />;
+      case 'document':
+        return <FileText className="h-4 w-4" />;
+      case 'diagram':
+        return <FileQuestion className="h-4 w-4" />;
+      case 'munit':
+        return <TestTube2 className="h-4 w-4" />;
+      case 'sampledata':
+        return <Database className="h-4 w-4" />;
+      case 'dataweave':
+      default:
+        return <FileCode2 className="h-4 w-4" />;
+    }
   };
 
   const formatRecentTasks = (tasks: WorkspaceTask[]) => {
@@ -274,7 +238,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   };
   
   const recentTasks = formatRecentTasks(tasks || []);
-  const groupedTasks = getTasksByCategory();
   const allTasks = tasks ? [...tasks].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   ) : [];
@@ -484,65 +447,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               />
             </nav>
 
-            {tasks && tasks.length > 0 && (
-              <div className="mt-6 px-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Workspace Tasks
-                  </h3>
-                </div>
-                
-                <div className="space-y-1">
-                  {TASK_CATEGORIES.map(category => {
-                    const categoryTasks = groupedTasks[category] || [];
-                    if (categoryTasks.length === 0) return null;
-                    
-                    return (
-                      <Collapsible 
-                        key={category}
-                        open={expandedCategories[category]}
-                        onOpenChange={() => toggleCategory(category)}
-                        className="border-b border-gray-100 dark:border-gray-800 pb-1 mb-1"
-                      >
-                        <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                          <div className="flex items-center">
-                            {getTaskIcon(category)}
-                            <span className="ml-2">{getCategoryLabel(category)} ({categoryTasks.length})</span>
-                          </div>
-                          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${expandedCategories[category] ? 'rotate-90' : ''}`} />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <div className="pl-4 space-y-1 mt-1">
-                            {categoryTasks.slice(0, 3).map(task => (
-                              <div 
-                                key={task.id}
-                                onClick={() => onTaskSelect && onTaskSelect(task.id)}
-                                className="flex items-center gap-2 p-1.5 text-xs rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                              >
-                                <span className="text-gray-400 dark:text-gray-500 w-14 flex-shrink-0 truncate">
-                                  #{task.task_id.split('-')[1] || task.task_id}
-                                </span>
-                                <span className="text-gray-700 dark:text-gray-300 truncate">{task.task_name}</span>
-                              </div>
-                            ))}
-                            {categoryTasks.length > 3 && (
-                              <div 
-                                className="flex items-center justify-center p-1 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md cursor-pointer"
-                                onClick={handleViewAllActivities}
-                              >
-                                <PlusCircle className="h-3 w-3 mr-1" />
-                                <span>View {categoryTasks.length - 3} more</span>
-                              </div>
-                            )}
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             <div className="mt-6 px-3">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -690,7 +594,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                               {timeDisplay}
                             </span>
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
-                              {getCategoryLabel(task.category || 'dataweave')}
+                              {task.category || 'dataweave'}
                             </span>
                           </div>
                           {task.description && (

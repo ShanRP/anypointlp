@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Calendar, Tag, Code, Copy } from 'lucide-react';
-import { TaskDetails, TASK_CATEGORIES } from '@/hooks/useWorkspaceTasks';
+import { TaskDetails } from '@/hooks/useWorkspaceTasks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DataWeaveResult from './DataWeaveResult';
 import { motion } from 'framer-motion';
@@ -104,35 +103,10 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
     };
   };
 
-  // Function to determine task content type based on category
-  const getTaskContentByCategory = () => {
-    switch (task.category) {
-      case 'integration':
-        return renderIntegrationFlow();
-      case 'raml':
-        return renderRamlContent();
-      case 'diagram':
-        return renderDiagramContent();
-      case 'document':
-        return renderDocumentContent();
-      case 'munit':
-        return renderMUnitContent();
-      case 'sampledata':
-        return renderSampleDataContent();
-      case 'dataweave':
-      default:
-        return renderDataWeaveContent();
-    }
-  };
-
-  // Render methods for each type of task content
-  const renderIntegrationFlow = () => {
-    if (!task.generated_scripts || task.generated_scripts.length === 0) {
-      return <div className="text-center py-10"><p className="text-gray-500">No integration scripts found</p></div>;
-    }
-    
-    const code = task.generated_scripts[0].code || '';
+  const renderIntegrationFlow = (code: string) => {
     const sections = parseIntegrationCode(code);
+    
+    console.log('Parsed Sections:', sections);
     
     return (
       <div className="space-y-8">
@@ -249,96 +223,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
     );
   };
 
-  const renderDataWeaveContent = () => {
-    if (!task.generated_scripts || task.generated_scripts.length === 0) {
-      return <div className="text-center py-10"><p className="text-gray-500">No scripts found for this task</p></div>;
-    }
-
-    return (
-      <Tabs defaultValue={task.generated_scripts[0].id} className="w-full">
-        <TabsList className="mb-4 flex flex-wrap">
-          {task.generated_scripts.map((script: any, index: number) => (
-            <TabsTrigger key={script.id} value={script.id}>
-              <Code size={14} className="mr-2" />
-              Script {index + 1}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        
-        {task.generated_scripts.map((script: any, index: number) => {
-          const samples = findSampleForScript(script.id, index);
-          
-          return (
-            <TabsContent key={script.id} value={script.id}>
-              <DataWeaveResult 
-                script={script.code} 
-                onNewTask={handleBackButton} 
-                showNewTaskButton={false}
-                inputSample={samples?.inputSample}
-                outputSample={samples?.outputSample}
-                originalNotes={task.notes || ""}
-              />
-            </TabsContent>
-          );
-        })}
-      </Tabs>
-    );
-  };
-
-  // Generic content display for other task types
-  const renderGenericContent = (title: string, language: string = "xml") => {
-    if (!task.generated_scripts || task.generated_scripts.length === 0) {
-      return <div className="text-center py-10"><p className="text-gray-500">No content found for this task</p></div>;
-    }
-
-    return (
-      <div className="space-y-6">
-        {task.generated_scripts.map((script: any, index: number) => (
-          <div key={script.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">{title} {task.generated_scripts.length > 1 ? `(${index + 1})` : ''}</h2>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => copyToClipboard(script.code)}
-                className="text-xs"
-              >
-                <Copy size={14} className="mr-1" /> Copy
-              </Button>
-            </div>
-            <div className="relative">
-              <pre className="bg-black text-green-400 p-4 rounded-md overflow-x-auto text-sm font-mono">
-                {script.code}
-              </pre>
-            </div>
-          </div>
-        ))}
-        
-        <div className="flex justify-end space-x-4">
-          <Button variant="outline" onClick={handleBackButton}>
-            Back to Dashboard
-          </Button>
-          <Button 
-            onClick={() => {
-              const allCode = task.generated_scripts.map((s: any) => s.code).join('\n\n');
-              navigator.clipboard.writeText(allCode);
-              toast.success('All content copied to clipboard!');
-            }}
-            className="bg-black hover:bg-gray-800 text-white"
-          >
-            Copy All
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  // Specific renderers for each task type
-  const renderRamlContent = () => renderGenericContent("RAML Specification", "yaml");
-  const renderDiagramContent = () => renderGenericContent("Diagram", "markdown");
-  const renderDocumentContent = () => renderGenericContent("Document", "markdown");
-  const renderMUnitContent = () => renderGenericContent("MUnit Test", "xml");
-  const renderSampleDataContent = () => renderGenericContent("Sample Data", "json");
+  const isIntegrationTask = task.task_name?.includes('Integration Flow');
 
   return (
     <motion.div 
@@ -356,7 +241,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <span>{new Date(task.created_at).toLocaleString()}</span>
             <span className="mx-2">•</span>
             <Tag size={14} className="mr-2" />
-            <span className="capitalize">{task.category || 'dataweave'}</span>
+            <span>{task.input_format}</span>
           </div>
         }
       />
@@ -365,14 +250,48 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      {task.notes && task.category !== 'integration' && (
+      {task.notes && !isIntegrationTask && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h3 className="text-sm font-medium mb-2">Notes</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300">{task.notes}</p>
         </div>
       )}
       
-      {getTaskContentByCategory()}
+      {isIntegrationTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
+        renderIntegrationFlow(task.generated_scripts[0].code)
+      ) : task.generated_scripts && task.generated_scripts.length > 0 ? (
+        <Tabs defaultValue={task.generated_scripts[0].id} className="w-full">
+          <TabsList className="mb-4 flex flex-wrap">
+            {task.generated_scripts.map((script: any, index: number) => (
+              <TabsTrigger key={script.id} value={script.id}>
+                <Code size={14} className="mr-2" />
+                Script {index + 1}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          
+          {task.generated_scripts.map((script: any, index: number) => {
+            const samples = findSampleForScript(script.id, index);
+            
+            return (
+              <TabsContent key={script.id} value={script.id}>
+                <DataWeaveResult 
+                  script={script.code} 
+                  onNewTask={handleBackButton} 
+                  showNewTaskButton={false}
+                  inputSample={samples?.inputSample}
+                  outputSample={samples?.outputSample}
+                  originalNotes={task.notes || ""}
+                />
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      ) : (
+        <div className="text-center py-10">
+          <p className="text-gray-500">No scripts found for this task</p>
+        </div>
+      )}
     </motion.div>
   );
 };
