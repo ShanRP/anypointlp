@@ -10,8 +10,8 @@ export interface WorkspaceTask {
   task_id: string;
   task_name: string;
   created_at: string;
-  workspace_id: string; // Added to track which workspace this task belongs to
-  category?: string; // Category of the task (dataweave, raml, integration, etc.)
+  workspace_id: string; 
+  category: string; // Category of the task (dataweave, raml, integration, munit, sampledata, document, diagram)
   description?: string; // Optional description field
 }
 
@@ -25,8 +25,8 @@ export interface TaskDetails {
   notes: string;
   generated_scripts: any[];
   created_at: string;
-  workspace_id: string; // Added to track which workspace this task belongs to
-  category?: string; // Category of the task
+  workspace_id: string;
+  category: string; // Category of the task
   description?: string; // Optional description field
 }
 
@@ -144,8 +144,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     notes?: string;
     generated_scripts: any[];
     user_id: string;
-    category?: string; // Adding category field
-    description?: string; // Adding optional description field
+    category: string; // Making category required
+    description?: string; // Optional description field
   }) => {
     try {
       // Generate a unique task_id if not provided
@@ -159,12 +159,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         input_format: task.input_format,
         input_samples: JSON.parse(JSON.stringify(task.input_samples)) as Json,
         output_samples: JSON.parse(JSON.stringify(task.output_samples)) as Json,
-        notes: task.notes,
+        notes: task.notes || '',
         generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
         user_id: task.user_id,
         username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
-        category: task.category || 'dataweave', // Set default category if not specified
-        description: task.description
+        category: task.category, // Ensure category is set
+        description: task.description || ''
       };
 
       const { data, error } = await supabase

@@ -115,3 +115,9 @@ verify_jwt = true
 
 [functions.APL_generate-raml]
 verify_jwt = true
+
+[functions.generate-munit]
+verify_jwt = true
+
+[functions.generate-integration]
+verify_jwt = true
