@@ -46,8 +46,27 @@ const DataWeaveResult: React.FC<DataWeaveResultProps> = ({
   outputSample,
   originalNotes = ''
 }) => {
-  // Use script or code, preferring script if available
-  const scriptContent = script || code || '';
+  // Clean up script content to only include valid DataWeave code
+  const cleanScript = (scriptContent: string) => {
+    // If script already starts with %dw, just return it
+    if (scriptContent.trim().startsWith('%dw')) {
+      return scriptContent;
+    }
+    
+    // Extract only the dataweave script from the content
+    const dwPattern = /(%dw 2\.0[\s\S]*?)(?=```|$)/;
+    const match = scriptContent.match(dwPattern);
+    
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    // Fallback to original script if no pattern match
+    return scriptContent;
+  };
+  
+  // Use script or code, preferring script if available, and clean it
+  const scriptContent = cleanScript(script || code || '');
   const [activeTab, setActiveTab] = useState('script');
   const navigate = useNavigate();
   const [notes, setNotes] = useState(originalNotes);
@@ -99,7 +118,8 @@ const DataWeaveResult: React.FC<DataWeaveResultProps> = ({
       }
 
       if (data && data.script && onSave) {
-        onSave(data.script);
+        // Clean up script before saving
+        onSave(cleanScript(data.script));
         toast.success('DataWeave script regenerated successfully!');
       }
     } catch (error: any) {
@@ -132,7 +152,6 @@ const DataWeaveResult: React.FC<DataWeaveResultProps> = ({
           <Tabs defaultValue="script" value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="px-6">
               <TabsTrigger value="script">Script</TabsTrigger>
-              <TabsTrigger value="about">About</TabsTrigger>
               {inputSample && outputSample && <TabsTrigger value="regenerate">Regenerate</TabsTrigger>}
             </TabsList>
             <TabsContent value="script" className="mt-0">
@@ -149,23 +168,6 @@ const DataWeaveResult: React.FC<DataWeaveResultProps> = ({
                     padding: { top: 16 }
                   }}
                 />
-              </div>
-            </TabsContent>
-            <TabsContent value="about" className="mt-0">
-              <div className="px-6 py-4">
-                <h3 className="text-lg font-semibold mb-2">About DataWeave</h3>
-                <p className="text-gray-600 mb-4">
-                  DataWeave is a powerful expression language used in MuleSoft for data transformation. 
-                  It allows you to transform data from one format to another with concise, readable syntax.
-                </p>
-                <h4 className="font-semibold mb-2">Key Features:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-gray-600">
-                  <li>Powerful selector language for navigating complex data structures</li>
-                  <li>Rich library of built-in functions</li>
-                  <li>Strong type system with type inference</li>
-                  <li>Support for various data formats including JSON, XML, CSV, etc.</li>
-                  <li>Functional programming paradigm</li>
-                </ul>
               </div>
             </TabsContent>
             {inputSample && outputSample && (

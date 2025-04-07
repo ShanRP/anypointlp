@@ -37,6 +37,17 @@ export interface IntegrationGeneratorProps {
   onSaveTask?: (taskId: string) => void;
 }
 
+// Valid task categories
+export const TASK_CATEGORIES = [
+  'dataweave',
+  'raml',
+  'integration',
+  'munit',
+  'sampledata',
+  'document',
+  'diagram'
+];
+
 export const useWorkspaceTasks = (workspaceId: string) => {
   const [tasks, setTasks] = useState<WorkspaceTask[]>([]);
   const [selectedTask, setSelectedTask] = useState<TaskDetails | null>(null);
@@ -151,6 +162,11 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       // Generate a unique task_id if not provided
       const taskId = task.task_id || `T-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
+      // Validate category
+      const category = TASK_CATEGORIES.includes(task.category) 
+        ? task.category 
+        : 'dataweave'; // Default to dataweave if invalid category
+      
       // Ensure workspace_id is set correctly
       const taskData = {
         workspace_id: task.workspace_id,
@@ -163,7 +179,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
         user_id: task.user_id,
         username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
-        category: task.category, // Ensure category is set
+        category: category, // Validated category
         description: task.description || ''
       };
 
@@ -184,6 +200,31 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   };
 
+  // Group tasks by category
+  const getTasksByCategory = () => {
+    const groupedTasks: Record<string, WorkspaceTask[]> = {};
+    
+    // Initialize with all categories
+    TASK_CATEGORIES.forEach(category => {
+      groupedTasks[category] = [];
+    });
+    
+    // Group tasks
+    tasks.forEach(task => {
+      const category = task.category && TASK_CATEGORIES.includes(task.category) 
+        ? task.category 
+        : 'dataweave';
+        
+      if (!groupedTasks[category]) {
+        groupedTasks[category] = [];
+      }
+      
+      groupedTasks[category].push(task);
+    });
+    
+    return groupedTasks;
+  };
+
   useEffect(() => {
     if (workspaceId) {
       fetchWorkspaceTasks();
@@ -199,6 +240,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     error,
     fetchWorkspaceTasks,
     fetchTaskDetails,
-    saveTask
+    saveTask,
+    getTasksByCategory
   };
 };

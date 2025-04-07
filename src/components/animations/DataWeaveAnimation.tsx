@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import AnimatedCodeBlock from './AnimatedCodeBlock';
@@ -63,6 +62,7 @@ export const DataWeaveAnimation: React.FC = () => {
   }
 }`;
 
+  // Clean DataWeave code format with proper indentation
   const dataWeaveCode = `%dw 2.0
 output application/json
 ---
