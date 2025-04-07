@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, AlertCircle } from 'lucide-react';
@@ -14,7 +13,7 @@ import MonacoEditor from './MonacoEditor';
 import { toast } from 'sonner';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
-import { FileNode } from '@/utils/githubUtils';
+import { FileNode, isFileOfType, pathExistsInFileStructure, getNodeByPath } from '@/utils/githubUtils';
 
 type GenerationType = 'JSON' | 'XML' | 'CSV' | 'YAML';
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
@@ -43,20 +42,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isValidFileForFormat = (fileName: string): boolean => {
-    const extension = fileName.split('.').pop()?.toLowerCase() || '';
-    
-    switch(generationType) {
-      case 'JSON':
-        return extension === 'json';
-      case 'XML':
-        return extension === 'xml';
-      case 'CSV':
-        return extension === 'csv';
-      case 'YAML':
-        return extension === 'yaml' || extension === 'yml';
-      default:
-        return false;
-    }
+    return isFileOfType(fileName, generationType);
   };
 
   const handleGenerate = async () => {
@@ -161,7 +147,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     }
   };
 
-  // Enhanced directory navigation function
   const getCurrentDirectoryContents = () => {
     if (!fileStructure || fileStructure.length === 0) {
       return [];
@@ -171,21 +156,8 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       return fileStructure;
     }
     
-    const findDirectory = (nodes: FileNode[], path: string): FileNode[] | null => {
-      for (const node of nodes) {
-        if (node.path === path && node.type === 'directory') {
-          return node.children || [];
-        }
-        if (node.children && node.children.length > 0) {
-          const result = findDirectory(node.children, path);
-          if (result) return result;
-        }
-      }
-      return null;
-    };
-    
-    const dirContents = findDirectory(fileStructure, currentDirectory);
-    return dirContents || [];
+    const dirNode = getNodeByPath(fileStructure, currentDirectory);
+    return dirNode && dirNode.type === 'directory' ? (dirNode.children || []) : [];
   };
 
   const navigateDirectory = (dir: FileNode) => {
@@ -205,7 +177,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     setCurrentDirectory(parentPath);
   };
 
-  // Enhanced file selection with better content extraction
   const handleFileSelect = async (file: FileNode) => {
     if (file.type === 'file') {
       if (!isValidFileForFormat(file.name)) {
@@ -218,7 +189,9 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       
       if (selectedRepository) {
         try {
+          console.log(`Attempting to fetch file content for: ${file.path}`);
           const content = await fetchFileContent(selectedRepository, file.path);
+          
           if (content) {
             setFileContent(content);
             setSchema(content);
@@ -228,7 +201,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
             throw new Error(`Could not load content from "${file.name}"`);
           }
         } catch (error) {
-          console.error("Error fetching file content:", error);
+          console.error("Error handling file selection:", error);
           toast.error(`Error loading file: ${error instanceof Error ? error.message : 'Unknown error'}`);
           setSelectedFile(null);
         } finally {
@@ -273,7 +246,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     };
     reader.readAsText(file);
   };
-  
+
   useEffect(() => {
     setSelectedFile(null);
     setFileContent('');
@@ -287,7 +260,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     }
   }, [generationType]);
 
-  // Load repositories when component mounts or when source type changes
   useEffect(() => {
     if (sourceType === 'with-repository') {
       fetchRepositories();

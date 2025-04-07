@@ -1,7 +1,6 @@
-
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { Repository, FileNode, buildFileTree, GithubTreeItem } from "@/utils/githubUtils";
+import { Repository, FileNode, buildFileTree, GithubTreeItem, fetchFileContent as fetchContent } from "@/utils/githubUtils";
 
 interface UseGithubApiReturn {
   repositories: Repository[];
@@ -115,23 +114,7 @@ export function useGithubApi(): UseGithubApiReturn {
 
   const fetchFileContent = useCallback(async (repo: Repository, filePath: string): Promise<string | null> => {
     try {
-      const token = localStorage.getItem('APL_githubToken');
-      if (!token) {
-        throw new Error('GitHub token not found');
-      }
-
-      const response = await fetch(`https://api.github.com/repos/${repo.full_name}/contents/${filePath}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3.raw'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file content: ${response.statusText}`);
-      }
-
-      return await response.text();
+      return await fetchContent(repo, filePath);
     } catch (error: any) {
       console.error('Error fetching file content:', error);
       toast.error(`Failed to fetch file content: ${error.message}`);

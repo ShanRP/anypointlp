@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 export interface FileNode {
@@ -129,7 +128,7 @@ export function buildFileTree(items: GithubTreeItem[]): FileNode[] {
 }
 
 /**
- * Fetches file content from GitHub repository
+ * Fetches file content from GitHub repository with improved error handling and path resolution
  */
 export const fetchFileContent = async (repo: Repository, filePath: string, retryCount = 0): Promise<string | null> => {
   try {
@@ -137,11 +136,19 @@ export const fetchFileContent = async (repo: Repository, filePath: string, retry
     if (!token) {
       throw new Error('GitHub token not found');
     }
-
-    // Encoding filePath for special characters
-    const encodedFilePath = filePath.split('/').map(part => encodeURIComponent(part)).join('/');
     
-    const response = await fetch(`https://api.github.com/repos/${repo.full_name}/contents/${encodedFilePath}`, {
+    // Clean the file path
+    const cleanPath = filePath.replace(/^\/+/, ''); // Remove leading slashes
+    
+    // Encoding filePath properly for special characters and spaces
+    const encodedFilePath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+    
+    console.log(`Attempting to fetch GitHub file: ${repo.full_name}/${encodedFilePath}`);
+    
+    const apiUrl = `https://api.github.com/repos/${repo.full_name}/contents/${encodedFilePath}`;
+    console.log(`API URL: ${apiUrl}`);
+    
+    const response = await fetch(apiUrl, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/vnd.github.v3.raw'
@@ -149,10 +156,23 @@ export const fetchFileContent = async (repo: Repository, filePath: string, retry
     });
 
     if (response.status === 404) {
+      // Try alternate path if this is a nested repository within a monorepo
+      if (!filePath.includes('contents') && !retryCount) {
+        console.log(`File not found at ${filePath}, trying alternate path resolution...`);
+        const parts = filePath.split('/');
+        
+        // Try with repository name prefix if it might be in a subdirectory
+        if (parts.length > 1) {
+          const alternativePath = filePath;
+          console.log(`Trying alternate path: ${alternativePath}`);
+          return fetchFileContent(repo, alternativePath, 1);
+        }
+      }
       throw new Error(`File not found: ${filePath}`);
     }
 
     if (!response.ok) {
+      console.error(`Failed to fetch file (${response.status}): ${response.statusText}`);
       throw new Error(`Failed to fetch file (${response.status}): ${response.statusText}`);
     }
 
@@ -167,11 +187,11 @@ export const fetchFileContent = async (repo: Repository, filePath: string, retry
       error.message.includes('rate limit')
     )) {
       console.log(`Retrying file fetch (${retryCount + 1}/2): ${filePath}`);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Add delay between retries
       return fetchFileContent(repo, filePath, retryCount + 1);
     }
     
-    toast.error(`Failed to fetch file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    return null;
+    throw error;
   }
 };
 
@@ -261,4 +281,62 @@ export const findFilesByFormat = (nodes: FileNode[], format: string): FileNode[]
   
   traverse(nodes);
   return result;
+};
+
+/**
+ * Gets file extension
+ */
+export const getFileExtension = (fileName: string): string => {
+  return fileName.split('.').pop()?.toLowerCase() || '';
+};
+
+/**
+ * Checks if a path exists within a file structure
+ */
+export const pathExistsInFileStructure = (fileStructure: FileNode[], path: string): boolean => {
+  const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  const searchPath = (nodes: FileNode[], currentPath: string): boolean => {
+    for (const node of nodes) {
+      if (node.path === currentPath) {
+        return true;
+      }
+      
+      if (node.children && node.children.length > 0) {
+        if (searchPath(node.children, currentPath)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  };
+  
+  return searchPath(fileStructure, normalizedPath);
+};
+
+/**
+ * Gets a node from a file structure by path
+ */
+export const getNodeByPath = (fileStructure: FileNode[], path: string): FileNode | null => {
+  const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  const findNode = (nodes: FileNode[], currentPath: string): FileNode | null => {
+    for (const node of nodes) {
+      if (node.path === currentPath) {
+        return node;
+      }
+      
+      if (node.children && node.children.length > 0) {
+        const found = findNode(node.children, currentPath);
+        if (found) {
+          return found;
+        }
+      }
+    }
+    
+    return null;
+  };
+  
+  return findNode(fileStructure, normalizedPath);
 };
