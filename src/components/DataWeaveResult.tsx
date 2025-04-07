@@ -48,10 +48,9 @@ const DataWeaveResult: React.FC<DataWeaveResultProps> = ({
 }) => {
   // Use script or code, preferring script if available
   const scriptContent = script || code || '';
-  const [activeTab, setActiveTab] = useState('script');
-  const navigate = useNavigate();
   const [notes, setNotes] = useState(originalNotes);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const navigate = useNavigate();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(scriptContent);
@@ -129,82 +128,55 @@ const DataWeaveResult: React.FC<DataWeaveResultProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Tabs defaultValue="script" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="px-6">
-              <TabsTrigger value="script">Script</TabsTrigger>
-              <TabsTrigger value="about">About</TabsTrigger>
-              {inputSample && outputSample && <TabsTrigger value="regenerate">Regenerate</TabsTrigger>}
-            </TabsList>
-            <TabsContent value="script" className="mt-0">
-              <div className="bg-gray-50 rounded-md p-0">
-                <MonacoEditor
-                  value={scriptContent}
-                  language="dataweave"
-                  height="400px"
-                  options={{
-                    readOnly: true,
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    fontSize: 14,
-                    padding: { top: 16 }
-                  }}
+          <div className="bg-gray-50 rounded-md p-0">
+            <MonacoEditor
+              value={scriptContent}
+              language="dataweave"
+              height="400px"
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                padding: { top: 16 }
+              }}
+            />
+          </div>
+          
+          {inputSample && outputSample && (
+            <div className="px-6 py-4 space-y-4 mt-4 border-t">
+              <div className="space-y-2">
+                <Label htmlFor="notes" className="font-medium">Regeneration Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Add any additional requirements or context for regeneration..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="min-h-[80px] resize-none"
                 />
-              </div>
-            </TabsContent>
-            <TabsContent value="about" className="mt-0">
-              <div className="px-6 py-4">
-                <h3 className="text-lg font-semibold mb-2">About DataWeave</h3>
-                <p className="text-gray-600 mb-4">
-                  DataWeave is a powerful expression language used in MuleSoft for data transformation. 
-                  It allows you to transform data from one format to another with concise, readable syntax.
+                <p className="text-sm text-gray-500">
+                  Provide any specific requirements or instructions for refining the DataWeave script.
                 </p>
-                <h4 className="font-semibold mb-2">Key Features:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-gray-600">
-                  <li>Powerful selector language for navigating complex data structures</li>
-                  <li>Rich library of built-in functions</li>
-                  <li>Strong type system with type inference</li>
-                  <li>Support for various data formats including JSON, XML, CSV, etc.</li>
-                  <li>Functional programming paradigm</li>
-                </ul>
               </div>
-            </TabsContent>
-            {inputSample && outputSample && (
-              <TabsContent value="regenerate" className="mt-0">
-                <div className="px-6 py-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="notes" className="font-medium">Additional Notes</Label>
-                    <Textarea
-                      id="notes"
-                      placeholder="Add any additional requirements or context for regeneration..."
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="min-h-[120px] resize-none"
-                    />
-                    <p className="text-sm text-gray-500">
-                      Provide any specific requirements or instructions for refining the DataWeave script.
-                    </p>
-                  </div>
-                  <Button 
-                    onClick={handleRegenerate} 
-                    className="w-full"
-                    disabled={isRegenerating}
-                  >
-                    {isRegenerating ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Regenerating...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Regenerate Script
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </TabsContent>
-            )}
-          </Tabs>
+              <Button 
+                onClick={handleRegenerate} 
+                className="w-full"
+                disabled={isRegenerating}
+              >
+                {isRegenerating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate Script
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex justify-between items-center pt-4 border-t mt-4">
           <div className="flex gap-2">

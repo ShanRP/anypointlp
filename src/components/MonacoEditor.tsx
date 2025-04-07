@@ -39,6 +39,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
         return 'plaintext';
       case 'dataweave':
       case 'dwl':
+      case 'dw':
         return 'javascript'; // Using JavaScript highlighting for DataWeave for better syntax highlighting
       case 'markdown':
       case 'md':
@@ -70,8 +71,8 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
       ref={editorContainerRef}
       className="w-full h-full flex flex-col" 
       style={{ 
-        minHeight: '400px',
-        height: '100%',
+        minHeight: height || '400px',
+        height: height || '100%',
         flexGrow: 1,
         ...style
       }}

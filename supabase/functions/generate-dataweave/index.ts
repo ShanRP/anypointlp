@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -31,21 +30,22 @@ serve(async (req) => {
     const formattedOutputSamples = outputSamples.map((sample: any, i: number) => 
       `Expected Output ${i+1}:\n${JSON.stringify(sample.value, null, 2)}`).join('\n\n');
 
-    const userPrompt = `Create the DataWeave script with the given input and expected output.
+    const userPrompt = `Create a DataWeave script (DataWeave 2.0) that transforms the input to the expected output.
 
 Input:\n${formattedInputSamples}\n\nExpected Output:\n${formattedOutputSamples}
     
 ${notes ? `Additional requirements: ${notes}\n\n` : ''}
 
-Always follow this exact format:
-%dw 2.0
-output application/json
----
-// Your transformation logic here
+IMPORTANT: Return ONLY the DataWeave script with the following requirements:
+1. Start with "%dw 2.0" line
+2. Include "output application/json" line
+3. Include the "---" separator
+4. Then write the transformation logic
+5. DO NOT include any explanations, comments (except for inline code comments), or markdown formatting
+6. DO NOT prefix or suffix your response with any additional text, ONLY provide the script
 
-Make sure the script is optimized and includes comments explaining the logic.`;
+The script must be optimized for production use in MuleSoft Anypoint Studio.`;
     
-    // Log the prompts for debugging
     console.log("User prompt:", userPrompt);
 
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -55,7 +55,7 @@ Make sure the script is optimized and includes comments explaining the logic.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistral-large-latest', // Using Mistral's large model
+        model: 'mistral-large-latest',
         messages: [
           { role: 'user', content: userPrompt }
         ],
@@ -78,8 +78,25 @@ Make sure the script is optimized and includes comments explaining the logic.`;
     // Extract actual DataWeave code if wrapped in markdown code blocks
     if (generatedScript.includes('```dataweave')) {
       generatedScript = generatedScript.replace(/```dataweave\n([\s\S]*?)```/g, '$1').trim();
+    } else if (generatedScript.includes('```dw')) {
+      generatedScript = generatedScript.replace(/```dw\n([\s\S]*?)```/g, '$1').trim();
     } else if (generatedScript.includes('```')) {
       generatedScript = generatedScript.replace(/```\n?([\s\S]*?)```/g, '$1').trim();
+    }
+
+    // Strip any remaining explanation text
+    const dwIndex = generatedScript.indexOf('%dw 2.0');
+    if (dwIndex > 0) {
+      generatedScript = generatedScript.substring(dwIndex);
+    }
+    
+    // Ensure there are no duplicate %dw declarations
+    const dwLines = generatedScript.split('\n').filter(line => line.trim().startsWith('%dw'));
+    if (dwLines.length > 1) {
+      // Keep only the first %dw line
+      const firstDwLine = dwLines[0];
+      const restOfScript = generatedScript.substring(generatedScript.indexOf(firstDwLine) + firstDwLine.length);
+      generatedScript = firstDwLine + restOfScript;
     }
 
     // Ensure script starts with %dw if not present
@@ -87,8 +104,23 @@ Make sure the script is optimized and includes comments explaining the logic.`;
       generatedScript = `%dw 2.0\noutput application/json\n---\n${generatedScript}`;
     }
 
-    // Post-process the script to optimize
-    generatedScript = processScript(generatedScript);
+    // Clean up any double separators
+    generatedScript = generatedScript.replace(/---\s*---/g, '---');
+
+    // Remove any text after the script
+    const lines = generatedScript.split('\n');
+    let endIndex = lines.length;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (line === '' || line.startsWith('//')) continue;
+      if (line.startsWith('Note:') || line.startsWith('Explanation:') || 
+          line.toLowerCase().includes('this script') || line.startsWith('In this')) {
+        endIndex = i;
+      } else {
+        break;
+      }
+    }
+    generatedScript = lines.slice(0, endIndex).join('\n');
 
     return new Response(JSON.stringify({ script: generatedScript }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -104,16 +136,3 @@ Make sure the script is optimized and includes comments explaining the logic.`;
     });
   }
 });
-
-function processScript(script: string): string {
-  // Split script into sections
-  const [header, ...rest] = script.split('---');
-  let body = rest.join('---').trim();
-
-  // Clean up extra whitespace and empty lines
-  body = body
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/^\s+|\s+$/g, '');
-
-  return `${header}---\n${body}`;
-}
