@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Code } from 'lucide-react';
@@ -32,7 +31,7 @@ const GeneratorCard = ({
   if (type === 'codingAssistant') {
     return (
       <CodingAssistantDialog 
-        open={dialogOpen} 
+        isOpen={dialogOpen} 
         onOpenChange={setDialogOpen} 
         trigger={
           <motion.div

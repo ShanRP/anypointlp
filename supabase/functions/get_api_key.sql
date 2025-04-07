@@ -1,6 +1,6 @@
 
 -- Function that allows retrieving API keys stored in supabase settings securely
-create or replace function get_api_key(key_name text)
+create or replace function apl_get_api_key(key_name text)
 returns text
 language plpgsql security definer
 as $$
@@ -23,4 +23,4 @@ end;
 $$;
 
 -- Grant usage to authenticated users
-grant execute on function get_api_key to authenticated;
+grant execute on function apl_get_api_key to authenticated;

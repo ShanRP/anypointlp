@@ -7,15 +7,17 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export const getApiKey = async (keyName: string): Promise<string | null> => {
   try {
+    // Create a stored procedure apl_get_api_key that returns the API key
     const { data, error } = await supabase
-      .rpc('get_api_key', { key_name: keyName });
+      .rpc('apl_get_api_key', { key_name: keyName });
     
     if (error) {
       console.error('Error fetching API key:', error);
       return null;
     }
     
-    return data;
+    // Ensure the data is treated as a string
+    return data as string;
   } catch (error) {
     console.error('Failed to fetch API key:', error);
     return null;
