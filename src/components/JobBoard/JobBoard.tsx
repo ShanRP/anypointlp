@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useJobBoard } from '@/hooks/useJobBoard';
@@ -268,7 +269,7 @@ export default function JobBoard() {
         peerName={chatPeer.name}
         peerId={chatPeer.id}
         messages={chatMessages[chatPeer.id] || []}
-        onSendMessage={(peerId, message) => sendChatMessage(peerId, message)}
+        onSendMessage={sendChatMessage}
       />
     </div>
   );

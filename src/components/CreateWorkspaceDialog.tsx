@@ -6,25 +6,22 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useLanguage } from '@/providers/LanguageProvider';
 import { motion } from "framer-motion";
-import { WorkspaceOption } from '@/hooks/useWorkspaces';
 
 type CreateWorkspaceDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   onCreateWorkspace: (name: string) => void;
-  onCreate?: (name: string) => Promise<WorkspaceOption>;
 };
 
 const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   isOpen,
   onClose,
-  onCreateWorkspace,
-  onCreate
+  onCreateWorkspace
 }) => {
   const [workspaceName, setWorkspaceName] = useState('');
   const { t } = useLanguage();
   
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!workspaceName.trim()) {
@@ -32,12 +29,7 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       return;
     }
     
-    if (onCreate) {
-      await onCreate(workspaceName);
-    } else {
-      onCreateWorkspace(workspaceName);
-    }
-    
+    onCreateWorkspace(workspaceName);
     setWorkspaceName('');
     onClose();
   };

@@ -4,16 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface WorkspaceTask {
   id: string;
   task_id: string;
   task_name: string;
   created_at: string;
-  workspace_id: string;
-  category?: string;
-  description?: string;
+  workspace_id: string; // Added to track which workspace this task belongs to
+  category?: string; // Added this field since it's used in the sidebar
+  description?: string; // Adding optional description field
 }
 
 export interface TaskDetails {
@@ -26,9 +25,8 @@ export interface TaskDetails {
   notes: string;
   generated_scripts: any[];
   created_at: string;
-  workspace_id: string;
-  description?: string;
-  category?: string;
+  workspace_id: string; // Added to track which workspace this task belongs to
+  description?: string; // Adding optional description field
 }
 
 export interface IntegrationGeneratorProps {
@@ -107,16 +105,14 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           notes: string;
           generated_scripts: Json;
           created_at: string;
-          description?: string;
-          category?: string;
+          description?: string; // Making this optional since it might not be in the RPC return
         };
         
         // Set the workspace_id on the task details
         const taskWithWorkspace = {
           ...taskDetails,
           workspace_id: workspaceId,
-          description: taskDetails.description || '', // Ensure description exists with a fallback
-          category: taskDetails.category || 'dataweave' // Ensure category exists with a fallback
+          description: taskDetails.description || '' // Ensure description exists with a fallback
         } as TaskDetails;
         
         setSelectedTask(taskWithWorkspace);
@@ -135,6 +131,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
 
   const saveTask = async (task: {
     workspace_id: string;
+    task_id: string;
     task_name: string;
     input_format: string;
     input_samples: any[];
@@ -142,19 +139,13 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     notes?: string;
     generated_scripts: any[];
     user_id: string;
-    description?: string;
-    category: string;
+    description?: string; // Adding optional description field
   }) => {
     try {
-      // Generate a unique task ID with category prefix
-      const categoryPrefix = task.category ? task.category.slice(0, 3).toUpperCase() : 'TSK';
-      const randomId = Math.random().toString(36).substring(2, 7).toUpperCase();
-      const uniqueTaskId = `${categoryPrefix}-${randomId}`;
-
       // Ensure workspace_id is set correctly
       const taskData = {
         workspace_id: task.workspace_id,
-        task_id: uniqueTaskId,
+        task_id: task.task_id,
         task_name: task.task_name,
         input_format: task.input_format,
         input_samples: JSON.parse(JSON.stringify(task.input_samples)) as Json,
@@ -163,8 +154,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
         user_id: task.user_id,
         username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
-        description: task.description,
-        category: task.category
+        description: task.description
       };
 
       const { data, error } = await supabase
