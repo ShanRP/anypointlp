@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, RefreshCw, FileCode2, Code, Share2, TestTube2, Database, Users, FileText, FileQuestion, MessageSquare } from 'lucide-react';
+import { Search, RefreshCw, FileCode2, Code, Share2, TestTube2, Database, Users, FileText, FileQuestion, MessageSquare, X } from 'lucide-react';
 import { useLanguage } from '@/providers/LanguageProvider';
 import SettingsPage from '@/components/SettingsPage';
 import DataWeaveGenerator from '@/components/DataWeaveGenerator';
@@ -331,23 +331,27 @@ const Dashboard = () => {
     setSearchQuery(query);
     
     const allAgents = [
-      { title: 'Integration Generator', description: 'Create flow code from flow specifications and flow diagrams', category: 'coding' },
-      { title: 'DataWeave Generator', description: 'Create transformations from input output examples', category: 'coding' },
-      { title: 'RAML Generator', description: 'Create RAML specifications for your APIs', category: 'coding' },
-      { title: 'Exchange Marketplace', description: 'Share and discover reusable templates and components', category: 'coding' },
-      { title: 'MUnit Test Generator', description: 'Generate MUnit tests for a flow', category: 'testing' },
-      { title: 'Sample Data Generator', description: 'Sample data from dataweave', category: 'testing' },
-      { title: 'Job Board', description: 'Connect with MuleSoft developers to solve problems together', category: 'testing' },
-      { title: 'Document Generator', description: 'Generate documentation for flows, endpoints', category: 'documentation' },
-      { title: 'Diagram Generator', description: 'Generate a sequence & flow diagram/s', category: 'documentation' },
-      { title: 'Single Repo Code Lens', description: 'Ask question for a single repository', category: 'insights' },
-      { title: 'Multi Repo Code Lens', description: 'Ask question for multiple repositories', category: 'insights' },
-      { title: 'Code Review Lens', description: 'Review a pull request for the provided repository', category: 'insights' },
+      { id: 'integration', title: 'Integration Generator', description: 'Create flow code from flow specifications and flow diagrams', category: 'coding', icon: <FileCode2 size={16} /> },
+      { id: 'dataweave', title: 'DataWeave Generator', description: 'Create transformations from input output examples', category: 'coding', icon: <Database size={16} /> },
+      { id: 'raml', title: 'RAML Generator', description: 'Create RAML specifications for your APIs', category: 'coding', icon: <FileCode2 size={16} /> },
+      { id: 'exchange', title: 'Exchange Marketplace', description: 'Share and discover reusable templates and components', category: 'marketplace', icon: <Share2 size={16} /> },
+      { id: 'munit', title: 'MUnit Test Generator', description: 'Generate MUnit tests for a flow', category: 'testing', icon: <TestTube2 size={16} /> },
+      { id: 'sampleData', title: 'Sample Data Generator', description: 'Generate sample data from dataweave transformations', category: 'data', icon: <Database size={16} /> },
+      { id: 'jobBoard', title: 'Job Board', description: 'Connect with MuleSoft developers to solve problems together', category: 'community', icon: <Users size={16} /> },
+      { id: 'document', title: 'Document Generator', description: 'Generate documentation for flows, endpoints', category: 'documentation', icon: <FileText size={16} /> },
+      { id: 'diagram', title: 'Diagram Generator', description: 'Generate sequence & flow diagrams', category: 'visualization', icon: <FileQuestion size={16} /> },
+      { id: 'codingAssistant', title: 'Coding Assistant', description: 'Get help with MuleSoft, DataWeave, and API development questions', category: 'assistance', icon: <MessageSquare size={16} /> },
     ];
+
+    if (query.trim() === '') {
+      setFilteredAgents([]);
+      return;
+    }
 
     const filtered = allAgents.filter(agent => 
       agent.title.toLowerCase().includes(query.toLowerCase()) || 
-      agent.description.toLowerCase().includes(query.toLowerCase())
+      agent.description.toLowerCase().includes(query.toLowerCase()) ||
+      agent.category.toLowerCase().includes(query.toLowerCase())
     );
 
     setFilteredAgents(filtered);
@@ -393,13 +397,24 @@ const Dashboard = () => {
 
         <header className="relative z-10 h-16 flex items-center px-8 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
-            <Input 
-              className="w-[400px] bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl focus-visible:ring-1 focus-visible:ring-purple-500" 
-              placeholder="Search or type a command..." 
-              startContent={<Search className="h-4 w-4 text-gray-500" />}
+            <input
+              type="text"
+              placeholder="Search or type a command..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
+              className="w-[400px] bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
             />
+            <div className="absolute left-12 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <Search className="h-4 w-4" />
+            </div>
+            {searchQuery.length > 0 && (
+              <div className="absolute right-[450px] top-1/2 transform -translate-y-1/2 cursor-pointer" onClick={() => {
+                setSearchQuery('');
+                setFilteredAgents([]);
+              }}>
+                <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+              </div>
+            )}
           </div>
           <div className="ml-auto flex items-center gap-3">
             
@@ -417,7 +432,7 @@ const Dashboard = () => {
                 selectedCategory={selectedCategory} 
                 setSelectedCategory={setSelectedCategory} 
                 onAgentSelect={handleAgentSelect} 
-                filteredAgents={filteredAgents.length > 0 ? filteredAgents : undefined}
+                filteredAgents={filteredAgents}
               />
             </motion.div>
           )}
@@ -553,13 +568,11 @@ const Dashboard = () => {
             </motion.div>}
         </div>
         <CodingAssistantDialog 
-        isOpen={isCodingAssistantOpen} 
-        onOpenChange={setIsCodingAssistantOpen} 
-        trigger={<button data-dialog-trigger="coding-assistant" className="hidden"></button>}
-      />
+          isOpen={isCodingAssistantOpen} 
+          onOpenChange={setIsCodingAssistantOpen} 
+          trigger={<button data-dialog-trigger="coding-assistant" className="hidden"></button>}
+        />
       </div>
-
-      
     </div>;
 };
 

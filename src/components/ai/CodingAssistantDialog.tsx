@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ const CodingAssistantDialog: React.FC<CodingAssistantDialogProps> = ({
             variant="ghost"
             size="icon"
             onClick={() => handleOpenChange(false)}
-            className="h-6 w-6 rounded-full  bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-gray-200 dark:hover:bg-gray-700 text-black-700 dark:text-gray-300 shadow-sm"
+            className="h-6 w-6 rounded-full bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-gray-200 dark:hover:bg-gray-700 text-black-700 dark:text-gray-300 shadow-sm"
           >
             <X className="h-3 w-3" />
           </Button>

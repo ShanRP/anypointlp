@@ -388,18 +388,14 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 onClick={() => onNavigate('jobBoard')}
               />
               
-              {/* <NavItem 
-                icon={<RefreshCcw className="h-4 w-4" />} 
-                label="Migration Generator"
-                active={currentPage === 'migration'}
-                onClick={() => onNavigate('migration')}
-              /> */}
-              
               <NavItem 
                 icon={<MessageSquare className="h-4 w-4" />} 
                 label="AI Chat"
                 active={currentPage === 'chat'}
-                onClick={() => setIsCodingAssistantOpen(true)}
+                onClick={() => {
+                  setIsCodingAssistantOpen(true);
+                  onNavigate('chat');
+                }}
               />
             </nav>
 

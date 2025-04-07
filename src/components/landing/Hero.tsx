@@ -111,21 +111,33 @@ export const Hero = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <h1 className="text-5xl md:text-7xl font-bold mb-6 text-white">
-              Transform Your Workflow
+              Revolutionize Your MuleSoft Development
             </h1>
             <p className="text-xl text-gray-200 mb-8">
-              Our comprehensive suite of AI tools enables teams to achieve exceptional results with minimal effort.
+              Harness the power of AI to streamline your integration workflows, automate DataWeave transformations, and accelerate API development by up to 10x.
             </p>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Link to="/auth?signup=true">
-                <Button size="lg" className="px-8 py-6 text-lg font-semibold bg-white text-black hover:bg-gray-200">
-                  Sign up for Free
-                </Button>
-              </Link>
-            </motion.div>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Link to="/auth?signup=true">
+                  <Button size="lg" className="px-8 py-6 text-lg font-semibold bg-white text-black hover:bg-gray-200">
+                    Start Building for Free
+                  </Button>
+                </Link>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Link to="/dashboard">
+                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg font-semibold border-white text-white hover:bg-white/10">
+                    Explore Features
+                  </Button>
+                </Link>
+              </motion.div>
+            </div>
           </motion.div>
 
           <motion.div
@@ -166,17 +178,17 @@ export const Hero = () => {
                   className="text-5xl font-bold text-white mb-4"
                 />
                 <p className="text-gray-200">
-                  Acceleration with tedious tasks
+                  Faster development cycles with AI assistance
                 </p>
               </div>
               <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10">
                 <AnimatedNumber
-                  value={30}
+                  value={85}
                   suffix="%"
                   className="text-5xl font-bold text-white mb-4"
                 />
                 <p className="text-gray-200">
-                  Cost savings on manual efforts
+                  Reduced errors in integration projects
                 </p>
               </div>
             </div>
