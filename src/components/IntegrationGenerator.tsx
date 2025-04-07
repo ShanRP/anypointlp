@@ -1,223 +1,105 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MonacoEditor from './MonacoEditor';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/hooks/useAuth';
+import { BackButton } from './ui/BackButton';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Separator } from './ui/separator';
+import { Textarea } from './ui/textarea';
 import { useGithubApi } from '@/hooks/useGithubApi';
-import type { FileNode, Repository } from '@/utils/githubUtils';
+import { useRepositoryData } from '@/hooks/useRepositoryData';
+import { Input } from './ui/input';
+import { Animation } from './ui/Animation';
+import { FileNode, isFileOfType } from '@/utils/githubUtils';
 
-export interface IntegrationGeneratorProps {
-  onTaskCreated?: (task: any) => void;
-  selectedWorkspaceId?: string;
-  onBack?: () => void;
-  onSaveTask?: (taskId: string) => void;
+type SourceType = 'no-repository' | 'with-repository' | 'upload';
+
+interface IntegrationGeneratorProps {
+  onBack: () => void;
 }
 
-interface RamlItem {
-  id: string;
-  title: string;
-  description: string;
-  content: string;
-  type: string;
-}
-
-interface Branch {
-  name: string;
-  commit: {
-    sha: string;
-  };
-}
-
-interface RamlFile {
-  name: string;
-  path: string;
-  sha: string;
-  content?: string;
-}
-
-interface CustomInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  webkitdirectory?: string;
-  directory?: string;
-}
-
-const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
-  onTaskCreated,
-  selectedWorkspaceId,
-  onBack,
-  onSaveTask
-}) => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
+const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack }) => {
+  const [sourceType, setSourceType] = useState<SourceType>('no-repository');
   const [description, setDescription] = useState('');
-  const [diagrams, setDiagrams] = useState<File[]>([]);
+  const [raml, setRaml] = useState('');
+  const [result, setResult] = useState('');
+  const [flowCode, setFlowCode] = useState('');
+  const [configXml, setConfigXml] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedOption, setSelectedOption] = useState('noRepository');
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
-  const [javaVersion, setJavaVersion] = useState('8.0');
-  const [mavenVersion, setMavenVersion] = useState('3.8');
-  const [showVersionsPopup, setShowVersionsPopup] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'editor' | 'result'>('editor');
-  const [parsedSections, setParsedSections] = useState<{
-    flowSummary: string;
-    flowImplementation: string;
-    flowConstants: string;
-    pomDependencies: string;
-    compilationCheck: string;
-  } | null>(null);
-
-  const [ramlContent, setRamlContent] = useState<string>('');
-  const [ramlOption, setRamlOption] = useState<'none' | 'input' | 'workspace'>('none');
-  const [workspaceRamls, setWorkspaceRamls] = useState<RamlItem[]>([]);
-  const [selectedRaml, setSelectedRaml] = useState<RamlItem | null>(null);
-  const [loadingRamls, setLoadingRamls] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const { 
-    repositories, 
-    loadingRepositories, 
-    fetchRepositories, 
-    fileStructure, 
-    loadingFileStructure, 
-    fetchFileStructure,
-    fetchFileContent 
-  } = useGithubApi();
+  const [activeTab, setActiveTab] = useState<string>('input');
   
-  const [selectedRepository, setSelectedRepository] = useState<Repository | null>(null);
-  const [ramlFiles, setRamlFiles] = useState<RamlFile[]>([]);
-  const [selectedRamlFile, setSelectedRamlFile] = useState<RamlFile | null>(null);
-  const [loadingRamlFile, setLoadingRamlFile] = useState(false);
+  const { repositories, loadingRepositories, fetchRepositories, 
+          fileStructure, loadingFileStructure, fetchFileStructure,
+          fetchFileContent, isRamlFile } = useGithubApi();
+  const { selectedRepository } = useRepositoryData();
+  
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [fileContent, setFileContent] = useState<string>('');
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [currentDirectory, setCurrentDirectory] = useState<string>('/');
-  const [localProjectFiles, setLocalProjectFiles] = useState<FileNode[]>([]);
+  const [isLoadingFile, setIsLoadingFile] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const projectFolderRef = useRef<HTMLInputElement>(null);
-  const { selectedWorkspace } = useWorkspaces();
-  
-  useEffect(() => {
-    const storedRepo = localStorage.getItem('APL_selectedGithubRepo');
-    if (storedRepo && selectedOption === 'withRepository') {
-      try {
-        const repoData = JSON.parse(storedRepo);
-        setSelectedRepository(repoData);
-        fetchFileStructure(repoData);
-      } catch (error) {
-        console.error('Error parsing stored GitHub repo:', error);
+  const handleReset = () => {
+    setSourceType('no-repository');
+    setDescription('');
+    setRaml('');
+    setResult('');
+    setFlowCode('');
+    setConfigXml('');
+    setActiveTab('input');
+    setUploadedFiles([]);
+    setFileContent('');
+    setSelectedFile(null);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const files = Array.from(event.target.files);
+      setUploadedFiles(files);
+      
+      // Try to find RAML files among the uploaded files
+      const ramlFiles = files.filter(file => file.name.toLowerCase().endsWith('.raml'));
+      
+      if (ramlFiles.length > 0) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            const fileContent = e.target.result as string;
+            setFileContent(fileContent);
+            setRaml(fileContent);
+            setSelectedFile(ramlFiles[0].name);
+            toast.success(`RAML file "${ramlFiles[0].name}" loaded`);
+          }
+        };
+        reader.readAsText(ramlFiles[0]);
       }
-    }
-  }, [selectedOption, fetchFileStructure]);
-
-  useEffect(() => {
-    const storedRaml = sessionStorage.getItem('selectedRamlForIntegration');
-    if (storedRaml) {
-      try {
-        const ramlData = JSON.parse(storedRaml) as RamlItem;
-        setSelectedRaml(ramlData);
-        setRamlContent(ramlData.content);
-        setRamlOption('input');
-        setDescription(ramlData.description || description);
-
-        sessionStorage.removeItem('selectedRamlForIntegration');
-        toast.success(`RAML "${ramlData.title}" loaded from Exchange`);
-      } catch (error) {
-        console.error('Error parsing stored RAML:', error);
-      }
-    }
-  }, [description]);
-
-  useEffect(() => {
-    if (selectedOption === 'withRepository') {
-      fetchRepositories();
-    }
-  }, [selectedOption, fetchRepositories]);
-
-  useEffect(() => {
-    if (selectedRepository) {
-      fetchFileStructure(selectedRepository);
-    }
-  }, [selectedRepository, fetchFileStructure]);
-
-  const handleFileSelect = async (file: FileNode) => {
-    if (file.type === 'file' && file.isRaml) {
-      const ramlFile = ramlFiles.find(r => r.path === file.path);
-
-      if (ramlFile) {
-        setSelectedRamlFile(ramlFile);
-        if (ramlFile.content) {
-          setRamlContent(ramlFile.content);
-          setRamlOption('input');
-          toast.success(`RAML file "${ramlFile.name}" selected`);
-        } else {
-          const fetchContent = async () => {
-            try {
-              if (selectedRepository) {
-                const token = localStorage.getItem('APL_githubToken');
-                if (!token) {
-                  throw new Error('GitHub token not found');
-                }
-                
-                const response = await fetch(`https://api.github.com/repos/${selectedRepository.full_name}/contents/${file.path}`, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/vnd.github.v3.raw'
-                  }
-                });
-                
-                if (!response.ok) {
-                  throw new Error(`Failed to fetch file: ${response.statusText}`);
-                }
-                
-                const content = await response.text();
-                
-                const updatedRamlFiles = [...ramlFiles];
-                const fileIndex = updatedRamlFiles.findIndex(r => r.path === file.path);
-                if (fileIndex !== -1) {
-                  updatedRamlFiles[fileIndex] = {
-                    ...updatedRamlFiles[fileIndex],
-                    content
-                  };
-                  setRamlFiles(updatedRamlFiles);
-                }
-                
-                setRamlContent(content);
-                setRamlOption('input');
-                toast.success(`RAML file "${file.name}" loaded and selected`);
-              }
-            } catch (error) {
-              console.error('Error fetching file content:', error);
-              toast.error('Failed to fetch file content');
-            }
-          };
-          
-          fetchContent();
-        }
-      }
+      
+      toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded successfully`);
     }
   };
 
-  const navigateDirectory = (dir: FileNode) => {
-    if (dir.type === 'directory') {
-      setCurrentDirectory(dir.path);
-      toast.success(`Navigated to ${dir.name}`);
+  const handleSelectRepository = async (repo: any) => {
+    try {
+      await fetchFileStructure(repo);
+      toast.success(`Repository ${repo.name} loaded successfully`);
+    } catch (error) {
+      toast.error('Failed to load repository structure');
     }
   };
 
   const getCurrentDirectoryContents = () => {
-    if (currentDirectory === '/') {
-      return selectedOption === 'withRepository' ? fileStructure : localProjectFiles;
+    if (!fileStructure || fileStructure.length === 0) {
+      return [];
     }
-
-    const findDirectory = (nodes: FileNode[], path: string): FileNode[] | null => {
+    
+    if (currentDirectory === '/') {
+      return fileStructure;
+    }
+    
+    const findDirectory = (nodes: any[], path: string): any[] | null => {
       for (const node of nodes) {
         if (node.path === path && node.type === 'directory') {
           return node.children || [];
@@ -229,1085 +111,528 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
       }
       return null;
     };
-
-    const dirContents = findDirectory(
-      selectedOption === 'withRepository' ? fileStructure : localProjectFiles,
-      currentDirectory
-    );
-
+    
+    const dirContents = findDirectory(fileStructure, currentDirectory);
     return dirContents || [];
   };
 
+  const navigateDirectory = (dir: any) => {
+    if (dir.type === 'directory') {
+      setCurrentDirectory(dir.path);
+      toast.success(`Navigated to ${dir.name}`);
+    }
+  };
+  
   const goUpDirectory = () => {
     if (currentDirectory === '/') return;
-
+    
     const pathParts = currentDirectory.split('/');
     pathParts.pop();
     const parentPath = pathParts.length === 1 ? '/' : pathParts.join('/');
-
+    
     setCurrentDirectory(parentPath);
   };
 
-  const handleRepositorySelect = (repo: Repository) => {
-    setSelectedRepository(repo);
-    setRamlFiles([]);
-    setSelectedRamlFile(null);
-    setCurrentDirectory('/');
-
-    localStorage.setItem('APL_selectedGithubRepo', JSON.stringify(repo));
-
-    toast.success(`Repository "${repo.name}" selected`);
-  };
-
-  const fetchWorkspaceRamls = async () => {
-    if (!selectedWorkspaceId && !selectedWorkspace?.id) return;
-
-    setLoadingRamls(true);
-    try {
-      const { data, error } = await supabase
-        .from('apl_exchange_items')
-        .select('*')
-        .eq('type', 'raml')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formattedRamls = data.map(item => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        content: typeof item.content === 'object' && item.content !== null && 'raml' in item.content
-          ? String(item.content.raml)
-          : '',
-        type: 'raml'
-      }));
-
-      setWorkspaceRamls(formattedRamls);
-    } catch (error) {
-      console.error('Error fetching RAMLs:', error);
-      toast.error('Failed to load RAMLs from workspace');
-    } finally {
-      setLoadingRamls(false);
-    }
-  };
-
-  useEffect(() => {
-    if (ramlOption === 'workspace') {
-      fetchWorkspaceRamls();
-    }
-  }, [ramlOption, selectedWorkspaceId, selectedWorkspace?.id]);
-
-  const handleRamlSelect = (raml: RamlItem) => {
-    setSelectedRaml(raml);
-    setRamlContent(raml.content);
-    toast.success(`RAML "${raml.title}" selected`);
-  };
-
-  const handleOptionChange = (option: string) => {
-    setSelectedOption(option);
-    setCurrentDirectory('/');
-
-    if (option === 'uploadComputer') {
-      setRamlOption('none');
-      setSelectedRaml(null);
-      setRamlContent('');
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setDiagrams(Array.from(e.target.files));
-    }
-  };
-
-  const handleProjectFolderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files);
-
-      const fileStructure: FileNode[] = [];
-      const directories: Record<string, FileNode> = {};
-
-      files.forEach(file => {
-        const path = file.webkitRelativePath;
-        const pathParts = path.split('/');
-
-        if (pathParts.length <= 1) return;
-
-        let currentPath = '';
-        let parentNode: FileNode | null = null;
-
-        for (let i = 0; i < pathParts.length - 1; i++) {
-          const part = pathParts[i];
-          const newPath = currentPath ? `${currentPath}/${part}` : part;
-          currentPath = newPath;
-
-          if (!directories[newPath]) {
-            const newNode: FileNode = {
-              name: part,
-              path: newPath,
-              type: 'directory',
-              children: []
-            };
-
-            directories[newPath] = newNode;
-
-            if (i === 0) {
-              fileStructure.push(newNode);
-            } else if (parentNode) {
-              parentNode.children?.push(newNode);
+  const handleFileSelect = async (file: FileNode) => {
+    if (file.type === 'file') {
+      setSelectedFile(file.path);
+      
+      // Check if it's a RAML file
+      if (isRamlFile(file.name)) {
+        setIsLoadingFile(true);
+        
+        if (selectedRepository) {
+          try {
+            const content = await fetchFileContent(selectedRepository, file.path);
+            if (content) {
+              setFileContent(content);
+              setRaml(content);
+              toast.success(`RAML file "${file.name}" loaded successfully`);
             }
-          }
-
-          parentNode = directories[newPath];
-        }
-
-        if (parentNode) {
-          const fileName = pathParts[pathParts.length - 1];
-          const isRaml = fileName.endsWith('.raml');
-
-          const fileNode: FileNode = {
-            name: fileName,
-            path: path,
-            type: 'file',
-            isRaml
-          };
-
-          parentNode.children?.push(fileNode);
-
-          if (isRaml) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              if (event.target && typeof event.target.result === 'string') {
-                const ramlFile: RamlFile = {
-                  name: fileName,
-                  path: path,
-                  sha: path,
-                  content: event.target.result
-                };
-
-                setRamlFiles(prev => [...prev, ramlFile]);
-              }
-            };
-            reader.readAsText(file);
+          } catch (error) {
+            console.error('Error loading RAML file:', error);
+            toast.error(`Failed to load RAML file: ${file.name}`);
+          } finally {
+            setIsLoadingFile(false);
           }
         }
-      });
-
-      setLocalProjectFiles(fileStructure);
-      toast.success('Project folder loaded successfully');
+      } else {
+        toast.info(`File ${file.name} selected, but it's not a RAML file`);
+      }
     }
   };
 
-  const handleUploadClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleProjectFolderClick = () => {
-    if (projectFolderRef.current) {
-      projectFolderRef.current.click();
-    }
-  };
-
-  const handleRuntimeSettingsClick = () => {
-    setShowVersionsPopup(!showVersionsPopup);
-  };
-
-  const handleJavaVersionSelect = (version: string) => {
-    setJavaVersion(version);
-    setShowVersionsPopup(false);
-  };
-
-  const handleMavenVersionSelect = (version: string) => {
-    setMavenVersion(version);
-    setShowVersionsPopup(false);
-  };
-
-  const handleBackNavigation = () => {
-    if (onBack) {
-      onBack();
+  const handleUploadedFileSelect = (file: File) => {
+    setSelectedFile(file.name);
+    
+    // Check if it's a RAML file
+    if (file.name.toLowerCase().endsWith('.raml')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          const content = e.target.result as string;
+          setFileContent(content);
+          setRaml(content);
+          toast.success(`RAML file "${file.name}" loaded successfully`);
+        }
+      };
+      reader.onerror = () => {
+        toast.error(`Failed to read file: ${file.name}`);
+      };
+      reader.readAsText(file);
     } else {
-      navigate('/dashboard');
+      toast.info(`File ${file.name} selected, but it's not a RAML file`);
     }
   };
 
-  const parseGeneratedCode = (code: string) => {
-    const flowSummaryPattern = /(?:^|\n)(?:#{1,3}\s*)?Flow Summary\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=\n(?:#{1,3}\s*)?Flow Implementation|$)/i;
-    const flowSummaryMatch = code.match(flowSummaryPattern);
-    
-    const flowImplementationPattern = /(?:^|\n)(?:#{1,3}\s*)?Flow Implementation\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=\n(?:#{1,3}\s*)?Flow Constants|$)/i;
-    const flowImplementationMatch = code.match(flowImplementationPattern);
-    
-    const flowConstantsPattern = /(?:^|\n)(?:#{1,3}\s*)?Flow Constants\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=\n(?:#{1,3}\s*)?POM Dependencies|$)/i;
-    const flowConstantsMatch = code.match(flowConstantsPattern);
-    
-    const pomDependenciesPattern = /(?:^|\n)(?:#{1,3}\s*)?POM Dependencies\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=\n(?:#{1,3}\s*)?Compilation Check|$)/i;
-    const pomDependenciesMatch = code.match(pomDependenciesPattern);
-    
-    const compilationCheckPattern = /(?:^|\n)(?:#{1,3}\s*)?Compilation Check\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=$)/i;
-    const compilationCheckMatch = code.match(compilationCheckPattern);
-
-    return {
-      flowSummary: flowSummaryMatch ? flowSummaryMatch[1].trim() : '',
-      flowImplementation: flowImplementationMatch ? flowImplementationMatch[1].trim() : code,
-      flowConstants: flowConstantsMatch ? flowConstantsMatch[1].trim() : '',
-      pomDependencies: pomDependenciesMatch ? pomDependenciesMatch[1].trim() : '',
-      compilationCheck: compilationCheckMatch ? compilationCheckMatch[1].trim() : ''
-    };
-  };
-
-  const handleSubmit = async () => {
-    if (!description.trim()) {
+  const handleGenerate = async () => {
+    if (!description) {
       toast.error('Please provide a description for the integration');
       return;
     }
 
     setIsLoading(true);
-    setError(null);
-    const toastId = toast.loading('Generating integration code...');
-
     try {
-      const diagramsBase64 = await Promise.all(
-        diagrams.map(async (file) => {
-          return new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64 = reader.result as string;
-              resolve(base64.split(',')[1]);
-            };
-            reader.readAsDataURL(file);
-          });
+      let prompt = `Generate a detailed MuleSoft integration flow based on this description:\n\n${description}\n\n`;
+      
+      if (raml) {
+        prompt += `RAML Specification:\n${raml}\n\n`;
+      }
+      
+      prompt += `Your response MUST have exactly these two sections with these exact headings:
+1. # Integration Flow: Create a detailed integration flow showing all connections and components in XML format. Make sure it's properly structured and clear.
+2. # Configuration XML: List all the necessary configuration details for implementing this flow in XML format.
+
+Both sections MUST begin with the exact headings "# Integration Flow" and "# Configuration XML". For both sections, be specific to MuleSoft implementation.`;
+
+      console.log("Sending request to Mistral AI with prompt:", prompt);
+
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer 4oHKJ2sxR1hkZDuclKddFjSrmLilELBO'
+        },
+        body: JSON.stringify({
+          model: 'mistral-large-latest',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a MuleSoft architect expert at creating integration flows. You create detailed, well-structured flows for MuleSoft implementations. ALWAYS format your response with EXACTLY these section headings: "# Integration Flow" and "# Configuration XML".'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.2,
+          max_tokens: 4000
         })
-      );
-
-      const runtime = `Java ${javaVersion}, Maven ${mavenVersion}`;
-      
-      const requestBody: any = {
-        description,
-        runtime,
-        diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null,
-      };
-      
-      if (ramlOption !== 'none' && ramlContent) {
-        requestBody.raml = { content: ramlContent };
-      }
-      
-      if (selectedRamlFile) {
-        requestBody.selectedFile = {
-          name: selectedRamlFile.name,
-          path: selectedRamlFile.path,
-          content: selectedRamlFile.content
-        };
-      }
-
-      console.log('Sending integration request with:', {
-        description,
-        runtime,
-        diagrams: diagramsBase64.length > 0,
-        raml: ramlOption !== 'none' ? { content: ramlContent } : undefined,
-        selectedFile: selectedRamlFile ? {
-          name: selectedRamlFile.name,
-          path: selectedRamlFile.path
-        } : undefined
       });
 
-      const { data, error } = await supabase.functions.invoke('generate-integration', {
-        body: requestBody,
-      });
-
-      toast.dismiss(toastId);
-
-      if (error) {
-        console.error('Supabase function error:', error);
-        setError(`Error calling the integration generator: ${error.message || 'Unknown error'}`);
-        toast.error(`Failed to generate integration: ${error.message || 'Unknown error'}`);
-        return;
+      const data = await response.json();
+      console.log("Mistral AI response:", data);
+      
+      if (data.choices && data.choices.length > 0) {
+        const content = data.choices[0].message.content.trim();
+        setResult(content);
+        
+        const flowCodeMatch = content.match(/# Integration Flow\s*\n([\s\S]*?)(?=\s*# Configuration XML|$)/i);
+        const configXmlMatch = content.match(/# Configuration XML\s*\n([\s\S]*?)$/i);
+        
+        console.log("Integration flow match:", flowCodeMatch);
+        console.log("Configuration XML match:", configXmlMatch);
+        
+        if (flowCodeMatch && flowCodeMatch[1]) {
+          setFlowCode(flowCodeMatch[1].trim());
+        } else {
+          setFlowCode('Integration flow section not found in the generated content.');
+          console.error("Integration Flow section not found in:", content);
+        }
+        
+        if (configXmlMatch && configXmlMatch[1]) {
+          setConfigXml(configXmlMatch[1].trim());
+        } else {
+          setConfigXml('Configuration XML section not found in the generated content.');
+          console.error("Configuration XML section not found in:", content);
+        }
+        
+        setActiveTab('result');
+        toast.success('Integration generated successfully!');
+      } else {
+        throw new Error('No response received from API');
       }
-
-      console.log('Integration generation response:', data);
-
-      if (!data || !data.success) {
-        const errorMessage = data?.error || 'Failed to generate integration code';
-        setError(errorMessage);
-        toast.error(errorMessage);
-        return;
-      }
-
-      const generatedCodeResult = data.code;
-      setGeneratedCode(generatedCodeResult);
-
-      const parsedResult = parseGeneratedCode(generatedCodeResult);
-      setParsedSections(parsedResult);
-      setCurrentView('result');
-
-      const taskId = `IG-${Math.floor(1000 + Math.random() * 9000)}`;
-      const newTask = {
-        id: `task-${Date.now()}`,
-        label: `Integration Generator`,
-        category: 'coding',
-        task_id: taskId,
-        task_name: 'Integration Flow',
-        icon: 'CodeIcon',
-        workspace_id: selectedWorkspaceId || selectedWorkspace?.id || '',
-        created_at: new Date().toISOString(),
-        input_format: 'Flow Specification',
-        notes: description,
-        generated_scripts: [
-          {
-            id: `script-${Date.now()}`,
-            code: generatedCodeResult
-          }
-        ]
-      };
-
-      if (onTaskCreated) {
-        onTaskCreated(newTask);
-      }
-
-      if (onSaveTask) {
-        onSaveTask(taskId);
-      }
-
-      toast.success('Integration code generated successfully!');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error generating integration:', error);
-      setError(`Failed to generate integration code: ${error.message || 'Unknown error'}`);
-      toast.error(`Failed to generate integration code: ${error.message || 'Unknown error'}`);
+      toast.error('Failed to generate integration. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard!');
+  const handleCopyToClipboard = () => {
+    navigator.clipboard.writeText(result);
+    toast.success('Integration copied to clipboard!');
   };
 
-  const filteredRamls = workspaceRamls.filter(raml =>
-    raml.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    raml.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    if (sourceType === 'with-repository' && !repositories.length) {
+      fetchRepositories();
+    }
+  }, [sourceType, repositories, fetchRepositories]);
 
-  const renderRepositorySelection = () => {
-    if (selectedOption !== 'withRepository') return null;
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <BackButton onBack={onBack} label="Back to Dashboard" />
+      
+      <Card className="mt-4 border border-gray-200 shadow-sm overflow-hidden">
+        <CardHeader className="bg-gray-50 border-b border-gray-200">
+          <CardTitle className="text-xl font-semibold">Integration Generator</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <motion.div 
+            className="mb-6 h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
+            initial={{ width: '0%' }}
+            animate={{ width: '100%' }}
+            transition={{ duration: 0.5 }}
+          />
 
-    return (
-      <div className="space-y-4 mt-4">
-        <label className="block font-medium mb-2">
-          Repository:
-        </label>
-
-        {loadingRepositories ? (
-          <div className="flex justify-center py-4">
-            <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <>
-            {!selectedRepository ? (
-              <div className="text-center py-6 bg-gray-50 rounded-md">
-                <p className="text-gray-500">No repository selected</p>
-                <p className="text-gray-400 text-sm mt-1">Select a repository in Repository Settings</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="bg-purple-50 border border-purple-200 p-4 rounded-md">
-                  <div className="flex items-center">
-                    <FileCode className="h-5 w-5 mr-2 text-purple-600" />
-                    <div>
-                      <div className="font-medium">{selectedRepository.name}</div>
-                      <div className="text-sm text-gray-600">{selectedRepository.full_name}</div>
-                    </div>
-                  </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="input">Input</TabsTrigger>
+              <TabsTrigger value="result">Result</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="input" className="space-y-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Source Type</label>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    variant={sourceType === 'no-repository' ? 'default' : 'outline'}
+                    onClick={() => setSourceType('no-repository')}
+                    className="flex-1 min-w-[180px]"
+                  >
+                    No Repository
+                  </Button>
+                  <Button
+                    variant={sourceType === 'with-repository' ? 'default' : 'outline'}
+                    onClick={() => setSourceType('with-repository')}
+                    className="flex-1 min-w-[180px] flex items-center gap-2"
+                  >
+                    <FolderTree size={16} />
+                    With Repository
+                  </Button>
+                  <Button
+                    variant={sourceType === 'upload' ? 'default' : 'outline'}
+                    onClick={() => setSourceType('upload')}
+                    className="flex-1 min-w-[180px] flex items-center gap-2"
+                  >
+                    <Upload size={16} />
+                    Upload from Computer
+                  </Button>
                 </div>
+              </div>
 
-                <div className="mt-4">
-                  <label className="block text-sm font-medium mb-2">
-                    Repository Files:
-                  </label>
-
-                  {loadingRamlFile ? (
-                    <div className="flex justify-center py-4">
-                      <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              {sourceType === 'with-repository' && (
+                <div className="space-y-2 border p-4 rounded-md bg-gray-50">
+                  <h3 className="font-medium text-gray-900">Repository Selection</h3>
+                  {loadingRepositories ? (
+                    <div className="py-4 text-center">
+                      <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
+                      <p>Loading repositories...</p>
+                    </div>
+                  ) : repositories.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2 mt-2">
+                      {repositories.map((repo) => (
+                        <div 
+                          key={repo.id}
+                          onClick={() => handleSelectRepository(repo)}
+                          className={`p-3 rounded-md cursor-pointer border ${
+                            selectedRepository?.id === repo.id 
+                              ? 'border-purple-500 bg-purple-50' 
+                              : 'border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="font-medium">{repo.name}</div>
+                          <div className="text-xs text-gray-500">{repo.full_name}</div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="border rounded-md overflow-hidden">
-                      <div className="bg-gray-100 p-2 flex items-center border-b">
-                        <button
-                          onClick={goUpDirectory}
-                          disabled={currentDirectory === '/'}
-                          className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-                        >
-                          <ArrowLeft size={16} />
-                        </button>
-                        <span className="text-sm font-medium truncate">
-                          {currentDirectory === '/' ? 'Root' : currentDirectory}
-                        </span>
+                    <div className="py-4 text-center">
+                      <p>No repositories found. Connect your GitHub account in settings.</p>
+                      <Button 
+                        variant="outline" 
+                        onClick={fetchRepositories}
+                        className="mt-2"
+                      >
+                        Refresh Repositories
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {selectedRepository && (
+                    <div className="mt-4">
+                      <h4 className="font-medium mb-2">Files</h4>
+                      <div className="border rounded-md overflow-hidden">
+                        <div className="bg-gray-100 p-2 flex items-center border-b">
+                          <button 
+                            onClick={goUpDirectory}
+                            disabled={currentDirectory === '/'} 
+                            className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                          >
+                            <ArrowLeft size={16} />
+                          </button>
+                          <span className="text-sm font-medium truncate">
+                            {currentDirectory === '/' ? 'Root' : currentDirectory}
+                          </span>
+                        </div>
+                        
+                        <div className="max-h-60 overflow-y-auto">
+                          {getCurrentDirectoryContents().length === 0 ? (
+                            <div className="p-4 text-center text-gray-500">
+                              No files found in this directory
+                            </div>
+                          ) : (
+                            <div className="divide-y">
+                              {getCurrentDirectoryContents().map((item: any, index: number) => {
+                                const isRaml = item.type === 'file' && isFileOfType(item.name, 'raml');
+                                return (
+                                  <div 
+                                    key={index}
+                                    onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                                    className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                                      selectedFile === item.path
+                                        ? 'bg-purple-50' 
+                                        : ''
+                                    } ${isRaml ? 'text-purple-700 font-medium' : ''}`}
+                                  >
+                                    {item.type === 'directory' ? (
+                                      <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                                    ) : isRaml ? (
+                                      <File className="h-4 w-4 mr-2 text-purple-600" />
+                                    ) : (
+                                      <File className="h-4 w-4 mr-2 text-gray-500" />
+                                    )}
+                                    <span className="truncate">{item.name}</span>
+                                    {selectedFile === item.path && (
+                                      <Check className="h-4 w-4 ml-auto text-purple-600" />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                      <div className="max-h-60 overflow-y-auto">
-                        {getCurrentDirectoryContents().length === 0 ? (
-                          <div className="p-4 text-center text-gray-500">
-                            No files found in this directory
-                          </div>
-                        ) : (
-                          <div className="divide-y">
-                            {getCurrentDirectoryContents().map((item, index) => (
-                              <div
-                                key={index}
-                                onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-                                className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-                                  selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path
-                                    ? 'bg-purple-50'
-                                    : ''
-                                }`}
+              {sourceType === 'upload' && (
+                <div className="space-y-2 border p-4 rounded-md bg-gray-50">
+                  <h3 className="font-medium text-gray-900">Upload Files</h3>
+                  <div className="mt-2">
+                    <label 
+                      htmlFor="file-upload" 
+                      className="cursor-pointer bg-white py-6 px-4 border-2 border-dashed border-gray-300 rounded-md flex justify-center items-center flex-col text-center"
+                    >
+                      <Upload size={24} className="mb-2 text-gray-400" />
+                      <span className="text-sm text-gray-600">Drag and drop files here, or click to browse</span>
+                      <span className="text-xs text-gray-500 mt-1">RAML files will be automatically detected</span>
+                      <input 
+                        id="file-upload" 
+                        type="file" 
+                        multiple 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+                  </div>
+                  
+                  {uploadedFiles.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-medium mb-2">Uploaded Files ({uploadedFiles.length})</h4>
+                      <div className="bg-gray-100 p-2 rounded border">
+                        <div className="max-h-40 overflow-y-auto divide-y">
+                          {uploadedFiles.map((file, index) => {
+                            const isRaml = file.name.toLowerCase().endsWith('.raml');
+                            return (
+                              <div 
+                                key={index} 
+                                onClick={() => handleUploadedFileSelect(file)}
+                                className={`py-2 px-3 flex items-center ${
+                                  selectedFile === file.name ? 'bg-purple-50' : ''
+                                } ${isRaml ? 'cursor-pointer hover:bg-gray-50 text-purple-700 font-medium' : ''}`}
                               >
-                                {item.type === 'directory' ? (
-                                  <Folder className="h-4 w-4 mr-2 text-blue-500" />
-                                ) : item.isRaml ? (
-                                  <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                                {isRaml ? (
+                                  <File className="h-4 w-4 mr-2 text-purple-600" />
                                 ) : (
-                                  <File className="h-4 w-4 mr-2 text-gray-500" />
+                                  <File className="h-4 w-4 mr-2 text-gray-400" />
                                 )}
-                                <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
-                                  {item.name}
-                                </span>
-                                {selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path && (
+                                <span>{file.name}</span>
+                                {selectedFile === file.name && (
                                   <Check className="h-4 w-4 ml-auto text-purple-600" />
                                 )}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {selectedRamlFile && (
-                  <div className="mt-4">
-                    <h3 className="text-md font-medium mb-2">Selected File:</h3>
-                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
-                      <div className="flex items-center mb-2">
-                        <FileCode className="h-4 w-4 mr-2 text-purple-600" />
-                        <span className="font-medium">{selectedRamlFile.name}</span>
-                      </div>
-                      <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
-                      {selectedRamlFile.content && (
-                        <div className="mt-2 border rounded-md overflow-hidden">
-                          <MonacoEditor
-                            value={selectedRamlFile.content}
-                            language="yaml"
-                            height="200px"
-                            options={{ minimap: { enabled: false }, readOnly: true }}
-                          />
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    );
-  };
-
-  const renderProjectFolderUpload = () => {
-    if (selectedOption !== 'uploadComputer') return null;
-
-    return (
-      <div className="mt-4">
-        <input
-          type="file"
-          ref={projectFolderRef}
-          style={{ display: 'none' }}
-          onChange={handleProjectFolderUpload}
-          webkitdirectory=""
-          directory=""
-          multiple
-        />
-        <div
-          className="border-2 border-dashed rounded-lg p-12 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
-          onClick={handleProjectFolderClick}
-        >
-          <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4">
-            <Folder className="w-8 h-8 text-purple-600" />
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-medium text-gray-900 mb-1">Drag and drop or select your Mule project folder</p>
-            <p className="text-sm text-gray-500">
-              The code is used only for the purpose of the task and will be deleted once task is done
-            </p>
-          </div>
-        </div>
-
-        {localProjectFiles.length > 0 && (
-          <div className="mt-6">
-            <label className="block text-sm font-medium mb-2">
-              Project Files:
-            </label>
-
-            <div className="border rounded-md overflow-hidden">
-              <div className="bg-gray-100 p-2 flex items-center border-b">
-                <button
-                  onClick={goUpDirectory}
-                  disabled={currentDirectory === '/'}
-                  className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-                >
-                  <ArrowLeft size={16} />
-                </button>
-                <span className="text-sm font-medium truncate">
-                  {currentDirectory === '/' ? 'Root' : currentDirectory}
-                </span>
-              </div>
-
-              <div className="max-h-60 overflow-y-auto">
-                {getCurrentDirectoryContents().length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
-                    No files found in this directory
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {getCurrentDirectoryContents().map((item, index) => (
-                      <div
-                        key={index}
-                        onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-                        className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-                          selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path
-                            ? 'bg-purple-50'
-                            : ''
-                        }`}
-                      >
-                        {item.type === 'directory' ? (
-                          <Folder className="h-4 w-4 mr-2 text-blue-500" />
-                        ) : item.isRaml ? (
-                          <FileCode className="h-4 w-4 mr-2 text-purple-600" />
-                        ) : (
-                          <File className="h-4 w-4 mr-2 text-gray-500" />
-                        )}
-                        <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
-                          {item.name}
-                        </span>
-                        {selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path && (
-                          <Check className="h-4 w-4 ml-auto text-purple-600" />
-                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {selectedRamlFile && (
-              <div className="mt-4">
-                <h3 className="text-md font-medium mb-2">Selected File:</h3>
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
-                  <div className="flex items-center mb-2">
-                    <FileCode className="h-4 w-4 mr-2 text-purple-600" />
-                    <span className="font-medium">{selectedRamlFile.name}</span>
-                  </div>
-                  <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
-                  {selectedRamlFile.content && (
-                    <div className="mt-2 border rounded-md overflow-hidden">
-                      <MonacoEditor
-                        value={selectedRamlFile.content}
-                        language="yaml"
-                        height="200px"
-                        options={{ minimap: { enabled: false }, readOnly: true }}
-                      />
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
+              )}
 
-  return (
-    <motion.div
-      className="p-8 max-w-6xl mx-auto"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="flex items-center mb-4">
-        <button onClick={handleBackNavigation} className="mr-4 text-gray-600 hover:text-gray-900 transition-colors">
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold mb-1">Integration Generator</h1>
-          <p className="text-gray-600">Create flow code from flow specifications and flow diagrams</p>
-        </div>
-      </div>
-
-      <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-purple-50 dark:from-purple-900/20 dark:via-blue-900/20 dark:to-purple-900/20 h-2 w-full rounded-full mb-8">
-        <div className="bg-purple-500 h-2 rounded-full w-full"></div>
-      </div>
-
-      {currentView === 'editor' ? (
-        <>
-          <div className="mb-6 flex space-x-8">
-            <div
-              className={`flex items-center space-x-2 cursor-pointer ${selectedOption === 'noRepository' ? 'text-purple-600' : 'text-gray-500'}`}
-              onClick={() => handleOptionChange('noRepository')}
-            >
-              <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
-                {selectedOption === 'noRepository' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
-              </div>
-              <span>No Repository</span>
-            </div>
-
-            <div
-              className={`flex items-center space-x-2 cursor-pointer ${selectedOption === 'withRepository' ? 'text-purple-600' : 'text-gray-500'}`}
-              onClick={() => handleOptionChange('withRepository')}
-            >
-              <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
-                {selectedOption === 'withRepository' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
-              </div>
-              <span>With Repository</span>
-            </div>
-
-            <div
-              className={`flex items-center space-x-2 cursor-pointer ${selectedOption === 'uploadComputer' ? 'text-purple-600' : 'text-gray-500'}`}
-              onClick={() => handleOptionChange('uploadComputer')}
-            >
-              <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
-                {selectedOption === 'uploadComputer' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
-              </div>
-              <span>Upload from Computer</span>
-            </div>
-          </div>
-
-          {renderRepositorySelection()}
-          {renderProjectFolderUpload()}
-
-          <div className="space-y-6 mt-6">
-            <div>
-              <label htmlFor="description" className="block font-medium mb-2">
-                Description*:
-              </label>
-              <Textarea
-                id="description"
-                placeholder="Describe the flow that you want to add."
-                className="min-h-32"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-
-            {selectedOption === 'noRepository' && (
-              <div>
-                <label className="block font-medium mb-2">
-                  RAML
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Description <span className="text-red-500">*</span>
                 </label>
-                <p className="text-sm text-gray-500 mb-2">
-                  Add RAML specifications to generate code from.
-                </p>
-
-                <div className="flex space-x-4 mb-4">
-                  <div
-                    className={`flex items-center space-x-2 cursor-pointer ${ramlOption === 'none' ? 'text-purple-600' : 'text-gray-500'}`}
-                    onClick={() => setRamlOption('none')}
-                  >
-                    <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
-                      {ramlOption === 'none' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
-                    </div>
-                    <span>No RAML</span>
-                  </div>
-
-                  <div
-                    className={`flex items-center space-x-2 cursor-pointer ${ramlOption === 'input' ? 'text-purple-600' : 'text-gray-500'}`}
-                    onClick={() => setRamlOption('input')}
-                  >
-                    <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
-                      {ramlOption === 'input' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
-                    </div>
-                    <span>Enter RAML</span>
-                  </div>
-
-                  <div
-                    className={`flex items-center space-x-2 cursor-pointer ${ramlOption === 'workspace' ? 'text-purple-600' : 'text-gray-500'}`}
-                    onClick={() => setRamlOption('workspace')}
-                  >
-                    <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
-                      {ramlOption === 'workspace' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
-                    </div>
-                    <span>Select from Exchange</span>
-                  </div>
-                </div>
-
-                {ramlOption === 'input' && (
-                  <div className="mt-4">
-                    <label htmlFor="raml-content" className="block text-sm font-medium mb-2">
-                      RAML Content:
-                    </label>
-                    <div className="h-64 border rounded-md overflow-hidden">
-                      <MonacoEditor
-                        value={ramlContent}
-                        onChange={(value) => setRamlContent(value || '')}
-                        language="yaml"
-                        height="256px"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {ramlOption === 'workspace' && (
-                  <div className="mt-4">
-                    <div className="mb-4">
-                      <Input
-                        type="search"
-                        placeholder="Search RAML specifications..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-
-                    {loadingRamls ? (
-                      <div className="flex justify-center py-8">
-                        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                    ) : (
-                      <>
-                        {filteredRamls.length === 0 ? (
-                          <div className="text-center py-8 bg-gray-50 rounded-md">
-                            <FileCode className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                            <p className="text-gray-500">
-                              {searchQuery ? 'No matching RAML specifications found' : 'No RAML specifications found in Exchange'}
-                            </p>
-                            <p className="text-gray-400 text-sm mt-1">Add RAMLs to Exchange to use them here</p>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {filteredRamls.map((raml) => (
-                              <div
-                                key={raml.id}
-                                onClick={() => handleRamlSelect(raml)}
-                                className={`relative p-4 border rounded-md cursor-pointer transition-all ${
-                                  selectedRaml?.id === raml.id
-                                    ? 'border-purple-500 bg-purple-50'
-                                    : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50/30'
-                                }`}
-                              >
-                                <div className="flex items-start">
-                                  <FileCode className="h-5 w-5 mt-1 mr-2 text-purple-600" />
-                                  <div>
-                                    <h3 className="font-medium text-gray-900">{raml.title}</h3>
-                                    <p className="text-sm text-gray-500 line-clamp-2">{raml.description}</p>
-                                  </div>
-                                  {selectedRaml?.id === raml.id && (
-                                    <div className="absolute top-2 right-2 w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center">
-                                      <Check className="h-3 w-3 text-white" />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {selectedOption !== 'uploadComputer' && (
-              <div>
-                <label className="block font-medium mb-2">
-                  Diagrams:
-                </label>
-                <p className="text-sm text-gray-500 mb-2">
-                  Upload flow diagrams you want to add.
-                </p>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  onChange={handleFileUpload}
-                  accept="image/*,.pdf"
-                  multiple
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe the integration you want to build..."
+                  className="min-h-[100px] resize-none border-gray-300 focus:ring-purple-500 focus:border-purple-500"
+                  required
                 />
-                <div
-                  className="border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={handleUploadClick}
-                >
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
-                    <Plus className="w-6 h-6 text-gray-500" />
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    {diagrams.length > 0
-                      ? `${diagrams.length} file(s) selected`
-                      : 'Click to upload'}
-                  </p>
-                </div>
               </div>
-            )}
 
-            <div className="relative">
-              <button
-                className="w-full text-left p-4 border rounded-md flex justify-between items-center"
-                onClick={handleRuntimeSettingsClick}
-              >
-                <div>
-                  <span className="text-sm text-gray-500 block">Runtime Settings</span>
-                  <span>Java {javaVersion}, Maven {mavenVersion}</span>
-                </div>
-                <span className="text-gray-400">▼</span>
-              </button>
-
-              <AnimatePresence>
-                {showVersionsPopup && (
-                  <motion.div
-                    className="absolute top-full left-0 right-0 bg-white border rounded-md shadow-lg mt-1 z-50"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div className="p-4">
-                      <div className="mb-4">
-                        <h3 className="text-sm font-medium mb-2">Java Version</h3>
-                        <div className="space-y-2">
-                          <div
-                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
-                            onClick={() => handleJavaVersionSelect('8.0')}
-                          >
-                            <Check
-                              className={`w-4 h-4 mr-2 ${javaVersion === '8.0' ? 'visible text-purple-600' : 'invisible'}`}
-                            />
-                            <span>Java 8.0</span>
-                          </div>
-                          <div
-                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
-                            onClick={() => handleJavaVersionSelect('11.0')}
-                          >
-                            <Check
-                              className={`w-4 h-4 mr-2 ${javaVersion === '11.0' ? 'visible text-purple-600' : 'invisible'}`}
-                            />
-                            <span>Java 11.0</span>
-                          </div>
-                          <div
-                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
-                            onClick={() => handleJavaVersionSelect('17.0')}
-                          >
-                            <Check
-                              className={`w-4 h-4 mr-2 ${javaVersion === '17.0' ? 'visible text-purple-600' : 'invisible'}`}
-                            />
-                            <span>Java 17.0</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">Maven Version</h3>
-                        <div className="space-y-2">
-                          <div
-                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
-                            onClick={() => handleMavenVersionSelect('3.5')}
-                          >
-                            <Check
-                              className={`w-4 h-4 mr-2 ${mavenVersion === '3.5' ? 'visible text-purple-600' : 'invisible'}`}
-                            />
-                            <span>Maven 3.5</span>
-                          </div>
-                          <div
-                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
-                            onClick={() => handleMavenVersionSelect('3.8')}
-                          >
-                            <Check
-                              className={`w-4 h-4 mr-2 ${mavenVersion === '3.8' ? 'visible text-purple-600' : 'invisible'}`}
-                            />
-                            <span>Maven 3.8</span>
-                          </div>
-                          <div
-                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
-                            onClick={() => handleMavenVersionSelect('3.9')}
-                          >
-                            <Check
-                              className={`w-4 h-4 mr-2 ${mavenVersion === '3.9' ? 'visible text-purple-600' : 'invisible'}`}
-                            />
-                            <span>Maven 3.9</span>
-                          </div>
-                        </div>
-                      </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">
+                    RAML Specification (Optional)
+                  </label>
+                  {selectedFile && isFileOfType(selectedFile, 'raml') && (
+                    <div className="flex items-center text-sm text-purple-700 font-medium">
+                      <File className="h-4 w-4 mr-1" />
+                      {selectedFile.split('/').pop()}
+                      {isLoadingFile && <RefreshCw size={14} className="ml-2 animate-spin" />}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {error && (
-              <motion.div
-                className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <p className="font-medium">Error</p>
-                <p>{error}</p>
-              </motion.div>
-            )}
-
-            <div className="flex items-center text-purple-600 cursor-pointer" onClick={() => {}}>
-              <Plus className="w-4 h-4 mr-2" />
-              <span>Upload Settings XML</span>
-            </div>
-
-            <div className="flex justify-end space-x-4 mt-8">
-              <Button variant="outline" onClick={handleBackNavigation}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={isLoading || !description.trim()}
-                className="relative"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 size={16} className="mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  "Submit"
-                )}
-              </Button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="space-y-8">
-          {parsedSections && (
-            <>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">Flow Summary</h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(parsedSections.flowSummary)}
-                    className="text-xs"
-                  >
-                    <Copy size={14} className="mr-1" /> Copy
-                  </Button>
+                  )}
                 </div>
-                <p className="whitespace-pre-wrap">{parsedSections.flowSummary}</p>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">Flow Implementation</h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(parsedSections.flowImplementation)}
-                    className="text-xs"
-                  >
-                    <Copy size={14} className="mr-1" /> Copy
-                  </Button>
-                </div>
-                <div className="relative border rounded-md overflow-hidden">
-                  <MonacoEditor
-                    value={parsedSections.flowImplementation}
-                    language="xml"
-                    height="300px"
-                    readOnly={true}
-                    options={{ minimap: { enabled: true } }}
-                  />
+                <div className="border rounded-md h-full" style={{ minHeight: "300px" }}>
+                  {isLoadingFile ? (
+                    <div className="flex items-center justify-center h-64 bg-gray-50">
+                      <RefreshCw size={24} className="animate-spin mr-2" />
+                      <span>Loading RAML content...</span>
+                    </div>
+                  ) : (
+                    <MonacoEditor
+                      value={raml}
+                      onChange={(value) => setRaml(value || '')}
+                      language="yaml"
+                      height="300px"
+                      options={{
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                      }}
+                    />
+                  )}
                 </div>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">Flow Constants</h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(parsedSections.flowConstants)}
-                    className="text-xs"
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline" 
+                  onClick={handleReset}
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw size={16} />
+                  Reset
+                </Button>
+                <Button 
+                  onClick={handleGenerate}
+                  disabled={isLoading || !description.trim() || isLoadingFile}
+                  className="flex items-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin mr-2" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Integration'
+                  )}
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="result" className="space-y-6">
+              {result ? (
+                <Animation animation="fadeIn" delay={0.1} duration={0.5}>
+                  <div className="space-y-4">
+                    <Card className="p-4">
+                      <h3 className="font-semibold text-lg mb-2">Integration Flow</h3>
+                      <Separator className="my-2" />
+                      <div className="border rounded-md" style={{ minHeight: "300px" }}>
+                        <MonacoEditor
+                          value={flowCode}
+                          language="xml"
+                          options={{
+                            readOnly: true,
+                            minimap: { enabled: false },
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                          }}
+                          height="300px"
+                        />
+                      </div>
+                    </Card>
+                    
+                    <Card className="p-4">
+                      <h3 className="font-semibold text-lg mb-2">Configuration XML</h3>
+                      <Separator className="my-2" />
+                      <div className="border rounded-md" style={{ minHeight: "300px" }}>
+                        <MonacoEditor
+                          value={configXml}
+                          language="xml"
+                          options={{
+                            readOnly: true,
+                            minimap: { enabled: false },
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                          }}
+                          height="300px"
+                        />
+                      </div>
+                    </Card>
+                    
+                    <div className="flex justify-end space-x-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setActiveTab('input')}
+                      >
+                        Back to Input
+                      </Button>
+                      <Button 
+                        onClick={handleCopyToClipboard}
+                        className="flex items-center gap-2"
+                      >
+                        <Copy size={16} />
+                        Copy to Clipboard
+                      </Button>
+                    </div>
+                  </div>
+                </Animation>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No integration generated yet. Generate an integration first.</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setActiveTab('input')}
+                    className="mt-4"
                   >
-                    <Copy size={14} className="mr-1" /> Copy
+                    Back to Input
                   </Button>
                 </div>
-                <div className="relative border rounded-md overflow-hidden">
-                  <MonacoEditor
-                    value={parsedSections.flowConstants}
-                    language="java"
-                    height="200px"
-                    readOnly={true}
-                  />
-                </div>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">POM Dependencies</h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(parsedSections.pomDependencies)}
-                    className="text-xs"
-                  >
-                    <Copy size={14} className="mr-1" /> Copy
-                  </Button>
-                </div>
-                <div className="relative border rounded-md overflow-hidden">
-                  <MonacoEditor
-                    value={parsedSections.pomDependencies}
-                    language="xml"
-                    height="200px"
-                    readOnly={true}
-                  />
-                </div>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">Compilation Check</h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(parsedSections.compilationCheck)}
-                    className="text-xs"
-                  >
-                    <Copy size={14} className="mr-1" /> Copy
-                  </Button>
-                </div>
-                <div className="relative border rounded-md overflow-hidden">
-                  <MonacoEditor
-                    value={parsedSections.compilationCheck}
-                    language="java"
-                    height="200px"
-                    readOnly={true}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          <div className="flex justify-end space-x-4">
-            <Button variant="outline" onClick={() => setCurrentView('editor')}>
-              Edit Request
-            </Button>
-            <Button variant="outline" onClick={handleBackNavigation}>
-              Back to Dashboard
-            </Button>
-            <Button onClick={() => {
-              navigator.clipboard.writeText(generatedCode || '');
-              toast.success('All content copied to clipboard!');
-            }}>
-              Copy All
-            </Button>
-          </div>
-        </div>
-      )}
-    </motion.div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
