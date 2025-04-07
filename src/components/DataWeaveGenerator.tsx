@@ -280,60 +280,97 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
   };
   
   const handleFileSelect = async (file: FileNode) => {
-    if (file.type === 'file' && file.isDataWeave) {
-      let dwFile = dataWeaveFiles.find(r => r.path === file.path);
+    if (file.type === 'file') {
+      const isDataWeaveFile = file.isDataWeave;
+      const matchesInputFormat = isFileOfType(file.name, inputFormat);
       
-      if (!dwFile) {
-        dwFile = {
-          name: file.name,
-          path: file.path
-        };
+      if (!isDataWeaveFile && !matchesInputFormat) {
+        toast.error(`This file format does not match the selected ${isDataWeaveFile ? 'DataWeave' : inputFormat} format`);
+        return;
       }
       
-      if (!dwFile.content && selectedRepository) {
-        const content = await fetchGithubFileContent(selectedRepository, file.path);
-        if (content) {
-          dwFile.content = content;
-          
-          setDataWeaveFiles(prev => 
-            prev.map(f => f.path === file.path ? {...f, content} : f)
-          );
-        }
-      }
+      toast.loading(`Loading file "${file.name}"...`, { id: 'fileLoading' });
       
-      setSelectedDataWeaveFile(dwFile);
-      
-      if (dwFile.content) {
-        const inputMatch = dwFile.content.match(/input\s+([^\n]+)/);
-        const outputMatch = dwFile.content.match(/output\s+([^\n]+)/);
+      try {
+        let fileContent: string | null = null;
         
-        if (inputMatch && inputMatch[1]) {
-          const format = inputMatch[1].replace('application/', '').toUpperCase();
-          if (['JSON', 'XML', 'CSV', 'YAML'].includes(format)) {
-            setInputFormat(format);
+        if (selectedRepository) {
+          fileContent = await fetchGithubFileContent(selectedRepository, file.path);
+        } else if (mode === 'uploadFromComputer') {
+          const localFile = Array.from(projectFolderRef.current?.files || [])
+            .find(f => f.webkitRelativePath === file.path);
+            
+          if (localFile) {
+            fileContent = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.onerror = reject;
+              reader.readAsText(localFile);
+            });
           }
         }
         
-        const inputExample = dwFile.content.match(/Input example:([^]+?)(?:Output example:|---)/);
-        const outputExample = dwFile.content.match(/Output example:([^]+?)(?:---|\*\/)/);
-        
-        if (inputExample && outputExample && pairs.length > 0) {
-          const updatedPairs = [...pairs];
-          updatedPairs[0] = {
-            ...updatedPairs[0],
-            inputSample: {
-              ...updatedPairs[0].inputSample,
-              value: inputExample[1].trim()
-            },
-            outputSample: {
-              ...updatedPairs[0].outputSample,
-              value: outputExample[1].trim()
+        if (fileContent) {
+          if (isDataWeaveFile) {
+            setSelectedDataWeaveFile({
+              name: file.name,
+              path: file.path,
+              content: fileContent
+            });
+            
+            const inputMatch = fileContent.match(/input\s+([^\n]+)/);
+            const outputMatch = fileContent.match(/output\s+([^\n]+)/);
+            
+            if (inputMatch && inputMatch[1]) {
+              const format = inputMatch[1].replace('application/', '').toUpperCase();
+              if (['JSON', 'XML', 'CSV', 'YAML'].includes(format)) {
+                setInputFormat(format);
+              }
             }
-          };
-          setPairs(updatedPairs);
+            
+            const inputExample = fileContent.match(/Input example:([^]+?)(?:Output example:|---)/);
+            const outputExample = fileContent.match(/Output example:([^]+?)(?:---|\*\/)/);
+            
+            if (inputExample && outputExample && pairs.length > 0) {
+              const updatedPairs = [...pairs];
+              updatedPairs[0] = {
+                ...updatedPairs[0],
+                inputSample: {
+                  ...updatedPairs[0].inputSample,
+                  value: inputExample[1].trim(),
+                  isValid: true
+                },
+                outputSample: {
+                  ...updatedPairs[0].outputSample,
+                  value: outputExample[1].trim(),
+                  isValid: true
+                }
+              };
+              setPairs(updatedPairs);
+              toast.success(`Input and output examples extracted from "${file.name}"`);
+            }
+          } else if (matchesInputFormat) {
+            if (pairs.length > 0) {
+              const updatedPairs = [...pairs];
+              updatedPairs[0] = {
+                ...updatedPairs[0],
+                inputSample: {
+                  ...updatedPairs[0].inputSample,
+                  value: fileContent,
+                  isValid: true
+                }
+              };
+              setPairs(updatedPairs);
+            }
+          }
+          
+          toast.success(`File "${file.name}" loaded successfully`, { id: 'fileLoading' });
+        } else {
+          throw new Error(`Could not load content from "${file.name}"`);
         }
-        
-        toast.success(`DataWeave file "${dwFile.name}" selected`);
+      } catch (error) {
+        console.error("Error handling file selection:", error);
+        toast.error(`Error loading file: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'fileLoading' });
       }
     }
   };
@@ -407,31 +444,36 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
                           </div>
                         ) : (
                           <div className="divide-y">
-                            {getCurrentDirectoryContents().map((item, index) => (
-                              <div 
-                                key={index}
-                                onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-                                className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-                                  selectedDataWeaveFile && item.type === 'file' && item.path === selectedDataWeaveFile.path
-                                    ? 'bg-purple-50' 
-                                    : ''
-                                }`}
-                              >
-                                {item.type === 'directory' ? (
-                                  <Folder className="h-4 w-4 mr-2 text-blue-500" />
-                                ) : item.isDataWeave ? (
-                                  <FileCode className="h-4 w-4 mr-2 text-purple-600" />
-                                ) : (
-                                  <File className="h-4 w-4 mr-2 text-gray-500" />
-                                )}
-                                <span className={`${item.isDataWeave ? 'font-medium text-purple-700' : ''}`}>
-                                  {item.name}
-                                </span>
-                                {selectedDataWeaveFile && item.type === 'file' && item.path === selectedDataWeaveFile.path && (
-                                  <Check className="h-4 w-4 ml-auto text-purple-600" />
-                                )}
-                              </div>
-                            ))}
+                            {getCurrentDirectoryContents().map((item, index) => {
+                              const isMatchingFormat = item.type === 'file' && 
+                                (item.isDataWeave || isFileOfType(item.name, inputFormat));
+                              
+                              return (
+                                <div 
+                                  key={index}
+                                  onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                                  className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                                    selectedDataWeaveFile && item.type === 'file' && item.path === selectedDataWeaveFile.path
+                                      ? 'bg-purple-50' 
+                                      : ''
+                                  }`}
+                                >
+                                  {item.type === 'directory' ? (
+                                    <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                                  ) : isMatchingFormat ? (
+                                    <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                                  ) : (
+                                    <File className="h-4 w-4 mr-2 text-gray-500" />
+                                  )}
+                                  <span className={`${isMatchingFormat ? 'font-medium text-purple-700' : ''}`}>
+                                    {item.name}
+                                  </span>
+                                  {selectedDataWeaveFile && item.type === 'file' && item.path === selectedDataWeaveFile.path && (
+                                    <Check className="h-4 w-4 ml-auto text-purple-600" />
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -512,31 +554,36 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {getCurrentDirectoryContents().map((item, index) => (
-                      <div 
-                        key={index}
-                        onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-                        className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-                          selectedDataWeaveFile && item.type === 'file' && item.path === selectedDataWeaveFile.path
-                            ? 'bg-purple-50' 
-                            : ''
-                        }`}
-                      >
-                        {item.type === 'directory' ? (
-                          <Folder className="h-4 w-4 mr-2 text-blue-500" />
-                        ) : item.isDataWeave ? (
-                          <FileCode className="h-4 w-4 mr-2 text-purple-600" />
-                        ) : (
-                          <File className="h-4 w-4 mr-2 text-gray-500" />
-                        )}
-                        <span className={`${item.isDataWeave ? 'font-medium text-purple-700' : ''}`}>
-                          {item.name}
-                        </span>
-                        {selectedDataWeaveFile && item.type === 'file' && item.path === selectedDataWeaveFile.path && (
-                          <Check className="h-4 w-4 ml-auto text-purple-600" />
-                        )}
-                      </div>
-                    ))}
+                    {getCurrentDirectoryContents().map((item, index) => {
+                      const isMatchingFormat = item.type === 'file' && 
+                        (item.isDataWeave || isFileOfType(item.name, inputFormat));
+                      
+                      return (
+                        <div 
+                          key={index}
+                          onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                          className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                            selectedDataWeaveFile && item.type === 'file' && item.path === selectedDataWeaveFile.path
+                              ? 'bg-purple-50' 
+                              : ''
+                          }`}
+                        >
+                          {item.type === 'directory' ? (
+                            <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                          ) : isMatchingFormat ? (
+                            <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                          ) : (
+                            <File className="h-4 w-4 mr-2 text-gray-500" />
+                          )}
+                          <span className={`${isMatchingFormat ? 'font-medium text-purple-700' : ''}`}>
+                            {item.name}
+                          </span>
+                          {selectedDataWeaveFile && item.type === 'file' && item.path === selectedDataWeaveFile.path && (
+                            <Check className="h-4 w-4 ml-auto text-purple-600" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
