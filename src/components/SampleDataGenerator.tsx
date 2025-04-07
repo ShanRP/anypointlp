@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check } from 'lucide-react';
@@ -29,7 +30,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const { repositories, loadingRepositories, fetchRepositories, 
           fileStructure, loadingFileStructure, fetchFileStructure,
           fetchFileContent } = useGithubApi();
-  const { selectedRepository } = useRepositoryData();
+  const { selectedRepository, setSelectedRepository } = useRepositoryData();
   
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [fileContent, setFileContent] = useState<string>('');
