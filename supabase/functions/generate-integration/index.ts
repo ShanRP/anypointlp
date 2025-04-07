@@ -53,7 +53,7 @@ serve(async (req) => {
       });
     }
 
-    const { description, runtime, diagrams } = body;
+    const { description, runtime, diagrams, raml } = body;
     
     // Validate required fields
     if (!description) {
@@ -72,9 +72,10 @@ serve(async (req) => {
     console.log('Description:', description);
     console.log('Runtime:', runtime);
     console.log('Diagrams:', diagrams ? 'Provided' : 'Not provided');
+    console.log('RAML:', raml ? 'Provided' : 'Not provided');
 
     // Enhanced strict system prompt with explicit section requirements
-    const userPrompt = `
+    let userPrompt = `
 You are an expert MuleSoft developer responsible for generating complete, production-ready integration solutions.
 
 YOUR RESPONSE MUST INCLUDE ALL FIVE SECTIONS BELOW WITH DETAILED CONTENT:
@@ -89,6 +90,22 @@ Create a detailed MuleSoft integration flow based on this description:
 
 ${description}
 
+`;
+
+    // Add RAML spec to the prompt if provided
+    if (raml && raml.trim()) {
+      userPrompt += `
+Here is the RAML specification that should be implemented in this integration:
+
+\`\`\`raml
+${raml}
+\`\`\`
+
+Your implementation MUST follow this RAML specification exactly.
+`;
+    }
+
+    userPrompt += `
 YOU MUST FOLLOW THIS EXACT FORMAT WITH ALL FIVE SECTIONS CLEARLY LABELED:
 
 # Flow Summary
