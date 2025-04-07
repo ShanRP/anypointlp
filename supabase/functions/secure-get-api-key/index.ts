@@ -1,66 +1,94 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
+// Follow this setup guide to integrate the Deno runtime with your application:
+// https://deno.land/manual/examples/deploy_node_server
 
-interface RequestBody {
-  keyName: string;
-}
+import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
-serve(async (req) => {
-  // CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Content-Type': 'application/json'
-  };
-
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers });
-  }
-
+// Get the key from Supabase
+async function getApiKey(supabaseClient: any, keyName: string) {
   try {
-    // Get the request data
-    const body: RequestBody = await req.json();
-    const { keyName } = body;
-
-    if (!keyName) {
-      return new Response(
-        JSON.stringify({ error: 'Key name is required' }),
-        { status: 400, headers }
-      );
-    }
-
-    // Create a Supabase client with the Deno runtime
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    // Get the settings key value (stored in Supabase settings)
-    const { data: apiKey, error } = await supabaseClient
-      .from('apl_api_keys')
-      .select('key_value')
-      .eq('key_name', keyName)
-      .single();
+    // Call the secure SQL function to retrieve the API key
+    const { data, error } = await supabaseClient.rpc('apl_get_api_key', {
+      key_name: keyName,
+    });
 
     if (error) {
       console.error('Error fetching API key:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getApiKey function:', error);
+    return null;
+  }
+}
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { keyName } = await req.json();
+
+    if (!keyName) {
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve API key' }),
-        { status: 500, headers }
+        JSON.stringify({ error: 'Missing required parameter: keyName' }),
+        { 
+          status: 400, 
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json" 
+          } 
+        }
       );
     }
 
+    // Get the Supabase client from Deno's runtime environment
+    const supabaseClient = Deno.env.get("SUPABASE_CLIENT");
+    
+    // Get the API key from Supabase
+    const apiKey = await getApiKey(supabaseClient, keyName);
+
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: 'API key not found' }),
+        { 
+          status: 404, 
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json" 
+          } 
+        }
+      );
+    }
+
+    // Return the API key
     return new Response(
-      JSON.stringify({ apiKey: apiKey.key_value }),
-      { status: 200, headers }
+      JSON.stringify({ apiKey }),
+      { 
+        status: 200, 
+        headers: { 
+          ...corsHeaders,
+          "Content-Type": "application/json" 
+        } 
+      }
     );
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('Error handling request:', error);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers }
+      JSON.stringify({ error: 'Internal server error' }),
+      { 
+        status: 500, 
+        headers: { 
+          ...corsHeaders,
+          "Content-Type": "application/json" 
+        } 
+      }
     );
   }
 });

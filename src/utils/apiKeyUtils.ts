@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export const getApiKey = async (keyName: string): Promise<string | null> => {
   try {
-    // Call the custom function directly, which will be created if it doesn't exist
+    // Call the Supabase function to securely get the API key
     const { data, error } = await supabase.functions.invoke('secure-get-api-key', {
       body: { keyName }
     });
@@ -17,7 +17,11 @@ export const getApiKey = async (keyName: string): Promise<string | null> => {
       return null;
     }
     
-    return data.apiKey;
+    if (data && data.apiKey) {
+      return data.apiKey;
+    }
+    
+    return null;
   } catch (error) {
     console.error('Failed to fetch API key:', error);
     return null;

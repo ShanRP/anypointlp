@@ -10,12 +10,25 @@ interface Message {
   timestamp: number;
 }
 
+interface ChatMessage {
+  id: string;
+  senderId: string;
+  text: string;
+  timestamp: number;
+}
+
 type PeerStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface UserConnection {
   peerId: string;
   status: 'online' | 'offline';
   lastSeen: string;
+}
+
+interface IncomingCall {
+  caller: string;
+  type: 'video' | 'audio';
+  call: any;
 }
 
 export const usePeerJS = () => {
@@ -41,6 +54,10 @@ export const usePeerJS = () => {
   const [isPeerVideoEnabled, setIsPeerVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  
+  // Video/audio call refs and states
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isSharingScreen, setIsSharingScreen] = useState(false);
@@ -126,17 +143,28 @@ export const usePeerJS = () => {
   const [connectionWholenessError, setConnectionWholenessError] = useState<string | null>(null);
   const [isConnectionLove, setIsConnectionLoveError] = useState(true);
   const [connectionLoveError, setConnectionLoveError] = useState<string | null>(null);
+  
+  // Chat states
+  const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({});
+  
+  // Incoming call state
+  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const updateConnectionStatus = async (peerId: string, status: 'online' | 'offline') => {
+    if (!user) return;
+    
     try {
       const { error } = await supabase
-        .from('user_connections')
+        .from('apl_peer_connections')
         .upsert({
-          user_id: user?.id,
+          user_id: user.id,
           peer_id: peerId,
           status,
+          username: user.user_metadata?.name || user.email?.split('@')[0] || 'Anonymous',
           last_seen: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
+        }, { onConflict: 'user_id, peer_id' });
 
       if (error) {
         console.error('Error updating connection status:', error);
@@ -147,9 +175,11 @@ export const usePeerJS = () => {
   };
 
   const fetchConnectedUsers = useCallback(async () => {
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
-        .from('user_connections')
+        .from('apl_peer_connections')
         .select('*');
 
       if (error) {
@@ -157,7 +187,13 @@ export const usePeerJS = () => {
         return;
       }
 
-      setConnectedUsers(data);
+      const formattedUsers: UserConnection[] = data.map(user => ({
+        peerId: user.peer_id,
+        status: user.status as 'online' | 'offline',
+        lastSeen: user.last_seen
+      }));
+
+      setConnectedUsers(formattedUsers);
     } catch (err) {
       console.error('Error fetching connected users:', err);
     }
@@ -184,6 +220,100 @@ export const usePeerJS = () => {
         console.warn('Connection is not open, cannot send message');
       }
     });
+  };
+
+  // Functions for video/audio calls
+  const startVideo = (userId: string, peerName: string) => {
+    setIsConnecting(true);
+    setIsCalling(true);
+    
+    console.log('Starting video call with:', userId);
+    // Placeholder for actual implementation
+    toast.info(`Starting video call with ${peerName}...`);
+    
+    // In a real implementation, you would:
+    // 1. Get local media stream
+    // 2. Create a call using peerInstance.call()
+    // 3. Handle the call events
+    
+    setTimeout(() => {
+      setIsConnecting(false);
+      setIsCalling(false);
+    }, 2000);
+  };
+  
+  const startAudio = (userId: string, peerName: string) => {
+    setIsConnecting(true);
+    setIsCalling(true);
+    
+    console.log('Starting audio call with:', userId);
+    toast.info(`Starting audio call with ${peerName}...`);
+    
+    // Placeholder for actual implementation
+    
+    setTimeout(() => {
+      setIsConnecting(false);
+      setIsCalling(false);
+    }, 2000);
+  };
+  
+  const answerCall = (call: any) => {
+    setIncomingCall(null);
+    toast.info('Call answered');
+    // Placeholder for actual implementation
+  };
+  
+  const declineCall = () => {
+    setIncomingCall(null);
+    toast.info('Call declined');
+    // Placeholder for actual implementation
+  };
+  
+  // Functions for chat
+  const startChat = (userId: string, peerName: string) => {
+    setActiveChat(userId);
+    
+    // Initialize chat messages for this user if they don't exist
+    if (!chatMessages[userId]) {
+      setChatMessages(prev => ({
+        ...prev,
+        [userId]: []
+      }));
+    }
+    
+    toast.info(`Chat started with ${peerName}`);
+  };
+  
+  const sendChatMessage = (peerId: string, message: string) => {
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      senderId: 'self', // This user is the sender
+      text: message,
+      timestamp: Date.now()
+    };
+    
+    setChatMessages(prev => ({
+      ...prev,
+      [peerId]: [...(prev[peerId] || []), newMessage]
+    }));
+    
+    // In a real implementation, you would send this to the peer
+    console.log(`Sending message to ${peerId}: ${message}`);
+    
+    // Simulate a reply for demo purposes
+    setTimeout(() => {
+      const reply: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        senderId: peerId,
+        text: `This is a simulated reply to: ${message}`,
+        timestamp: Date.now() + 1000
+      };
+      
+      setChatMessages(prev => ({
+        ...prev,
+        [peerId]: [...(prev[peerId] || []), reply]
+      }));
+    }, 2000);
   };
 
   const handleNewConnection = (conn: DataConnection) => {
@@ -306,7 +436,7 @@ export const usePeerJS = () => {
         updateConnectionStatus(peerId, 'offline');
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing PeerJS:', error);
       setError(`Error initializing PeerJS: ${error.message}`);
       setStatus('error');
@@ -431,5 +561,26 @@ export const usePeerJS = () => {
     connectionWholenessError,
     isConnectionLove,
     connectionLoveError,
+    
+    // Video/audio call refs
+    videoRef,
+    remoteVideoRef,
+    
+    // Methods for calls
+    startVideo,
+    startAudio,
+    answerCall,
+    declineCall,
+    
+    // Chat functionality
+    activeChat,
+    setActiveChat,
+    chatMessages,
+    startChat,
+    sendChatMessage,
+    
+    // Connection status
+    isConnecting,
+    incomingCall
   };
 };

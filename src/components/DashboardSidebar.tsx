@@ -40,6 +40,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import WorkspaceActionMenu from './workspace/WorkspaceActionMenu';
+import EditWorkspaceDialog from './workspace/EditWorkspaceDialog';
+import DeleteWorkspaceDialog from './workspace/DeleteWorkspaceDialog';
+import InviteWorkspaceDialog from './workspace/InviteWorkspaceDialog';
+import { getTaskCategoryIcon } from '@/utils/taskUtils';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -148,7 +153,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   const { t } = useLanguage();
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [isCreateWorkspaceDialogOpen, setIsCreateWorkspaceDialogOpen] = useState(false);
@@ -165,14 +170,14 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const handleSignOut = async () => {
     try {
       await signOut();
-      toast({
+      uiToast({
         title: t('auth.signedOut'),
         description: t('auth.signedOutSuccess'),
       });
       navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
-      toast({
+      uiToast({
         variant: "destructive",
         title: t('common.error'),
         description: t('auth.signOutError'),
@@ -194,9 +199,12 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     const success = await updateWorkspace(selectedWorkspace.id, { name, initial });
     
     if (success) {
-      toast({
-        title: "Workspace Updated",
-        description: "Workspace name has been updated.",
+      toast.success("Workspace Updated", {
+        description: "Workspace name has been updated."
+      });
+    } else {
+      toast.error("Update Failed", {
+        description: "Could not update workspace name."
       });
     }
   };
@@ -237,8 +245,10 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     
     if (inviteLink) {
       toast.success("Invite link generated successfully");
+      return inviteLink;
     } else {
       toast.error("Failed to generate invite link");
+      return null;
     }
   };
 
@@ -285,6 +295,27 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const allTasks = tasks ? [...tasks].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   ) : [];
+
+  const getTaskIcon = (category: string) => {
+    const iconName = getTaskCategoryIcon(category);
+    
+    switch (iconName) {
+      case 'database':
+        return <Database size={16} />;
+      case 'file-code-2':
+        return <FileCode2 size={16} />;
+      case 'file-code':
+        return <FileCode2 size={16} />;
+      case 'test-tube-2':
+        return <TestTube2 size={16} />;
+      case 'file-text':
+        return <FileText size={16} />;
+      case 'file-question':
+        return <FileQuestion size={16} />;
+      default:
+        return <FileText size={16} />;
+    }
+  };
   
   return (
     <div className="w-72 relative z-10">
@@ -326,17 +357,24 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{selectedWorkspace?.name || 'Personal Workspace'}</p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full bg-white dark:bg-gray-800 shadow-sm"
-                onClick={() => {
-                  setWorkspaceDropdownOpen(!workspaceDropdownOpen);
-                  setActiveWorkspaceMenu(null);
-                }}
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full bg-white dark:bg-gray-800 shadow-sm"
+                  onClick={() => {
+                    setWorkspaceDropdownOpen(!workspaceDropdownOpen);
+                    setActiveWorkspaceMenu(null);
+                  }}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+                <WorkspaceActionMenu 
+                  onEdit={() => setIsEditWorkspaceOpen(true)}
+                  onDelete={() => setIsDeleteWorkspaceOpen(true)}
+                  onInvite={() => setIsInviteWorkspaceOpen(true)}
+                />
+              </div>
             </div>
 
             {workspaceDropdownOpen && (
@@ -345,255 +383,186 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
                 transition={{ duration: 0.2 }}
-                className="absolute left-6 right-6 mt-2 z-50 bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+                className="absolute left-6 right-6 mt-2 z-50 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 divide-y divide-gray-100 dark:divide-gray-700"
               >
-                <div className="py-2 max-h-64 overflow-y-auto">
-                  {workspaces.map(workspace => (
-                    <div key={workspace.id} className="relative">
-                      <div
-                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                          selectedWorkspace?.id === workspace.id ? 'bg-gray-100 dark:bg-gray-700' : ''
-                        }`}
-                      >
-                        <div 
-                          className="flex-1 flex items-center gap-3"
-                          onClick={() => {
-                            selectWorkspace(workspace);
-                            if (onWorkspaceChange) onWorkspaceChange(workspace);
-                            setWorkspaceDropdownOpen(false);
-                          }}
-                        >
-                          <div className="w-8 h-8 rounded-md flex items-center justify-center bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 font-medium">
+                <div className="pb-2">
+                  {workspaces.map((workspace) => (
+                    <div
+                      key={workspace.id}
+                      className={`flex items-center gap-3 px-4 py-2 ${
+                        workspace.id === selectedWorkspace?.id
+                          ? "bg-gray-100 dark:bg-gray-700"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-700"
+                      } cursor-pointer`}
+                    >
+                      <div onClick={() => {
+                        selectWorkspace(workspace);
+                        if (onWorkspaceChange) onWorkspaceChange(workspace);
+                        setWorkspaceDropdownOpen(false);
+                      }} className="flex items-center gap-3 flex-1">
+                        <Avatar className="h-7 w-7">
+                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white text-xs">
                             {workspace.initial}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {workspace.name}
-                            </p>
-                          </div>
-                          {selectedWorkspace?.id === workspace.id && (
-                            <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                          )}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 truncate">
+                          <p className="text-sm font-medium dark:text-white">
+                            {workspace.name}
+                          </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 rounded-full"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleWorkspaceMenu(workspace.id);
-                          }}
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
                       </div>
-                      
-                      {activeWorkspaceMenu === workspace.id && (
-                        <WorkspaceActionMenu
-                          workspace={workspace}
-                          onEditClick={() => {
-                            selectWorkspace(workspace);
-                            setActiveWorkspaceMenu(null);
-                            setWorkspaceDropdownOpen(false);
-                            setIsEditWorkspaceOpen(true);
-                          }}
-                          onDeleteClick={() => {
-                            selectWorkspace(workspace);
-                            setActiveWorkspaceMenu(null);
-                            setWorkspaceDropdownOpen(false);
-                            setIsDeleteWorkspaceOpen(true);
-                          }}
-                          onInviteClick={() => {
-                            selectWorkspace(workspace);
-                            setActiveWorkspaceMenu(null);
-                            setWorkspaceDropdownOpen(false);
-                            setIsInviteWorkspaceOpen(true);
-                          }}
-                        />
-                      )}
                     </div>
                   ))}
                 </div>
-
-                <div 
-                  className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  onClick={() => {
-                    setWorkspaceDropdownOpen(false);
-                    setIsCreateWorkspaceDialogOpen(true);
-                  }}
-                >
-                  <div className="w-8 h-8 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                    <PlusCircle size={16} />
-                  </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Create Workspace
-                  </p>
+                <div className="pt-2">
+                  <button
+                    className="flex items-center gap-3 w-full px-4 py-2 text-sm text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      setIsCreateWorkspaceDialogOpen(true);
+                      setWorkspaceDropdownOpen(false);
+                    }}
+                  >
+                    <div className="w-7 h-7 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                      <PlusCircle className="h-4 w-4 text-purple-600" />
+                    </div>
+                    <span>Create new workspace</span>
+                  </button>
                 </div>
               </motion.div>
             )}
           </div>
 
-          <div className="flex-1 overflow-auto px-3 py-6 scrollbar-thin">
-            <nav className="space-y-1 px-3">
-              <NavItem 
-                icon={<Home className="h-4 w-4" />} 
-                label={t('sidebar.home')}
-                active={currentPage === 'dashboard'}
-                onClick={() => onNavigate('dashboard')}
+          <div className="flex-1 overflow-auto px-6 pb-6">
+            <div className="mb-6">
+              <p className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2 px-2">
+                Navigation
+              </p>
+              <NavItem
+                icon={<Home size={18} />}
+                label="Dashboard"
+                active={currentPage === "dashboard"}
+                onClick={() => onNavigate("dashboard")}
               />
-              
-              <NavItem 
-                icon={<FileCode2 className="h-4 w-4" />} 
-                label="DataWeave Generator"
-                active={currentPage === 'dataweave'}
-                onClick={() => onNavigate('dataweave')}
+              <NavItem
+                icon={<MessageSquare size={18} />}
+                label="Coding Assistant"
+                active={currentPage === "chat"}
+                onClick={() => setIsCodingAssistantOpen(true)}
               />
-              
-              <NavItem 
-                icon={<FileCode2 className="h-4 w-4" />} 
-                label="Integration Generator"
-                active={currentPage === 'integration'}
-                onClick={() => onNavigate('integration')}
+              <NavItem
+                icon={<Database size={18} />}
+                label="DataWeave"
+                active={currentPage === "dataweave"}
+                onClick={() => onNavigate("dataweave")}
               />
-              
-              <NavItem 
-                icon={<FileCode2 className="h-4 w-4" />} 
-                label="RAML Generator"
-                active={currentPage === 'raml'}
-                onClick={() => onNavigate('raml')}
+              <NavItem
+                icon={<FileCode2 size={18} />}
+                label="Integration"
+                active={currentPage === "integration"}
+                onClick={() => onNavigate("integration")}
               />
-              
-              <NavItem 
-                icon={<TestTube2 className="h-4 w-4" />} 
-                label="MUnit Test Generator"
-                active={currentPage === 'munit'}
-                onClick={() => onNavigate('munit')}
+              <NavItem
+                icon={<FileCode2 size={18} />}
+                label="RAML"
+                active={currentPage === "raml"}
+                onClick={() => onNavigate("raml")}
               />
-              
-              <NavItem 
-                icon={<Database className="h-4 w-4" />} 
-                label="Sample Data Generator"
-                active={currentPage === 'sampleData'}
-                onClick={() => onNavigate('sampleData')}
+              <NavItem
+                icon={<TestTube2 size={18} />}
+                label="MUnit Testing"
+                active={currentPage === "munit"}
+                onClick={() => onNavigate("munit")}
               />
-              
-              <NavItem 
-                icon={<FileText className="h-4 w-4" />} 
-                label="Document Generator"
-                active={currentPage === 'document'}
-                onClick={() => onNavigate('document')}
+              <NavItem
+                icon={<Database size={18} />}
+                label="Sample Data"
+                active={currentPage === "sampleData"}
+                onClick={() => onNavigate("sampleData")}
               />
-              
-              <NavItem 
-                icon={<FileQuestion className="h-4 w-4" />} 
-                label="Diagram Generator"
-                active={currentPage === 'diagram'}
-                onClick={() => onNavigate('diagram')}
+              <NavItem
+                icon={<FileText size={18} />}
+                label="Documentation"
+                active={currentPage === "document"}
+                onClick={() => onNavigate("document")}
               />
-              
-              <NavItem 
-                icon={<Share2 className="h-4 w-4" />} 
-                label="Exchange Marketplace"
-                active={currentPage === 'exchange'}
-                onClick={() => onNavigate('exchange')}
-                badge={2}
+              <NavItem
+                icon={<FileQuestion size={18} />}
+                label="Diagrams"
+                active={currentPage === "diagram"}
+                onClick={() => onNavigate("diagram")}
               />
-              
-              <NavItem 
-                icon={<Users className="h-4 w-4" />} 
+              <NavItem
+                icon={<Share2 size={18} />}
+                label="Exchange"
+                active={currentPage === "exchange"}
+                onClick={() => onNavigate("exchange")}
+              />
+              <NavItem
+                icon={<Users size={18} />}
                 label="Job Board"
-                active={currentPage === 'jobBoard'}
-                onClick={() => onNavigate('jobBoard')}
+                active={currentPage === "jobBoard"}
+                onClick={() => onNavigate("jobBoard")}
               />
-              
-              <NavItem 
-                icon={<MessageSquare className="h-4 w-4" />} 
-                label="AI Chat"
-                active={currentPage === 'chat'}
-                onClick={() => {
-                  setIsCodingAssistantOpen(true);
-                  onNavigate('chat');
-                }}
-              />
-            </nav>
-
-            <div className="mt-6 px-3">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Recent Activity
-                </h3>
-                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-                  <Clock className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {recentTasks.length > 0 ? (
-                  recentTasks.map((task) => (
-                    <ActivityItem
-                      key={task.id}
-                      id={task.task_id}
-                      title={task.title}
-                      time={task.time}
-                      icon={
-                        task.category === 'dataweave' ? <Database className="h-4 w-4" /> : 
-                        task.category === 'raml' ? <FileCode2 className="h-4 w-4" /> : 
-                        task.category === 'integration' ? <FileCode2 className="h-4 w-4" /> : 
-                        task.category === 'munit' ? <TestTube2 className="h-4 w-4" /> : 
-                        task.category === 'document' ? <FileText className="h-4 w-4" /> : 
-                        task.category === 'diagram' ? <FileQuestion className="h-4 w-4" /> : 
-                        <FileText className="h-4 w-4" />
-                      }
-                      onClick={() => onTaskSelect && onTaskSelect(task.id)}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center p-3 text-gray-500 dark:text-gray-400 text-sm">
-                    No recent activities
-                  </div>
-                )}
-              </div>
-
-              <Button 
-                variant="ghost" 
-                className="w-full mt-2 text-xs text-gray-500 dark:text-gray-400 justify-start"
-                onClick={handleViewAllActivities}
-              >
-                <PlusCircle className="h-3.5 w-3.5 mr-2" />
-                View all activities
-              </Button>
             </div>
+
+            {recentTasks.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 px-2">
+                    Recent Activities
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={handleViewAllActivities}
+                  >
+                    <Clock className="h-3.5 w-3.5 text-gray-500" />
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {recentTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      onClick={() => onTaskSelect?.(task.id)}
+                      className="group flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                    >
+                      <div className="flex-shrink-0 w-8 h-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                        {getTaskIcon(task.category)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {task.task_id} - {task.title}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{task.time}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Clock className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="p-4 mt-auto">
-            <div className="flex items-center justify-between p-2">
-              <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
-                  <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white">
-                    {user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="text-sm font-medium">{user?.email?.split('@')[0] || 'User'}</div>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 rounded-full"
-                  onClick={() => onNavigate('settings')}
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 rounded-full"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
+          <div className="p-6 border-t border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between">
+              <NavItem
+                icon={<Settings size={18} />}
+                label="Settings"
+                active={currentPage === "settings"}
+                onClick={() => onNavigate("settings")}
+              />
+              <NavItem
+                icon={<LogOut size={18} />}
+                label="Logout"
+                onClick={handleSignOut}
+              />
             </div>
           </div>
         </div>
@@ -602,125 +571,84 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       <CreateWorkspaceDialog
         isOpen={isCreateWorkspaceDialogOpen}
         onClose={() => setIsCreateWorkspaceDialogOpen(false)}
-        onCreateWorkspace={(name) => {
-          createWorkspace(name);
-          toast({
-            title: 'Workspace Created',
-            description: `${name} workspace has been created successfully.`,
-          });
-        }}
+        onCreate={createWorkspace}
       />
       
-      <CodingAssistantDialog 
-        isOpen={isCodingAssistantOpen} 
-        onOpenChange={setIsCodingAssistantOpen} 
+      <CodingAssistantDialog
+        isOpen={isCodingAssistantOpen}
+        onOpenChange={setIsCodingAssistantOpen}
+        trigger={<button data-dialog-trigger="coding-assistant" className="hidden"></button>}
       />
+      
+      <Sheet open={isActivitySheetOpen} onOpenChange={setIsActivitySheetOpen}>
+        <SheetContent side="right" className="w-[400px] overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="text-2xl">All Activities</SheetTitle>
+          </SheetHeader>
+          
+          {allTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[300px]">
+              <Clock className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 text-center">No activities yet</p>
+              <p className="text-gray-400 dark:text-gray-500 text-center text-sm">Activities will appear here as you use the application</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {allTasks.map((task) => (
+                <motion.div
+                  key={task.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer border border-gray-100 dark:border-gray-800"
+                  onClick={() => {
+                    onTaskSelect?.(task.id);
+                    setIsActivitySheetOpen(false);
+                  }}
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    {getTaskIcon(task.category || 'default')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center">
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 mr-2">
+                        {task.task_id || 'Task'}
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(task.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate mt-1">
+                      {task.task_name}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
       
       <EditWorkspaceDialog
         isOpen={isEditWorkspaceOpen}
         onClose={() => setIsEditWorkspaceOpen(false)}
-        workspace={selectedWorkspace}
+        workspaceName={selectedWorkspace?.name || ''}
         onSave={handleUpdateWorkspace}
       />
       
       <DeleteWorkspaceDialog
         isOpen={isDeleteWorkspaceOpen}
         onClose={() => setIsDeleteWorkspaceOpen(false)}
-        workspace={selectedWorkspace}
-        onConfirm={handleDeleteWorkspace}
+        workspaceName={selectedWorkspace?.name || ''}
+        onDelete={handleDeleteWorkspace}
       />
       
       <InviteWorkspaceDialog
         isOpen={isInviteWorkspaceOpen}
         onClose={() => setIsInviteWorkspaceOpen(false)}
-        workspace={selectedWorkspace}
+        workspaceName={selectedWorkspace?.name || ''}
         onGenerateLink={handleGenerateInviteLink}
       />
-
-      <Sheet open={isActivitySheetOpen} onOpenChange={setIsActivitySheetOpen}>
-        <SheetContent side="right" className="w-[400px] sm:w-[540px] p-0">
-          <SheetHeader className="p-6 border-b">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="text-xl font-bold">All Activities</SheetTitle>
-            </div>
-          </SheetHeader>
-          <div className="p-6 overflow-y-auto max-h-[calc(100vh-120px)]">
-            {allTasks.length > 0 ? (
-              <AnimatePresence>
-                <div className="space-y-4">
-                  {allTasks.map((task, index) => {
-                    const taskDate = new Date(task.created_at);
-                    const now = new Date();
-                    const diffHours = Math.floor((now.getTime() - taskDate.getTime()) / (1000 * 60 * 60));
-                    
-                    let timeDisplay;
-                    if (diffHours < 24) {
-                      timeDisplay = diffHours < 1 ? 'Just now' : `${diffHours}h ago`;
-                    } else if (diffHours < 48) {
-                      timeDisplay = 'Yesterday';
-                    } else {
-                      timeDisplay = `${Math.floor(diffHours / 24)} days ago`;
-                    }
-
-                    return (
-                      <motion.div
-                        key={task.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="flex items-start gap-4 p-4 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
-                        onClick={() => {
-                          onTaskSelect && onTaskSelect(task.id);
-                          setIsActivitySheetOpen(false);
-                        }}
-                      >
-                        <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                          {task.category === 'dataweave' ? <Database className="h-5 w-5" /> : 
-                          task.category === 'raml' ? <FileCode2 className="h-5 w-5" /> : 
-                          task.category === 'integration' ? <FileCode2 className="h-5 w-5" /> : 
-                          task.category === 'munit' ? <TestTube2 className="h-5 w-5" /> : 
-                          task.category === 'document' ? <FileText className="h-5 w-5" /> : 
-                          task.category === 'diagram' ? <FileQuestion className="h-5 w-5" /> : 
-                          <FileText className="h-5 w-5" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-base font-medium text-gray-900 dark:text-gray-100">
-                            #{task.task_id || task.id.slice(0, 4)} - {task.task_name || 'Task'}
-                          </p>
-                          <div className="flex items-center mt-1">
-                            <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
-                              {timeDisplay}
-                            </span>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
-                              {task.category || 'Task'}
-                            </span>
-                          </div>
-                          {task.description && (
-                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                              {task.description}
-                            </p>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </AnimatePresence>
-            ) : (
-              <div className="text-center py-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-                  <Clock className="h-10 w-10 text-gray-400 dark:text-gray-500" />
-                </div>
-                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No activities yet</h3>
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  When you complete tasks, they will appear here.
-                </p>
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 };
