@@ -16,7 +16,7 @@ import { RefreshCw, RotateCcw, Check, Upload, ArrowLeft, File, Folder, FolderTre
 import { FileNode, isFileOfType } from '@/utils/githubUtils';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
-import { WorkspaceTask } from '@/hooks/useWorkspaceTasks';
+import { WorkspaceTask, IntegrationGeneratorProps } from '@/hooks/useWorkspaceTasks';
 import { Animation } from './ui/Animation';
 
 export interface IntegrationGeneratorProps {
@@ -128,12 +128,12 @@ environment: ${environment}
 
       const xmlConfig = `
 <?xml version="1.0" encoding="UTF-8"?>
-<mule xmlns="http://www.mulesoft.org/schema/mule/core"
-      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+<mule xmlns="http://www.mule.org/schema/mule/core"
+      xmlns:http="http://www.mule.org/schema/mule/http"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="
-        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+        http://www.mule.org/schema/mule/core http://www.mule.org/schema/mule/core/current/mule.xsd
+        http://www.mule.org/schema/mule/http http://www.mule.org/schema/mule/http/current/mule-http.xsd">
 
     <http:listener-config name="${apiName.toLowerCase().replace(/\s+/g, '-')}-api-config">
         <http:listener-connection host="0.0.0.0" port="8081" />
