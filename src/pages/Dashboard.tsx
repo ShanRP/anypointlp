@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -255,7 +254,6 @@ const Dashboard = () => {
   };
 
   const handleTaskCreated = (task: WorkspaceTask) => {
-    // Convert WorkspaceTask to SidebarTask
     const sidebarTask: SidebarTask = {
       id: task.id,
       label: task.task_name || 'Task',
@@ -437,7 +435,12 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }}>
-              <DataWeaveGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onSaveTask={() => {}} onBack={handleBackToDashboard} />
+              <DataWeaveGenerator 
+                onTaskCreated={handleTaskCreated} 
+                selectedWorkspaceId={selectedWorkspace?.id} 
+                onSaveTask={() => {}} 
+                onBack={handleBackToDashboard} 
+              />
             </motion.div>}
           
           {currentPage === 'integration' && <motion.div initial={{
