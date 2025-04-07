@@ -181,6 +181,41 @@ export const useWorkspaces = () => {
     }
   };
 
+  const deleteWorkspace = async (workspaceId: string) => {
+    if (!user) return false;
+    
+    try {
+      // Don't allow deletion if it's the only workspace
+      if (workspaces.length <= 1) {
+        toast.error('Cannot delete the only workspace. Please create another workspace first.');
+        return false;
+      }
+      
+      const { error } = await supabase
+        .from('apl_workspaces')
+        .delete()
+        .eq('id', workspaceId)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      // Update the workspaces list
+      const updatedWorkspaces = workspaces.filter(w => w.id !== workspaceId);
+      setWorkspaces(updatedWorkspaces);
+      
+      // If the deleted workspace was selected, select another one
+      if (selectedWorkspace?.id === workspaceId) {
+        setSelectedWorkspace(updatedWorkspaces[0]);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting workspace:', error);
+      toast.error('Failed to delete workspace');
+      return false;
+    }
+  };
+
   const generateInviteLink = async (workspaceId: string) => {
     if (!user) return false;
     
@@ -249,6 +284,7 @@ export const useWorkspaces = () => {
     loading,
     createWorkspace,
     updateWorkspace,
+    deleteWorkspace,
     selectWorkspace,
     generateInviteLink,
     refreshWorkspaces
