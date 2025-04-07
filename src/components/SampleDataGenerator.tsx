@@ -1,5 +1,4 @@
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check } from 'lucide-react';
 import { Button } from './ui/button';
@@ -27,23 +26,19 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState('input');
   
-  // Repository-related hooks
   const { repositories, loadingRepositories, fetchRepositories, 
           fileStructure, loadingFileStructure, fetchFileStructure,
           fetchFileContent } = useGithubApi();
   const { selectedRepository } = useRepositoryData();
   
-  // State for file upload
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [fileContent, setFileContent] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [currentDirectory, setCurrentDirectory] = useState<string>('/');
   
-  // Add missing projectFolderRef
   const projectFolderRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check if a file matches the selected format
   const isValidFileForFormat = (fileName: string): boolean => {
     const extension = fileName.split('.').pop()?.toLowerCase() || '';
     
@@ -69,8 +64,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
 
     setIsGenerating(true);
     try {
-      // Here you would call your API to generate sample data
-      // For demo purposes, we'll just simulate a response
       const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -100,7 +93,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       if (data.choices && data.choices.length > 0) {
         let content = data.choices[0].message.content.trim();
         
-        // Extract the code block if it exists
         const codeBlockMatch = content.match(/```(?:\w+)?\s*([\s\S]+?)\s*```/);
         if (codeBlockMatch) {
           content = codeBlockMatch[1].trim();
@@ -140,6 +132,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const handleSelectRepository = async (repo: any) => {
     try {
       await fetchFileStructure(repo);
+      setSelectedRepository(repo);
       toast.success(`Repository ${repo.name} loaded successfully`);
     } catch (error) {
       toast.error('Failed to load repository structure');
@@ -151,20 +144,12 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       const files = Array.from(event.target.files);
       setUploadedFiles(files);
       
-      // If there are files matching the current format, read the first one
       const matchingFiles = files.filter(file => isValidFileForFormat(file.name));
       
       if (matchingFiles.length > 0) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            setFileContent(e.target.result as string);
-            setSchema(e.target.result as string);
-            setSelectedFile(matchingFiles[0].name);
-            toast.success(`Loaded content from ${matchingFiles[0].name}`);
-          }
-        };
-        reader.readAsText(matchingFiles[0]);
+        handleUploadedFileSelect(matchingFiles[0]);
+      } else {
+        toast.warning(`No ${generationType.toLowerCase()} files found in the upload`);
       }
       
       toast.success(`${files.length} files uploaded successfully`);
@@ -212,7 +197,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
 
   const handleFileSelect = async (file: any) => {
     if (file.type === 'file') {
-      // Check if file matches the current format
       if (!isValidFileForFormat(file.name)) {
         toast.error(`This file format does not match the selected ${generationType} format`);
         return;
@@ -221,11 +205,19 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
       setSelectedFile(file.path);
       
       if (selectedRepository) {
-        const content = await fetchFileContent(selectedRepository, file.path);
-        if (content) {
-          setFileContent(content);
-          setSchema(content);
-          toast.success(`File "${file.name}" loaded successfully`);
+        try {
+          const content = await fetchFileContent(selectedRepository, file.path);
+          if (content) {
+            setFileContent(content);
+            setSchema(content);
+            toast.success(`File "${file.name}" loaded successfully`);
+            setActiveTab('input');
+          } else {
+            toast.error(`Could not load content from "${file.name}"`);
+          }
+        } catch (error) {
+          console.error("Error fetching file content:", error);
+          toast.error(`Error loading file: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
     }
@@ -237,7 +229,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     }
   };
 
-  // Handle individual uploaded file selection
   const handleUploadedFileSelect = (file: File) => {
     if (!isValidFileForFormat(file.name)) {
       toast.error(`This file format does not match the selected ${generationType} format`);
@@ -249,20 +240,23 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result) {
-        setFileContent(e.target.result as string);
-        setSchema(e.target.result as string);
+        const fileContent = e.target.result as string;
+        setFileContent(fileContent);
+        setSchema(fileContent);
+        setActiveTab('input');
         toast.success(`File "${file.name}" loaded successfully`);
       }
+    };
+    reader.onerror = () => {
+      toast.error(`Failed to read file "${file.name}"`);
     };
     reader.readAsText(file);
   };
   
-  // Update schema when format changes
-  React.useEffect(() => {
-    // Clear selected file if format changes
+  useEffect(() => {
     setSelectedFile(null);
+    setFileContent('');
     
-    // If there are uploaded files matching the new format, read the first one
     if (sourceType === 'upload' && uploadedFiles.length > 0) {
       const matchingFiles = uploadedFiles.filter(file => isValidFileForFormat(file.name));
       
@@ -362,7 +356,6 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                     </div>
                   )}
                   
-                  {/* Repository file structure */}
                   {selectedRepository && (
                     <div className="mt-4">
                       <h4 className="font-medium mb-2">Files</h4>

@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 
 interface MonacoEditorProps {
@@ -22,7 +22,8 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   style = {}
 }) => {
   const editorContainerRef = useRef<HTMLDivElement>(null);
-
+  
+  // Format detection for better language highlighting
   const getLanguage = (format: string) => {
     // Normalize format to lowercase
     const normalizedFormat = format.toLowerCase();
@@ -60,6 +61,20 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
     }
   };
 
+  // Use effect to trigger editor refresh when value or language changes
+  useEffect(() => {
+    // This is a no-op but it helps trigger Monaco's internal updates
+    if (editorContainerRef.current) {
+      const currentWidth = editorContainerRef.current.style.width;
+      editorContainerRef.current.style.width = '100%';
+      setTimeout(() => {
+        if (editorContainerRef.current) {
+          editorContainerRef.current.style.width = currentWidth;
+        }
+      }, 0);
+    }
+  }, [value, language]);
+
   const defaultOptions = {
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
@@ -74,7 +89,8 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
     roundedSelection: true,
     autoIndent: 'full' as const, 
     renderWhitespace: 'none' as const, 
-    readOnly: readOnly
+    readOnly: readOnly,
+    fixedOverflowWidgets: true
   };
 
   return (
