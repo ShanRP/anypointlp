@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File, X } from 'lucide-react';
+import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File, X, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -924,7 +924,6 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
           <Select
             value={selectedOption}
             onValueChange={handleOptionChange}
-            className="w-full"
           >
             <SelectTrigger>
               <SelectValue placeholder="Select an option" />
@@ -946,8 +945,11 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
             <div className="flex items-center">
               <Select
                 value={ramlOption}
-                onValueChange={handleRamlSelect}
-                className="w-full"
+                onValueChange={(value) => {
+                  if (value === 'input' || value === 'workspace' || value === 'none') {
+                    setRamlOption(value);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select an option" />
@@ -986,8 +988,11 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
             <div className="flex items-center">
               <Select
                 value={ramlOption}
-                onValueChange={handleRamlSelect}
-                className="w-full"
+                onValueChange={(value) => {
+                  if (value === 'input' || value === 'workspace' || value === 'none') {
+                    setRamlOption(value);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select an option" />
