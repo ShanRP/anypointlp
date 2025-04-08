@@ -1,11 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import CodingAssistant from './CodingAssistant';
 import { Code, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { motion } from 'framer-motion';
+
+// Create a global state to track dialog open state
+const globalState = {
+  isDialogOpen: false,
+  setDialogOpen: null as ((open: boolean) => void) | null,
+  openCounter: 0,
+};
 
 interface CodingAssistantDialogProps {
   trigger?: React.ReactNode;
@@ -20,14 +27,48 @@ const CodingAssistantDialog: React.FC<CodingAssistantDialogProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState(0); // Add a key to force re-render when dialog opens
+  const [instanceId] = useState(() => Math.random().toString(36).substring(2, 9));
+  
+  // Register this instance's setOpen with the global state
+  useEffect(() => {
+    if (globalState.setDialogOpen === null) {
+      globalState.setDialogOpen = setOpen;
+    }
+    
+    return () => {
+      if (globalState.setDialogOpen === setOpen) {
+        globalState.setDialogOpen = null;
+      }
+    };
+  }, [setOpen]);
   
   const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen);
-    if (onOpenChange) onOpenChange(newOpen);
-    
-    // When dialog opens, reset the key to force a fresh instance of CodingAssistant
+    // Update global state
     if (newOpen) {
-      setKey(prevKey => prevKey + 1);
+      globalState.openCounter++;
+      globalState.isDialogOpen = true;
+      
+      // Only open if this is the first request or this instance is controlling the dialog
+      if (globalState.openCounter === 1 || globalState.setDialogOpen === setOpen) {
+        setOpen(newOpen);
+        if (onOpenChange) onOpenChange(newOpen);
+        
+        // When dialog opens, reset the key to force a fresh instance of CodingAssistant
+        if (newOpen) {
+          setKey(prevKey => prevKey + 1);
+        }
+        
+        // Set this instance as the controller
+        globalState.setDialogOpen = setOpen;
+      }
+    } else {
+      globalState.openCounter = Math.max(0, globalState.openCounter - 1);
+      if (globalState.openCounter === 0) {
+        globalState.isDialogOpen = false;
+      }
+      
+      setOpen(false);
+      if (onOpenChange) onOpenChange(false);
     }
   };
   
