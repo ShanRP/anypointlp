@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -5,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAnimations } from '@/utils/animationUtils';
 import { Mail } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Newsletter: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -24,34 +26,47 @@ const Newsletter: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Call the APL_newsletter_subscribe edge function directly
-      const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/APL_newsletter_subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email })
-      });
+      // Check if the email already exists
+      const { data: existingSubscriber, error: lookupError } = await supabase
+        .from('apl_newsletter_subscribers')
+        .select('id, email')
+        .eq('email', email)
+        .maybeSingle();
       
-      const data = await response.json();
+      if (lookupError) {
+        console.error('Error checking existing subscriber:', lookupError);
+        throw new Error('Error checking subscription status');
+      }
       
-      if (!response.ok) {
-        console.error('Error calling newsletter subscribe function:', data);
-        toast.error(`Something went wrong with your subscription. Please try again later.`, {
+      if (existingSubscriber) {
+        toast.info(`${email} is already subscribed to our newsletter. Thank you for your continued interest!`, {
           duration: 5000
         });
       } else {
-        if (data.alreadySubscribed) {
-          toast.info(`${email} is already subscribed to our newsletter. Thank you for your continued interest!`, {
-            duration: 5000
-          });
-        } else {
-          toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
-            duration: 5000
-          });
+        // Insert the new subscriber
+        const { error: insertError } = await supabase
+          .from('apl_newsletter_subscribers')
+          .insert([{ email, status: 'active' }]);
+          
+        if (insertError) {
+          console.error('Error saving subscriber:', insertError);
+          throw new Error('Error saving your subscription');
         }
         
-        console.log('Subscription and email status:', data);
+        // Call the database function to send welcome email
+        const { data: emailResult, error: functionError } = await supabase.rpc(
+          'send_welcome_email',
+          { subscriber_email: email }
+        );
+        
+        if (functionError) {
+          console.error('Error sending welcome email:', functionError);
+          // Still consider subscription successful even if email fails
+        }
+        
+        toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
+          duration: 5000
+        });
       }
       
       // Reset form

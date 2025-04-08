@@ -122,11 +122,13 @@ verify_jwt = true
 [functions.generate-integration]
 verify_jwt = true
 
-[functions.APL_newsletter_subscribe]
-verify_jwt = false
+# These functions are now handled directly through database functions
+# [functions.APL_newsletter_subscribe]
+# verify_jwt = false
 
-[functions.send_welcome_email]
-verify_jwt = false
+# [functions.send_welcome_email]
+# verify_jwt = false
 
 [functions.secure-api-proxy]
 verify_jwt = true
+
