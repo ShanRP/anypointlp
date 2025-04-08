@@ -378,7 +378,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
         let currentPath = '';
         let parentNode: FileNode | null = null;
 
-        for (let i = 0; < pathParts.length - 1; i++) {
+        for (let i = 0; i < pathParts.length - 1; i++) {
           const part = pathParts[i];
           const newPath = currentPath ? `${currentPath}/${part}` : part;
           currentPath = newPath;
@@ -593,7 +593,6 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
 
       if (user) {
         try {
-          // Direct SQL RPC call to avoid TypeScript issues with database schema
           const { data: rpcData, error: rpcError } = await supabase.rpc('apl_save_integration_task', {
             p_task_id: taskId,
             p_task_name: 'Integration Flow',
@@ -872,4 +871,481 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                   className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
                 >
                   <ArrowLeft size={16} />
-                </
+                </button>
+                <span className="text-sm font-medium truncate">
+                  {currentDirectory === '/' ? 'Root' : currentDirectory}
+                </span>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto">
+                {getCurrentDirectoryContents().length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    No files found in this directory
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {getCurrentDirectoryContents().map((item, index) => (
+                      <div
+                        key={index}
+                        onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                        className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                          selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path
+                            ? 'bg-purple-50'
+                            : ''
+                        }`}
+                      >
+                        {item.type === 'directory' ? (
+                          <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                        ) : item.isRaml ? (
+                          <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                        ) : (
+                          <File className="h-4 w-4 mr-2 text-gray-500" />
+                        )}
+                        <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
+                          {item.name}
+                        </span>
+                        {selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path && (
+                          <Check className="h-4 w-4 ml-auto text-purple-600" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <BackButton onBack={handleBackNavigation} label="Back to Dashboard" />
+      
+      <div className="mt-4 space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <Tabs value={currentView} onValueChange={(val) => setCurrentView(val as 'editor' | 'result')}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="editor">Flow Specification</TabsTrigger>
+                <TabsTrigger value="result">Generated Flow</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="editor" className="space-y-6">
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold">Integration Flow Generator</h2>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Flow Specification:</label>
+                    <Textarea 
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe the integration flow requirements. For example: Create a REST API that connects to a database, processes data, and returns JSON."
+                      className="min-h-[120px]"
+                    />
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      variant={selectedOption === 'noRepository' ? 'default' : 'outline'}
+                      onClick={() => handleOptionChange('noRepository')}
+                      className="flex-1"
+                    >
+                      No Repository
+                    </Button>
+                    <Button
+                      variant={selectedOption === 'withRepository' ? 'default' : 'outline'}
+                      onClick={() => handleOptionChange('withRepository')}
+                      className="flex-1 flex items-center gap-1"
+                    >
+                      <GitBranch className="h-4 w-4" />
+                      With Repository
+                    </Button>
+                    <Button
+                      variant={selectedOption === 'uploadComputer' ? 'default' : 'outline'}
+                      onClick={() => handleOptionChange('uploadComputer')}
+                      className="flex-1 flex items-center gap-1"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload from Computer
+                    </Button>
+                  </div>
+                  
+                  {renderRepositorySelection()}
+                  {renderProjectFolderUpload()}
+                  
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium">RAML API Specification (Optional):</label>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setRamlOption('none')}
+                          className={ramlOption === 'none' ? 'bg-gray-100' : ''}
+                        >
+                          None
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setRamlOption('input')}
+                          className={ramlOption === 'input' ? 'bg-gray-100' : ''}
+                        >
+                          Input Manually
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setRamlOption('workspace')}
+                          className={ramlOption === 'workspace' ? 'bg-gray-100' : ''}
+                        >
+                          From Workspace
+                        </Button>
+                      </div>
+                    </div>
+
+                    {ramlOption === 'input' && (
+                      <div className="border rounded-md h-full" style={{ minHeight: '200px' }}>
+                        <MonacoEditor
+                          value={ramlContent}
+                          onChange={(value) => setRamlContent(value || '')}
+                          language="yaml"
+                          height="200px"
+                          options={{
+                            minimap: { enabled: false },
+                            scrollBeyondLastLine: false,
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    {ramlOption === 'workspace' && (
+                      <div className="border rounded-md p-4">
+                        <div className="mb-4">
+                          <Input
+                            type="text"
+                            placeholder="Search RAMLs..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full"
+                          />
+                        </div>
+                        
+                        {loadingRamls ? (
+                          <div className="flex justify-center py-4">
+                            <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        ) : (
+                          <div className="max-h-60 overflow-y-auto space-y-2">
+                            {filteredRamls.length === 0 ? (
+                              <div className="text-center py-4 text-gray-500">
+                                No RAMLs found in workspace
+                              </div>
+                            ) : (
+                              filteredRamls.map(raml => (
+                                <div 
+                                  key={raml.id}
+                                  onClick={() => handleRamlSelect(raml)}
+                                  className={`p-3 rounded-md cursor-pointer border ${
+                                    selectedRaml?.id === raml.id 
+                                      ? 'border-purple-500 bg-purple-50' 
+                                      : 'border-gray-200 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  <div className="font-medium">{raml.title}</div>
+                                  <div className="text-xs text-gray-500 truncate">{raml.description}</div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Diagrams (Optional):</label>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      style={{ display: 'none' }}
+                      onChange={handleFileUpload}
+                      multiple
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={handleUploadClick}
+                      className="w-full h-20 flex flex-col items-center justify-center"
+                    >
+                      <Upload className="h-5 w-5 mb-1" />
+                      <span>{diagrams.length > 0 ? `${diagrams.length} file(s) selected` : 'Upload Diagrams'}</span>
+                    </Button>
+                  </div>
+                  
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRuntimeSettingsClick}
+                      className="mb-2"
+                    >
+                      Runtime Settings: Java {javaVersion}, Maven {mavenVersion}
+                    </Button>
+                    
+                    {showVersionsPopup && (
+                      <div className="border rounded-md p-4 bg-gray-50">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Java Version:</label>
+                            <Select value={javaVersion} onValueChange={handleJavaVersionSelect}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Java version" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="8.0">Java 8</SelectItem>
+                                <SelectItem value="11.0">Java 11</SelectItem>
+                                <SelectItem value="17.0">Java 17</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Maven Version:</label>
+                            <Select value={mavenVersion} onValueChange={handleMavenVersionSelect}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Maven version" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="3.6">Maven 3.6</SelectItem>
+                                <SelectItem value="3.8">Maven 3.8</SelectItem>
+                                <SelectItem value="3.9">Maven 3.9</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md">
+                      {error}
+                    </div>
+                  )}
+                  
+                  <div className="pt-2">
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={isLoading || !description.trim()}
+                      className="w-full"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        'Generate Integration Flow'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="result">
+                {generatedCode ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-semibold">Generated Integration Flow</h2>
+                      <div className="flex items-center text-sm text-gray-500">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {generatedTimestamp}
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-3 rounded-md">
+                      <div className="font-medium">Task ID: {taskId}</div>
+                      <div className="text-sm text-gray-600 mt-1">{description}</div>
+                    </div>
+                    
+                    {parsedSections && (
+                      <div className="space-y-6">
+                        <Tabs defaultValue="implementation" className="w-full">
+                          <TabsList>
+                            <TabsTrigger value="implementation">Implementation</TabsTrigger>
+                            <TabsTrigger value="summary">Summary</TabsTrigger>
+                            <TabsTrigger value="constants">Constants</TabsTrigger>
+                            <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
+                            <TabsTrigger value="compilation">Compilation</TabsTrigger>
+                          </TabsList>
+                          
+                          <TabsContent value="implementation" className="mt-4">
+                            <Card>
+                              <CardContent className="p-0 overflow-hidden">
+                                <div className="flex justify-between items-center bg-gray-50 p-2 border-b">
+                                  <h3 className="font-medium">Flow Implementation</h3>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="h-8"
+                                    onClick={() => copyToClipboard(parsedSections.flowImplementation)}
+                                  >
+                                    <Copy className="h-4 w-4 mr-1" /> Copy
+                                  </Button>
+                                </div>
+                                <div style={{ height: '400px' }}>
+                                  <MonacoEditor
+                                    value={parsedSections.flowImplementation}
+                                    language="xml"
+                                    height="400px"
+                                    options={{
+                                      readOnly: true,
+                                      minimap: { enabled: false },
+                                      scrollBeyondLastLine: false,
+                                    }}
+                                  />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+                          
+                          <TabsContent value="summary" className="mt-4">
+                            <Card>
+                              <CardContent className="p-0 overflow-hidden">
+                                <div className="flex justify-between items-center bg-gray-50 p-2 border-b">
+                                  <h3 className="font-medium">Flow Summary</h3>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="h-8"
+                                    onClick={() => copyToClipboard(parsedSections.flowSummary)}
+                                  >
+                                    <Copy className="h-4 w-4 mr-1" /> Copy
+                                  </Button>
+                                </div>
+                                <div className="p-4 prose max-w-none">
+                                  <pre className="whitespace-pre-wrap text-sm">{parsedSections.flowSummary}</pre>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+                          
+                          <TabsContent value="constants" className="mt-4">
+                            <Card>
+                              <CardContent className="p-0 overflow-hidden">
+                                <div className="flex justify-between items-center bg-gray-50 p-2 border-b">
+                                  <h3 className="font-medium">Flow Constants</h3>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="h-8"
+                                    onClick={() => copyToClipboard(parsedSections.flowConstants)}
+                                  >
+                                    <Copy className="h-4 w-4 mr-1" /> Copy
+                                  </Button>
+                                </div>
+                                <div style={{ height: '300px' }}>
+                                  <MonacoEditor
+                                    value={parsedSections.flowConstants}
+                                    language="properties"
+                                    height="300px"
+                                    options={{
+                                      readOnly: true,
+                                      minimap: { enabled: false },
+                                      scrollBeyondLastLine: false,
+                                    }}
+                                  />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+                          
+                          <TabsContent value="dependencies" className="mt-4">
+                            <Card>
+                              <CardContent className="p-0 overflow-hidden">
+                                <div className="flex justify-between items-center bg-gray-50 p-2 border-b">
+                                  <h3 className="font-medium">POM Dependencies</h3>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="h-8"
+                                    onClick={() => copyToClipboard(parsedSections.pomDependencies)}
+                                  >
+                                    <Copy className="h-4 w-4 mr-1" /> Copy
+                                  </Button>
+                                </div>
+                                <div style={{ height: '300px' }}>
+                                  <MonacoEditor
+                                    value={parsedSections.pomDependencies}
+                                    language="xml"
+                                    height="300px"
+                                    options={{
+                                      readOnly: true,
+                                      minimap: { enabled: false },
+                                      scrollBeyondLastLine: false,
+                                    }}
+                                  />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+                          
+                          <TabsContent value="compilation" className="mt-4">
+                            <Card>
+                              <CardContent className="p-0 overflow-hidden">
+                                <div className="flex justify-between items-center bg-gray-50 p-2 border-b">
+                                  <h3 className="font-medium">Compilation Check</h3>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="h-8"
+                                    onClick={() => copyToClipboard(parsedSections.compilationCheck)}
+                                  >
+                                    <Copy className="h-4 w-4 mr-1" /> Copy
+                                  </Button>
+                                </div>
+                                <div className="p-4 prose max-w-none">
+                                  <pre className="whitespace-pre-wrap text-sm">{parsedSections.compilationCheck}</pre>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-end space-x-3">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setCurrentView('editor')}
+                      >
+                        Edit Specification
+                      </Button>
+                      <Button onClick={() => handleSubmit()}>
+                        Regenerate Flow
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <FileArchive className="h-12 w-12 mx-auto" />
+                    </div>
+                    <h3 className="text-lg font-medium mb-2">No integration flow generated yet</h3>
+                    <p className="text-gray-500 mb-4">Complete the flow specification and generate an integration flow</p>
+                    <Button onClick={() => setCurrentView('editor')}>
+                      Back to Specification
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default IntegrationGenerator;
