@@ -42,7 +42,7 @@ const Newsletter: React.FC = () => {
         });
       } else {
         // Show success message
-        toast.success(`Thank you for subscribing to our newsletter! A welcome email has been sent to ${email}`, {
+        toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
           duration: 5000
         });
       }
