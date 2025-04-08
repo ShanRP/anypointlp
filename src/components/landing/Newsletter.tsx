@@ -53,6 +53,18 @@ const Newsletter: React.FC = () => {
           throw new Error('Error saving your subscription');
         }
         
+        // Call the send_welcome_email function
+        const { data: emailResult, error: emailError } = await supabase
+          .rpc('send_welcome_email', { subscriber_email: email });
+          
+        if (emailError) {
+          console.warn('Welcome email may not have been sent:', emailError);
+          // We don't throw an error here as the subscription was successful
+          // The user is subscribed even if the welcome email fails
+        } else {
+          console.log('Welcome email sent successfully:', emailResult);
+        }
+        
         toast.success(`Thank you for subscribing to our newsletter! We've added ${email} to our mailing list.`, {
           duration: 5000
         });
