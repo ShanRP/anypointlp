@@ -84,7 +84,6 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
       const files = Array.from(e.target.files);
       setProjectFiles(files);
       
-      // Build folder structure
       const structure = buildFolderStructure(files);
       setFolderStructure(structure);
       setCurrentFolder('/');
@@ -94,7 +93,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
   };
 
   const buildFolderStructure = (files: File[]): FileNode[] => {
-    const root: { [key: string]: FileNode } = {};
+    const root: Record<string, FileNode> = {};
     
     files.forEach(file => {
       const path = file.webkitRelativePath || file.name;
@@ -110,27 +109,70 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
             type: 'directory',
             name: part,
             path: parts.slice(0, i + 1).join('/'),
-            children: {}
+            children: []
           };
         }
-        current = current[part].children as { [key: string]: FileNode };
+        
+        if (!current[part].children) {
+          current[part].children = [];
+        }
+        
+        current = current[part].children?.reduce((acc, child) => {
+          acc[child.name] = child;
+          return acc;
+        }, {} as Record<string, FileNode>) || {};
       }
       
       // Add the file
       const fileName = parts[parts.length - 1];
-      current[fileName] = {
+      const filePath = path;
+      const isRaml = fileName.toLowerCase().endsWith('.raml');
+      
+      const fileNode: FileNode = {
         type: 'file',
         name: fileName,
-        path: path,
-        isRaml: fileName.toLowerCase().endsWith('.raml')
+        path: filePath,
+        isRaml
       };
+      
+      if (parts.length === 1) {
+        // Root level file
+        root[fileName] = fileNode;
+      } else {
+        // Add to parent directory's children
+        const parentPath = parts.slice(0, parts.length - 1).join('/');
+        const parentParts = parentPath.split('/');
+        let parent = root;
+        
+        // Navigate to parent
+        for (const part of parentParts) {
+          if (parent[part] && parent[part].children) {
+            const childrenMap = parent[part].children?.reduce((acc, child) => {
+              acc[child.name] = child;
+              return acc;
+            }, {} as Record<string, FileNode>) || {};
+            
+            parent = childrenMap;
+          } else {
+            break;
+          }
+        }
+        
+        // Add file to parent's children
+        const parentDir = parentParts[parentParts.length - 1];
+        if (parent[parentDir] && Array.isArray(parent[parentDir].children)) {
+          parent[parentDir].children?.push(fileNode);
+        }
+      }
     });
     
     // Convert the nested object to an array structure
-    const convertToArray = (obj: { [key: string]: FileNode }): FileNode[] => {
+    const convertToArray = (obj: Record<string, FileNode>): FileNode[] => {
       return Object.values(obj).map(node => {
-        if (node.children && typeof node.children === 'object' && !Array.isArray(node.children)) {
-          node.children = convertToArray(node.children as { [key: string]: FileNode });
+        if (node.children) {
+          node.children = Array.isArray(node.children) 
+            ? node.children 
+            : convertToArray(node.children as unknown as Record<string, FileNode>);
         }
         return node;
       });
