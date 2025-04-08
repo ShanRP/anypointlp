@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -29,13 +28,18 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { selectedWorkspace } = useWorkspaces();
+  const { selectedWorkspace, workspaces } = useWorkspaces();
   
   const [title, setTitle] = useState(location.state?.item?.title || '');
   const [description, setDescription] = useState(location.state?.item?.description || '');
   const [visibility, setVisibility] = useState('public'); // Default to public
   const [publishing, setPublishing] = useState(false);
   const [showDialog, setShowDialog] = useState(true);
+  
+  useEffect(() => {
+    console.log('Current selected workspace:', selectedWorkspace);
+    console.log('Available workspaces:', workspaces);
+  }, [selectedWorkspace, workspaces]);
 
   if (!location.state?.item) {
     return (
@@ -66,17 +70,37 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
       return;
     }
 
-    if (visibility === 'private' && !selectedWorkspace) {
-      toast.error('You must select a workspace for private items');
-      return;
+    if (visibility === 'private') {
+      if (!selectedWorkspace) {
+        if (workspaces && workspaces.length > 0) {
+          console.log('No workspace selected, using first workspace:', workspaces[0]);
+        } else {
+          toast.error('You must have a workspace for private items');
+          return;
+        }
+      }
     }
 
     setPublishing(true);
     try {
       const username = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonymous';
       
-      // Get the workspace ID directly from selectedWorkspace object when visibility is private
-      const workspaceId = visibility === 'private' && selectedWorkspace ? selectedWorkspace.id : null;
+      let workspaceId = null;
+      
+      if (visibility === 'private') {
+        if (selectedWorkspace && selectedWorkspace.id) {
+          workspaceId = selectedWorkspace.id;
+        } 
+        else if (workspaces && workspaces.length > 0) {
+          workspaceId = workspaces[0].id;
+        }
+        
+        if (!workspaceId) {
+          workspaceId = user.id;
+        }
+      }
+      
+      console.log('Using workspace ID:', workspaceId);
       
       const exchangeItem = {
         title: title.trim(),
@@ -86,10 +110,9 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
         user_id: user.id,
         username: username,
         visibility: visibility,
-        workspace_id: workspaceId // Using the properly typed workspaceId
+        workspace_id: visibility === 'private' ? workspaceId : null
       };
 
-      // For debugging
       console.log('Publishing item:', exchangeItem);
 
       const { data, error } = await supabase
