@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -32,7 +33,8 @@ serve(async (req) => {
       types = [],
       endpoints = [], 
       mediaTypes = ["application/json"],
-      protocols = ["HTTPS"]
+      protocols = ["HTTPS"],
+      workspaceId = ""  // Add workspace ID parameter
     } = requestData;
     
     // Log the received data
@@ -42,8 +44,13 @@ serve(async (req) => {
       baseUri,
       apiDescription, 
       types: types.length,
-      endpoints: endpoints.length 
+      endpoints: endpoints.length,
+      workspaceId // Log workspace ID
     });
+
+    if (!apiName) {
+      throw new Error('API name is required');
+    }
     
     // Generate RAML specification using Mistral
     let ramlSpec;
@@ -72,10 +79,13 @@ serve(async (req) => {
       );
     }
     
+    // Clean the RAML output to ensure it only contains the specification
+    const cleanedRaml = cleanRamlOutput(ramlSpec);
+    
     // Return the generated RAML
     return new Response(
       JSON.stringify({ 
-        raml: ramlSpec 
+        raml: cleanedRaml
       }),
       { 
         headers: { 
@@ -100,6 +110,23 @@ serve(async (req) => {
     );
   }
 });
+
+// Function to clean RAML output from any markdown formatting or unwanted content
+function cleanRamlOutput(raml: string): string {
+  // Remove markdown code block markers if present
+  const cleanedRaml = raml
+    .replace(/^```yaml\s*/g, '')
+    .replace(/^```raml\s*/g, '')
+    .replace(/```\s*$/g, '')
+    .trim();
+    
+  // Ensure RAML starts with the proper header
+  if (!cleanedRaml.startsWith('#%RAML 1.0')) {
+    return '#%RAML 1.0\n' + cleanedRaml;
+  }
+  
+  return cleanedRaml;
+}
 
 async function generateWithMistral(
   apiName: string, 
@@ -187,12 +214,7 @@ async function generateWithMistral(
     // Extract the generated RAML from the response
     const generatedRaml = data.choices[0].message.content.trim();
     
-    // Validate basic RAML structure
-    if (!generatedRaml.startsWith('#%RAML 1.0')) {
-      console.warn('Mistral response does not start with RAML header, adding it');
-      return '#%RAML 1.0\n' + generatedRaml;
-    }
-    
+    // Clean and return the RAML
     return generatedRaml;
   } catch (error) {
     console.error('Error calling Mistral API:', error);
