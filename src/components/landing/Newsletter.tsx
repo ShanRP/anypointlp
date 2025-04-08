@@ -51,12 +51,20 @@ const Newsletter: React.FC = () => {
           throw new Error(`Error saving subscription: ${insertError.message}`);
         }
         
-        // Send welcome email using our database function
-        const { data, error } = await supabase
-          .rpc('send_welcome_email', { subscriber_email: email });
+        // Call the edge function directly instead of using RPC
+        const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/send_welcome_email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`
+          },
+          body: JSON.stringify({ email })
+        });
         
-        if (error) {
-          console.error('Error sending welcome email:', error);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          console.error('Error sending welcome email:', data);
           toast.success(`Thank you for subscribing! However, there was an issue sending the welcome email. Our team will reach out to you soon.`, {
             duration: 5000
           });
