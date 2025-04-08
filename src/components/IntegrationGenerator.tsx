@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
+import { IntegrationSettings } from './settings/IntegrationSettings';
 
 export interface IntegrationGeneratorProps {
   onTaskCreated?: (task: any) => void;
@@ -1028,6 +1029,15 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
           </Button>
         </div>
       </div>
+
+      <IntegrationSettings 
+        open={showVersionsPopup}
+        onOpenChange={setShowVersionsPopup}
+        javaVersion={javaVersion}
+        mavenVersion={mavenVersion}
+        onJavaVersionSelect={handleJavaVersionSelect}
+        onMavenVersionSelect={handleMavenVersionSelect}
+      />
     </div>
   );
 };
