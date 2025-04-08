@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -32,17 +33,19 @@ serve(async (req) => {
       types = [],
       endpoints = [], 
       mediaTypes = ["application/json"],
-      protocols = ["HTTPS"]
+      protocols = ["HTTPS"],
+      workspaceId = '' // Add workspaceId to the destructured parameters
     } = requestData;
     
-    // Log the received data
+    // Log the received data including workspace ID
     console.log('Request data:', { 
       apiName, 
       apiVersion,
       baseUri,
       apiDescription, 
       types: types.length,
-      endpoints: endpoints.length 
+      endpoints: endpoints.length,
+      workspaceId // Log the workspace ID
     });
     
     // Generate RAML specification using Mistral

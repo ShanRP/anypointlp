@@ -480,7 +480,7 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }}>
-              <RAMLGenerator selectedWorkspaceId={selectedWorkspace?.id} onBack={handleBackToDashboard} />
+              <RAMLGenerator selectedWorkspaceId={selectedWorkspace?.id || ''} onBack={handleBackToDashboard} />
             </motion.div>}
           
           {currentPage === 'taskView' && selectedTask && <motion.div initial={{

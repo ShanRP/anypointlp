@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { supabase } from '@/integrations/supabase/client';
-import MonacoEditor from './MonacoEditor';
+import MonacoEditor from '@/components/MonacoEditor';
 
 interface Parameter {
   name: string;
@@ -70,6 +70,8 @@ interface RAMLGeneratorProps {
 const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBack }) => {
   const navigate = useNavigate();
   const { selectedWorkspace } = useWorkspaces();
+  const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
+  
   const [apiName, setApiName] = useState('');
   const [apiVersion, setApiVersion] = useState('v1');
   const [baseUri, setBaseUri] = useState('https://api.example.com/v1');
@@ -79,13 +81,12 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [types, setTypes] = useState<DataType[]>([]);
   const [generatedRAML, setGeneratedRAML] = useState('');
-  const [currentTab, setCurrentTab] = useState('editor'); // 'editor' or 'preview'
+  const [currentTab, setCurrentTab] = useState('editor');
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [publishTitle, setPublishTitle] = useState('');
   const [publishDescription, setPublishDescription] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
-  const [visibility, setVisibility] = useState('public'); // Default to public
-
+  const [visibility, setVisibility] = useState('public');
   const [showEndpointDialog, setShowEndpointDialog] = useState(false);
   const [showMethodDialog, setShowMethodDialog] = useState(false);
   const [currentEndpointIndex, setCurrentEndpointIndex] = useState<number | null>(null);
@@ -106,6 +107,10 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
       }]);
     }
   }, []);
+
+  useEffect(() => {
+    console.log('Current workspace ID in RAMLGenerator:', workspaceId);
+  }, [workspaceId]);
 
   const handleAddEndpoint = () => {
     setEditingEndpoint({
@@ -370,7 +375,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
     setIsPublishing(true);
 
     try {
-      const workspaceId = localStorage.getItem('currentWorkspaceId') || '';
+      console.log('Publishing with workspace ID:', workspaceId);
       
       const { data, error } = await supabase
         .from('apl_exchange_items')
