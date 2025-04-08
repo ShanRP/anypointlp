@@ -51,24 +51,14 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     setError(null);
     
     try {
-      // Get DataWeave tasks
-      const { data: dataWeaveTasks, error: dataWeaveError } = await supabase.rpc('apl_get_workspace_tasks', { 
+      const { data, error } = await supabase.rpc('apl_get_workspace_tasks', { 
         workspace_id_param: workspaceId 
       });
       
-      if (dataWeaveError) throw dataWeaveError;
+      if (error) throw error;
       
-      // Get Integration tasks
-      const { data: integrationData, error: integrationError } = await supabase
-        .from('apl_integration_tasks')
-        .select('id, task_id, task_name, created_at, category, description')
-        .eq('workspace_id', workspaceId)
-        .order('created_at', { ascending: false });
-        
-      if (integrationError) throw integrationError;
-      
-      // Format DataWeave tasks
-      const dataWeaveFormattedTasks = (dataWeaveTasks as Array<{
+      // Ensure each task is associated with the current workspace and has a category
+      const workspaceTasks = (data as Array<{
         id: string;
         task_id: string;
         task_name: string;
@@ -77,25 +67,13 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         category?: string;
       }> || []).map(task => ({
         ...task,
-        workspace_id: workspaceId,
-        description: task.description || '',
-        category: task.category || 'dataweave',
-        task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}`
+        workspace_id: workspaceId, // Explicitly set workspace_id
+        description: task.description || '', // Include description with fallback
+        category: task.category || 'dataweave', // Set default category if not present
+        task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}` // Ensure a proper task_id is set
       }));
       
-      // Format Integration tasks
-      const integrationFormattedTasks = (integrationData || []).map(task => ({
-        ...task,
-        workspace_id: workspaceId,
-        description: task.description || '',
-        category: task.category || 'integration',
-        task_id: task.task_id || `IG-${task.id.substring(0, 8).toUpperCase()}`
-      }));
-      
-      // Combine and set all tasks
-      const allTasks = [...dataWeaveFormattedTasks, ...integrationFormattedTasks];
-      setTasks(allTasks);
-      
+      setTasks(workspaceTasks);
     } catch (err: any) {
       console.error('Error fetching workspace tasks:', err);
       setError(err.message);
@@ -110,14 +88,16 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     setError(null);
     
     try {
-      // First try to get from DataWeave tasks
-      const { data: dataWeaveData, error: dataWeaveError } = await supabase.rpc('apl_get_task_details', { 
+      const { data, error } = await supabase.rpc('apl_get_task_details', { 
         task_id_param: taskId 
       });
       
-      // If found in DataWeave tasks, use that
-      if (!dataWeaveError && dataWeaveData && dataWeaveData.length > 0) {
-        const taskDetails = dataWeaveData[0] as {
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Handle the case where the description field might not be present in the return type
+        // of the apl_get_task_details function
+        const taskDetails = data[0] as {
           id: string;
           task_id: string;
           task_name: string;
@@ -128,37 +108,16 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           generated_scripts: Json;
           created_at: string;
           category?: string;
-          description?: string;
+          description?: string; // Making this optional since it might not be in the RPC return
         };
         
+        // Set the workspace_id on the task details
         const taskWithWorkspace = {
           ...taskDetails,
           workspace_id: workspaceId,
-          category: taskDetails.category || 'dataweave',
-          description: taskDetails.description || '',
-          task_id: taskDetails.task_id || `T-${taskDetails.id.substring(0, 8).toUpperCase()}`
-        } as TaskDetails;
-        
-        setSelectedTask(taskWithWorkspace);
-        return;
-      }
-      
-      // If not found in DataWeave tasks, try Integration tasks
-      const { data: integrationData, error: integrationError } = await supabase
-        .from('apl_integration_tasks')
-        .select('*')
-        .eq('id', taskId)
-        .single();
-        
-      if (integrationError) throw new Error('Task not found in any table');
-      
-      if (integrationData) {
-        const taskWithWorkspace = {
-          ...integrationData,
-          workspace_id: workspaceId,
-          category: integrationData.category || 'integration',
-          description: integrationData.description || '',
-          task_id: integrationData.task_id || `IG-${integrationData.id.substring(0, 8).toUpperCase()}`
+          category: taskDetails.category || 'dataweave', // Default category
+          description: taskDetails.description || '', // Ensure description exists with a fallback
+          task_id: taskDetails.task_id || `T-${taskDetails.id.substring(0, 8).toUpperCase()}` // Ensure task_id
         } as TaskDetails;
         
         setSelectedTask(taskWithWorkspace);
@@ -185,69 +144,39 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     notes?: string;
     generated_scripts: any[];
     user_id: string;
-    category: string;
-    description?: string;
+    category: string; // Making category required
+    description?: string; // Optional description field
   }) => {
     try {
       // Generate a unique task_id if not provided
       const taskId = task.task_id || `T-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
-      // Determine which table to use based on category
-      if (task.category === 'integration') {
-        // Save to integration tasks table
-        const taskData = {
-          workspace_id: task.workspace_id,
-          task_id: taskId,
-          task_name: task.task_name,
-          input_format: task.input_format,
-          input_samples: JSON.parse(JSON.stringify(task.input_samples)) as Json,
-          output_samples: JSON.parse(JSON.stringify(task.output_samples || [])) as Json,
-          notes: task.notes || '',
-          generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
-          user_id: task.user_id,
-          username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
-          category: task.category,
-          description: task.description || ''
-        };
+      // Ensure workspace_id is set correctly
+      const taskData = {
+        workspace_id: task.workspace_id,
+        task_id: taskId,
+        task_name: task.task_name,
+        input_format: task.input_format,
+        input_samples: JSON.parse(JSON.stringify(task.input_samples)) as Json,
+        output_samples: JSON.parse(JSON.stringify(task.output_samples)) as Json,
+        notes: task.notes || '',
+        generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
+        user_id: task.user_id,
+        username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
+        category: task.category, // Ensure category is set
+        description: task.description || ''
+      };
 
-        const { data, error } = await supabase
-          .from('apl_integration_tasks')
-          .insert([taskData])
-          .select();
-        
-        if (error) throw error;
-        
-        // Refresh the task list with the current workspace
-        await fetchWorkspaceTasks();
-        return data;
-      } else {
-        // Save to dataweave tasks table (existing functionality)
-        const taskData = {
-          workspace_id: task.workspace_id,
-          task_id: taskId,
-          task_name: task.task_name,
-          input_format: task.input_format,
-          input_samples: JSON.parse(JSON.stringify(task.input_samples)) as Json,
-          output_samples: JSON.parse(JSON.stringify(task.output_samples || [])) as Json,
-          notes: task.notes || '',
-          generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
-          user_id: task.user_id,
-          username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
-          category: task.category,
-          description: task.description || ''
-        };
-
-        const { data, error } = await supabase
-          .from('apl_dataweave_tasks')
-          .insert([taskData])
-          .select();
-        
-        if (error) throw error;
-        
-        // Refresh the task list with the current workspace
-        await fetchWorkspaceTasks();
-        return data;
-      }
+      const { data, error } = await supabase
+        .from('apl_dataweave_tasks')
+        .insert([taskData])
+        .select();
+      
+      if (error) throw error;
+      
+      // Refresh the task list with the current workspace
+      await fetchWorkspaceTasks();
+      return data;
     } catch (err: any) {
       console.error('Error saving task:', err);
       toast.error('Failed to save task');

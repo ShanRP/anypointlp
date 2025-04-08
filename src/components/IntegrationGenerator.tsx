@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File, X, Settings } from 'lucide-react';
+import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
-import { IntegrationSettings } from './settings/IntegrationSettings';
 
 export interface IntegrationGeneratorProps {
   onTaskCreated?: (task: any) => void;
@@ -76,7 +75,6 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
     pomDependencies: string;
     compilationCheck: string;
   } | null>(null);
-  const [taskId, setTaskId] = useState<string>(`IG-${Math.floor(Math.random() * 9000) + 1000}`);
 
   const [ramlContent, setRamlContent] = useState<string>('');
   const [ramlOption, setRamlOption] = useState<'none' | 'input' | 'workspace'>('none');
@@ -584,51 +582,32 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
       setParsedSections(parsedResult);
       setCurrentView('result');
 
-      if (user) {
-        try {
-          const taskData = {
-            user_id: user.id,
-            workspace_id: selectedWorkspaceId || selectedWorkspace?.id || '',
-            task_id: taskId,
-            task_name: 'Integration Flow',
-            input_format: 'Flow Specification',
-            input_samples: [{ id: 'input1', value: description, isValid: true }],
-            output_samples: [],
-            notes: `Runtime: ${runtime}`,
-            generated_scripts: [{
-              id: `script-${Date.now()}`,
-              code: generatedCodeResult,
-              pairId: 'input1'
-            }],
-            category: 'integration',
-            description: description.substring(0, 100)
-          };
-          
-          const { data, error } = await supabase
-            .from('apl_integration_tasks')
-            .insert([taskData])
-            .select();
-          
-          if (error) {
-            console.error("Error saving integration task:", error);
-          } else if (data && data.length > 0 && onSaveTask) {
-            onSaveTask(data[0].id);
+      const taskId = `IG-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newTask = {
+        id: `task-${Date.now()}`,
+        label: `Integration Generator`,
+        category: 'coding',
+        task_id: taskId,
+        task_name: 'Integration Flow',
+        icon: 'CodeIcon',
+        workspace_id: selectedWorkspaceId || selectedWorkspace?.id || '',
+        created_at: new Date().toISOString(),
+        input_format: 'Flow Specification',
+        notes: description,
+        generated_scripts: [
+          {
+            id: `script-${Date.now()}`,
+            code: generatedCodeResult
           }
-        } catch (error) {
-          console.error("Error saving integration task:", error);
-        }
-      }
+        ]
+      };
 
       if (onTaskCreated) {
-        const newTask = {
-          id: taskId,
-          task_id: taskId,
-          task_name: 'Integration Flow',
-          category: 'integration',
-          created_at: new Date().toISOString(),
-          workspace_id: selectedWorkspaceId || selectedWorkspace?.id || ''
-        };
         onTaskCreated(newTask);
+      }
+
+      if (onSaveTask) {
+        onSaveTask(taskId);
       }
 
       toast.success('Integration code generated successfully!');
@@ -891,154 +870,485 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Integration Generator</h1>
-        <div className="flex items-center">
-          <Button onClick={handleBackNavigation} variant="outline">
-            <ArrowLeft size={16} />
-          </Button>
-          <Button onClick={handleRuntimeSettingsClick} variant="outline">
-            <Settings size={16} />
-          </Button>
+    <motion.div
+      className="p-8 max-w-6xl mx-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="flex items-center mb-4">
+        <button onClick={handleBackNavigation} className="mr-4 text-gray-600 hover:text-gray-900 transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Integration Generator</h1>
+          <p className="text-gray-600">Create flow code from flow specifications and flow diagrams</p>
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center">
-          <Input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Enter a description for the integration"
-            className="w-full"
-          />
-          <Button onClick={handleUploadClick} variant="outline">
-            <Upload size={16} />
-          </Button>
-        </div>
-
-        {renderRepositorySelection()}
-
-        {renderProjectFolderUpload()}
-
-        <div className="flex items-center">
-          <Select
-            value={selectedOption}
-            onValueChange={handleOptionChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select an option" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="noRepository">No Repository</SelectItem>
-              <SelectItem value="withRepository">With Repository</SelectItem>
-              <SelectItem value="uploadComputer">Upload Computer</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {selectedOption === 'withRepository' && (
-          <div className="mt-4">
-            <label className="block font-medium mb-2">
-              Raml:
-            </label>
-
-            <div className="flex items-center">
-              <Select
-                value={ramlOption}
-                onValueChange={(value) => {
-                  if (value === 'input' || value === 'workspace' || value === 'none') {
-                    setRamlOption(value);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an option" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="input">Input</SelectItem>
-                  <SelectItem value="workspace">Workspace</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {ramlOption === 'workspace' && (
-              <div className="mt-4">
-                <label className="block font-medium mb-2">
-                  Search:
-                </label>
-
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search RAMLs"
-                  className="w-full"
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {selectedOption === 'uploadComputer' && (
-          <div className="mt-4">
-            <label className="block font-medium mb-2">
-              Raml:
-            </label>
-
-            <div className="flex items-center">
-              <Select
-                value={ramlOption}
-                onValueChange={(value) => {
-                  if (value === 'input' || value === 'workspace' || value === 'none') {
-                    setRamlOption(value);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an option" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="input">Input</SelectItem>
-                  <SelectItem value="workspace">Workspace</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {ramlOption === 'workspace' && (
-              <div className="mt-4">
-                <label className="block font-medium mb-2">
-                  Search:
-                </label>
-
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search RAMLs"
-                  className="w-full"
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="mt-4">
-          <Button onClick={handleSubmit} variant="outline">
-            Generate Integration
-          </Button>
-        </div>
+      <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-purple-50 dark:from-purple-900/20 dark:via-blue-900/20 dark:to-purple-900/20 h-2 w-full rounded-full mb-8">
+        <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      <IntegrationSettings 
-        open={showVersionsPopup}
-        onOpenChange={setShowVersionsPopup}
-        javaVersion={javaVersion}
-        mavenVersion={mavenVersion}
-        onJavaVersionSelect={handleJavaVersionSelect}
-        onMavenVersionSelect={handleMavenVersionSelect}
-      />
-    </div>
+      {currentView === 'editor' ? (
+        <>
+          <div className="mb-6 flex space-x-8">
+            <div
+              className={`flex items-center space-x-2 cursor-pointer ${selectedOption === 'noRepository' ? 'text-purple-600' : 'text-gray-500'}`}
+              onClick={() => handleOptionChange('noRepository')}
+            >
+              <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
+                {selectedOption === 'noRepository' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
+              </div>
+              <span>No Repository</span>
+            </div>
+
+            <div
+              className={`flex items-center space-x-2 cursor-pointer ${selectedOption === 'withRepository' ? 'text-purple-600' : 'text-gray-500'}`}
+              onClick={() => handleOptionChange('withRepository')}
+            >
+              <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
+                {selectedOption === 'withRepository' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
+              </div>
+              <span>With Repository</span>
+            </div>
+
+            <div
+              className={`flex items-center space-x-2 cursor-pointer ${selectedOption === 'uploadComputer' ? 'text-purple-600' : 'text-gray-500'}`}
+              onClick={() => handleOptionChange('uploadComputer')}
+            >
+              <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
+                {selectedOption === 'uploadComputer' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
+              </div>
+              <span>Upload from Computer</span>
+            </div>
+          </div>
+
+          {renderRepositorySelection()}
+          {renderProjectFolderUpload()}
+
+          <div className="space-y-6 mt-6">
+            <div>
+              <label htmlFor="description" className="block font-medium mb-2">
+                Description*:
+              </label>
+              <Textarea
+                id="description"
+                placeholder="Describe the flow that you want to add."
+                className="min-h-32"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+
+            {(selectedOption === 'noRepository' || selectedOption === 'withRepository' ||  selectedOption === 'uploadComputer') && (
+              <div>
+                <label className="block font-medium mb-2">
+                  RAML
+                </label>
+                <p className="text-sm text-gray-500 mb-2">
+                  Add RAML specifications to generate code from.
+                </p>
+
+                <div className="flex space-x-4 mb-4">
+                  <div
+                    className={`flex items-center space-x-2 cursor-pointer ${ramlOption === 'none' ? 'text-purple-600' : 'text-gray-500'}`}
+                    onClick={() => setRamlOption('none')}
+                  >
+                    <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
+                      {ramlOption === 'none' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
+                    </div>
+                    <span>No RAML</span>
+                  </div>
+
+                  <div
+                    className={`flex items-center space-x-2 cursor-pointer ${ramlOption === 'input' ? 'text-purple-600' : 'text-gray-500'}`}
+                    onClick={() => setRamlOption('input')}
+                  >
+                    <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
+                      {ramlOption === 'input' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
+                    </div>
+                    <span>Enter RAML</span>
+                  </div>
+
+                  <div
+                    className={`flex items-center space-x-2 cursor-pointer ${ramlOption === 'workspace' ? 'text-purple-600' : 'text-gray-500'}`}
+                    onClick={() => setRamlOption('workspace')}
+                  >
+                    <div className="w-5 h-5 rounded-full border flex items-center justify-center border-gray-300">
+                      {ramlOption === 'workspace' && <div className="w-3 h-3 rounded-full bg-purple-600"></div>}
+                    </div>
+                    <span>Select from Exchange</span>
+                  </div>
+                </div>
+
+                {ramlOption === 'input' && (
+                  <div className="mt-4">
+                    <label htmlFor="raml-content" className="block text-sm font-medium mb-2">
+                      RAML Content:
+                    </label>
+                    <div className="h-64 border rounded-md overflow-hidden">
+                      <MonacoEditor
+                        value={ramlContent}
+                        onChange={(value) => setRamlContent(value || '')}
+                        language="yaml"
+                        height="256px"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {ramlOption === 'workspace' && (
+                  <div className="mt-4">
+                    <div className="mb-4">
+                      <Input
+                        type="search"
+                        placeholder="Search RAML specifications..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {loadingRamls ? (
+                      <div className="flex justify-center py-8">
+                        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : (
+                      <>
+                        {filteredRamls.length === 0 ? (
+                          <div className="text-center py-8 bg-gray-50 rounded-md">
+                            <FileCode className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                            <p className="text-gray-500">
+                              {searchQuery ? 'No matching RAML specifications found' : 'No RAML specifications found in Exchange'}
+                            </p>
+                            <p className="text-gray-400 text-sm mt-1">Add RAMLs to Exchange to use them here</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filteredRamls.map((raml) => (
+                              <div
+                                key={raml.id}
+                                onClick={() => handleRamlSelect(raml)}
+                                className={`relative p-4 border rounded-md cursor-pointer transition-all ${
+                                  selectedRaml?.id === raml.id
+                                    ? 'border-purple-500 bg-purple-50'
+                                    : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50/30'
+                                }`}
+                              >
+                                <div className="flex items-start">
+                                  <FileCode className="h-5 w-5 mt-1 mr-2 text-purple-600" />
+                                  <div>
+                                    <h3 className="font-medium text-gray-900">{raml.title}</h3>
+                                    <p className="text-sm text-gray-500 line-clamp-2">{raml.description}</p>
+                                  </div>
+                                  {selectedRaml?.id === raml.id && (
+                                    <div className="absolute top-2 right-2 w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center">
+                                      <Check className="h-3 w-3 text-white" />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedOption !== 'uploadComputer' && (
+              <div>
+                <label className="block font-medium mb-2">
+                  Diagrams:
+                </label>
+                <p className="text-sm text-gray-500 mb-2">
+                  Upload flow diagrams you want to add.
+                </p>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+                  accept="image/*,.pdf"
+                  multiple
+                />
+                <div
+                  className="border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={handleUploadClick}
+                >
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+                    <Plus className="w-6 h-6 text-gray-500" />
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {diagrams.length > 0
+                      ? `${diagrams.length} file(s) selected`
+                      : 'Click to upload'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="relative">
+              <button
+                className="w-full text-left p-4 border rounded-md flex justify-between items-center"
+                onClick={handleRuntimeSettingsClick}
+              >
+                <div>
+                  <span className="text-sm text-gray-500 block">Runtime Settings</span>
+                  <span>Java {javaVersion}, Maven {mavenVersion}</span>
+                </div>
+                <span className="text-gray-400">▼</span>
+              </button>
+
+              <AnimatePresence>
+                {showVersionsPopup && (
+                  <motion.div
+                    className="absolute top-full left-0 right-0 bg-white border rounded-md shadow-lg mt-1 z-50"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="p-4">
+                      <div className="mb-4">
+                        <h3 className="text-sm font-medium mb-2">Java Version</h3>
+                        <div className="space-y-2">
+                          <div
+                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
+                            onClick={() => handleJavaVersionSelect('8.0')}
+                          >
+                            <Check
+                              className={`w-4 h-4 mr-2 ${javaVersion === '8.0' ? 'visible text-purple-600' : 'invisible'}`}
+                            />
+                            <span>Java 8.0</span>
+                          </div>
+                          <div
+                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
+                            onClick={() => handleJavaVersionSelect('11.0')}
+                          >
+                            <Check
+                              className={`w-4 h-4 mr-2 ${javaVersion === '11.0' ? 'visible text-purple-600' : 'invisible'}`}
+                            />
+                            <span>Java 11.0</span>
+                          </div>
+                          <div
+                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
+                            onClick={() => handleJavaVersionSelect('17.0')}
+                          >
+                            <Check
+                              className={`w-4 h-4 mr-2 ${javaVersion === '17.0' ? 'visible text-purple-600' : 'invisible'}`}
+                            />
+                            <span>Java 17.0</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-medium mb-2">Maven Version</h3>
+                        <div className="space-y-2">
+                          <div
+                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
+                            onClick={() => handleMavenVersionSelect('3.5')}
+                          >
+                            <Check
+                              className={`w-4 h-4 mr-2 ${mavenVersion === '3.5' ? 'visible text-purple-600' : 'invisible'}`}
+                            />
+                            <span>Maven 3.5</span>
+                          </div>
+                          <div
+                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
+                            onClick={() => handleMavenVersionSelect('3.8')}
+                          >
+                            <Check
+                              className={`w-4 h-4 mr-2 ${mavenVersion === '3.8' ? 'visible text-purple-600' : 'invisible'}`}
+                            />
+                            <span>Maven 3.8</span>
+                          </div>
+                          <div
+                            className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
+                            onClick={() => handleMavenVersionSelect('3.9')}
+                          >
+                            <Check
+                              className={`w-4 h-4 mr-2 ${mavenVersion === '3.9' ? 'visible text-purple-600' : 'invisible'}`}
+                            />
+                            <span>Maven 3.9</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {error && (
+              <motion.div
+                className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <p className="font-medium">Error</p>
+                <p>{error}</p>
+              </motion.div>
+            )}
+
+            <div className="flex items-center text-purple-600 cursor-pointer" onClick={() => {}}>
+              <Plus className="w-4 h-4 mr-2" />
+              <span>Upload Settings XML</span>
+            </div>
+
+            <div className="flex justify-end space-x-4 mt-8">
+              <Button variant="outline" onClick={handleBackNavigation}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isLoading || !description.trim()}
+                className="relative"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "Submit"
+                )}
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-8">
+          {parsedSections && (
+            <>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">Flow Summary</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(parsedSections.flowSummary)}
+                    className="text-xs"
+                  >
+                    <Copy size={14} className="mr-1" /> Copy
+                  </Button>
+                </div>
+                <p className="whitespace-pre-wrap">{parsedSections.flowSummary}</p>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">Flow Implementation</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(parsedSections.flowImplementation)}
+                    className="text-xs"
+                  >
+                    <Copy size={14} className="mr-1" /> Copy
+                  </Button>
+                </div>
+                <div className="relative border rounded-md overflow-hidden">
+                  <MonacoEditor
+                    value={parsedSections.flowImplementation}
+                    language="xml"
+                    height="300px"
+                    readOnly={true}
+                    options={{ minimap: { enabled: true } }}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">Flow Constants</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(parsedSections.flowConstants)}
+                    className="text-xs"
+                  >
+                    <Copy size={14} className="mr-1" /> Copy
+                  </Button>
+                </div>
+                <div className="relative border rounded-md overflow-hidden">
+                  <MonacoEditor
+                    value={parsedSections.flowConstants}
+                    language="java"
+                    height="200px"
+                    readOnly={true}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">POM Dependencies</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(parsedSections.pomDependencies)}
+                    className="text-xs"
+                  >
+                    <Copy size={14} className="mr-1" /> Copy
+                  </Button>
+                </div>
+                <div className="relative border rounded-md overflow-hidden">
+                  <MonacoEditor
+                    value={parsedSections.pomDependencies}
+                    language="xml"
+                    height="200px"
+                    readOnly={true}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">Compilation Check</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(parsedSections.compilationCheck)}
+                    className="text-xs"
+                  >
+                    <Copy size={14} className="mr-1" /> Copy
+                  </Button>
+                </div>
+                <div className="relative border rounded-md overflow-hidden">
+                  <MonacoEditor
+                    value={parsedSections.compilationCheck}
+                    language="java"
+                    height="200px"
+                    readOnly={true}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-end space-x-4">
+            <Button variant="outline" onClick={() => setCurrentView('editor')}>
+              Edit Request
+            </Button>
+            <Button variant="outline" onClick={handleBackNavigation}>
+              Back to Dashboard
+            </Button>
+            <Button onClick={() => {
+              navigator.clipboard.writeText(generatedCode || '');
+              toast.success('All content copied to clipboard!');
+            }}>
+              Copy All
+            </Button>
+          </div>
+        </div>
+      )}
+    </motion.div>
   );
 };
 

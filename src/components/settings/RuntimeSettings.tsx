@@ -8,26 +8,14 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 
-interface RuntimeSettingsProps {
-  javaVersion: string;
-  mavenVersion: string;
-  onJavaVersionSelect: (version: string) => void;
-  onMavenVersionSelect: (version: string) => void;
-}
-
-export const RuntimeSettings: React.FC<RuntimeSettingsProps> = ({
-  javaVersion,
-  mavenVersion,
-  onJavaVersionSelect,
-  onMavenVersionSelect
-}) => {
+export const RuntimeSettings: React.FC = () => {
   return (
     <div className="bg-black/50 backdrop-blur-sm rounded-lg p-6 border border-gray-800 text-white">
       <h2 className="text-lg font-semibold mb-4">Runtime Setting</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <div className="text-sm text-gray-400">Java Version</div>
-          <Select value={javaVersion} onValueChange={onJavaVersionSelect}>
+          <Select defaultValue="8.0">
             <SelectTrigger className="w-full bg-gray-900 border-gray-800 text-white">
               <SelectValue placeholder="Select Java version" />
             </SelectTrigger>
@@ -41,7 +29,7 @@ export const RuntimeSettings: React.FC<RuntimeSettingsProps> = ({
 
         <div className="space-y-2">
           <div className="text-sm text-gray-400">Maven Version</div>
-          <Select value={mavenVersion} onValueChange={onMavenVersionSelect}>
+          <Select defaultValue="3.8">
             <SelectTrigger className="w-full bg-gray-900 border-gray-800 text-white">
               <SelectValue placeholder="Select Maven version" />
             </SelectTrigger>
