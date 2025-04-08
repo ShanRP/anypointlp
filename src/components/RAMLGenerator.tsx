@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy } from 'lucide-react';
+import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
@@ -82,7 +84,8 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
   const [publishTitle, setPublishTitle] = useState('');
   const [publishDescription, setPublishDescription] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
-  
+  const [visibility, setVisibility] = useState('public'); // Default to public
+
   const [showEndpointDialog, setShowEndpointDialog] = useState(false);
   const [showMethodDialog, setShowMethodDialog] = useState(false);
   const [currentEndpointIndex, setCurrentEndpointIndex] = useState<number | null>(null);
@@ -367,6 +370,8 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
     setIsPublishing(true);
 
     try {
+      const workspaceId = localStorage.getItem('currentWorkspaceId') || '';
+      
       const { data, error } = await supabase
         .from('apl_exchange_items')
         .insert({
@@ -375,7 +380,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
           type: 'raml',
           content: { raml: generatedRAML },
           user_id: (await supabase.auth.getUser()).data.user?.id,
-          username: (await supabase.auth.getUser()).data.user?.email?.split('@')[0] || 'Anonymous'
+          username: (await supabase.auth.getUser()).data.user?.email?.split('@')[0] || 'Anonymous',
+          visibility: visibility,
+          workspace_id: visibility === 'private' ? workspaceId : null
         })
         .select();
 
@@ -1167,6 +1174,32 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
                 rows={3}
               />
             </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Visibility</h3>
+              <RadioGroup value={visibility} onValueChange={setVisibility} className="flex flex-col space-y-3">
+                <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <RadioGroupItem value="public" id="visibility-public" />
+                  <Label htmlFor="visibility-public" className="flex items-center cursor-pointer">
+                    <Globe size={18} className="mr-2 text-blue-500" />
+                    <div>
+                      <span className="font-medium">Public</span>
+                      <p className="text-sm text-gray-500">Visible to everyone in the Exchange</p>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <RadioGroupItem value="private" id="visibility-private" />
+                  <Label htmlFor="visibility-private" className="flex items-center cursor-pointer">
+                    <Lock size={18} className="mr-2 text-gray-500" />
+                    <div>
+                      <span className="font-medium">Private</span>
+                      <p className="text-sm text-gray-500">Only visible to members of your workspace</p>
+                    </div>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
           </div>
           
           <DialogFooter>
@@ -1190,4 +1223,3 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
 };
 
 export default RAMLGenerator;
-
