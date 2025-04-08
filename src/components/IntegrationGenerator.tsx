@@ -75,7 +75,6 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
     pomDependencies: string;
     compilationCheck: string;
   } | null>(null);
-  // Add this to generate a unique task ID
   const [taskId, setTaskId] = useState<string>(`IG-${Math.floor(Math.random() * 9000) + 1000}`);
 
   const [ramlContent, setRamlContent] = useState<string>('');
@@ -584,14 +583,13 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
       setParsedSections(parsedResult);
       setCurrentView('result');
 
-      // Save the task to the workspace
       if (user) {
         try {
           const taskData = {
             user_id: user.id,
             workspace_id: selectedWorkspaceId || selectedWorkspace?.id || '',
             task_id: taskId,
-            task_name: 'Integration Generator',
+            task_name: 'Integration Flow',
             input_format: 'Flow Specification',
             input_samples: [{ id: 'input1', value: description, isValid: true }],
             output_samples: [],
@@ -600,50 +598,36 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
               id: `script-${Date.now()}`,
               code: generatedCodeResult,
               pairId: 'input1'
-            }]
+            }],
+            category: 'integration',
+            description: description.substring(0, 100)
           };
           
           const { data, error } = await supabase
-            .from('apl_dataweave_tasks')
+            .from('apl_integration_tasks')
             .insert([taskData])
             .select();
           
           if (error) {
-            console.error("Error saving task:", error);
+            console.error("Error saving integration task:", error);
           } else if (data && data.length > 0 && onSaveTask) {
             onSaveTask(data[0].id);
           }
         } catch (error) {
-          console.error("Error saving task:", error);
+          console.error("Error saving integration task:", error);
         }
       }
 
-      // Create a task for the sidebar
       if (onTaskCreated) {
         const newTask = {
-          id: `task-${Date.now()}`,
-          label: `Integration Generator`,
-          category: 'coding',
+          id: taskId,
           task_id: taskId,
           task_name: 'Integration Flow',
-          icon: 'CodeIcon',
-          workspace_id: selectedWorkspaceId || selectedWorkspace?.id || '',
+          category: 'integration',
           created_at: new Date().toISOString(),
-          input_format: 'Flow Specification',
-          notes: description,
-          generated_scripts: [
-            {
-              id: `script-${Date.now()}`,
-              code: generatedCodeResult
-            }
-          ]
+          workspace_id: selectedWorkspaceId || selectedWorkspace?.id || ''
         };
-
         onTaskCreated(newTask);
-      }
-
-      if (onSaveTask) {
-        onSaveTask(taskId);
       }
 
       toast.success('Integration code generated successfully!');
@@ -877,4 +861,170 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
               </div>
             </div>
 
-            {selected
+            {selectedRamlFile && (
+              <div className="mt-4">
+                <h3 className="text-md font-medium mb-2">Selected File:</h3>
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+                  <div className="flex items-center mb-2">
+                    <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                    <span className="font-medium">{selectedRamlFile.name}</span>
+                  </div>
+                  <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
+                  {selectedRamlFile.content && (
+                    <div className="mt-2 border rounded-md overflow-hidden">
+                      <MonacoEditor
+                        value={selectedRamlFile.content}
+                        language="yaml"
+                        height="200px"
+                        options={{ minimap: { enabled: false }, readOnly: true }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Integration Generator</h1>
+        <div className="flex items-center">
+          <Button onClick={handleBackNavigation} variant="outline">
+            <ArrowLeft size={16} />
+          </Button>
+          <Button onClick={handleRuntimeSettingsClick} variant="outline">
+            <Settings size={16} />
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Enter a description for the integration"
+            className="w-full"
+          />
+          <Button onClick={handleUploadClick} variant="outline">
+            <Upload size={16} />
+          </Button>
+        </div>
+
+        {renderRepositorySelection()}
+
+        {renderProjectFolderUpload()}
+
+        <div className="flex items-center">
+          <Select
+            value={selectedOption}
+            onValueChange={handleOptionChange}
+            className="w-full"
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select an option" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="noRepository">No Repository</SelectItem>
+              <SelectItem value="withRepository">With Repository</SelectItem>
+              <SelectItem value="uploadComputer">Upload Computer</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedOption === 'withRepository' && (
+          <div className="mt-4">
+            <label className="block font-medium mb-2">
+              Raml:
+            </label>
+
+            <div className="flex items-center">
+              <Select
+                value={ramlOption}
+                onValueChange={handleRamlSelect}
+                className="w-full"
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an option" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="input">Input</SelectItem>
+                  <SelectItem value="workspace">Workspace</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {ramlOption === 'workspace' && (
+              <div className="mt-4">
+                <label className="block font-medium mb-2">
+                  Search:
+                </label>
+
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search RAMLs"
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedOption === 'uploadComputer' && (
+          <div className="mt-4">
+            <label className="block font-medium mb-2">
+              Raml:
+            </label>
+
+            <div className="flex items-center">
+              <Select
+                value={ramlOption}
+                onValueChange={handleRamlSelect}
+                className="w-full"
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an option" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="input">Input</SelectItem>
+                  <SelectItem value="workspace">Workspace</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {ramlOption === 'workspace' && (
+              <div className="mt-4">
+                <label className="block font-medium mb-2">
+                  Search:
+                </label>
+
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search RAMLs"
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4">
+          <Button onClick={handleSubmit} variant="outline">
+            Generate Integration
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default IntegrationGenerator;
