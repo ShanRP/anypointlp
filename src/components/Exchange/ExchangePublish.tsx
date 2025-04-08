@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BackButton } from '../ui/BackButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { motion } from 'framer-motion';
 import { Loader2, Send, Globe, Lock } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -28,6 +29,8 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { selectedWorkspace } = useWorkspaces();
+  
   const [title, setTitle] = useState(location.state?.item?.title || '');
   const [description, setDescription] = useState(location.state?.item?.description || '');
   const [visibility, setVisibility] = useState('public'); // Default to public
@@ -63,10 +66,17 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
       return;
     }
 
+    if (visibility === 'private' && !selectedWorkspace) {
+      toast.error('You must select a workspace for private items');
+      return;
+    }
+
     setPublishing(true);
     try {
       const username = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonymous';
-      const workspaceId = localStorage.getItem('currentWorkspaceId') || null;
+      
+      // Get the workspace ID directly from selectedWorkspace object when visibility is private
+      const workspaceId = visibility === 'private' && selectedWorkspace ? selectedWorkspace.id : null;
       
       const exchangeItem = {
         title: title.trim(),
@@ -76,7 +86,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
         user_id: user.id,
         username: username,
         visibility: visibility,
-        workspace_id: visibility === 'private' && workspaceId ? workspaceId : null
+        workspace_id: workspaceId // Using the properly typed workspaceId
       };
 
       // For debugging
