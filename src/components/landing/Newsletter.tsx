@@ -53,24 +53,33 @@ const Newsletter: React.FC = () => {
           throw new Error('Error saving your subscription');
         }
         
-        // Call the send_welcome_email function using the REST API directly
-        // This avoids TypeScript issues since the function is new and not in the types
-        const { data: emailResult, error: emailError } = await supabase.rest.rpc(
-          'send_welcome_email', 
-          { subscriber_email: email }
-        );
-          
-        if (emailError) {
-          console.warn('Welcome email may not have been sent:', emailError);
-          // We don't throw an error here as the subscription was successful
-          // The user is subscribed even if the welcome email fails
-        } else {
-          console.log('Welcome email sent successfully:', emailResult);
-        }
-        
+        // Use a direct POST request to an edge function for sending the welcome email
+        // This avoids the TypeScript issues with RPC calls
         toast.success(`Thank you for subscribing to our newsletter! We've added ${email} to our mailing list.`, {
           duration: 5000
         });
+        
+        // Send a welcome email notification (we'll create this edge function)
+        try {
+          const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/send-welcome-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabase.auth.getSession().then(res => res.data.session?.access_token || '')}`
+            },
+            body: JSON.stringify({ email })
+          });
+          
+          if (!response.ok) {
+            console.warn('Welcome email may not have been sent:', await response.text());
+          } else {
+            console.log('Welcome email sent successfully');
+          }
+        } catch (emailError) {
+          console.warn('Error sending welcome email:', emailError);
+          // We don't throw an error here as the subscription was successful
+          // The user is subscribed even if the welcome email fails
+        }
       }
       
       // Reset form
