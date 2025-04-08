@@ -378,7 +378,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
         let currentPath = '';
         let parentNode: FileNode | null = null;
 
-        for (let i = 0; i < pathParts.length - 1; i++) {
+        for (let i = 0; < pathParts.length - 1; i++) {
           const part = pathParts[i];
           const newPath = currentPath ? `${currentPath}/${part}` : part;
           currentPath = newPath;
@@ -872,3 +872,4 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                   className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
                 >
                   <ArrowLeft size={16} />
+                </
