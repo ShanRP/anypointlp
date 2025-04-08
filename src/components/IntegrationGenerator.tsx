@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { supabase } from '@/integrations/supabase/client';
-import { createCustomSupabaseClient } from '@/integrations/supabase/database.types';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,9 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
-
-// Create a typed client
-const typedSupabase = createCustomSupabaseClient(supabase);
 
 export interface IntegrationGeneratorProps {
   onTaskCreated?: (task: any) => void;
@@ -587,11 +583,10 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
       setCurrentView('result');
 
       const taskId = `IG-${Math.floor(1000 + Math.random() * 9000)}`;
-      
       const newTask = {
         id: `task-${Date.now()}`,
         label: `Integration Generator`,
-        category: 'integration',
+        category: 'coding',
         task_id: taskId,
         task_name: 'Integration Flow',
         icon: 'CodeIcon',
@@ -604,56 +599,15 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
             id: `script-${Date.now()}`,
             code: generatedCodeResult
           }
-        ],
-        flow_summary: parsedResult.flowSummary,
-        flow_implementation: parsedResult.flowImplementation,
-        flow_constants: parsedResult.flowConstants,
-        pom_dependencies: parsedResult.pomDependencies,
-        compilation_check: parsedResult.compilationCheck
+        ]
       };
 
       if (onTaskCreated) {
         onTaskCreated(newTask);
       }
 
-      if (user) {
-        try {
-          const { error } = await supabase
-            .from('apl_integration_tasks')
-            .insert([{
-              workspace_id: selectedWorkspaceId || selectedWorkspace?.id || '',
-              task_id: taskId,
-              task_name: 'Integration Flow',
-              input_format: 'Flow Specification',
-              input_samples: [],
-              output_samples: [],
-              notes: description,
-              generated_scripts: [
-                {
-                  id: `script-${Date.now()}`,
-                  code: generatedCodeResult
-                }
-              ],
-              user_id: user.id,
-              username: user.user_metadata?.name || user.email?.split('@')[0] || 'Anonymous',
-              category: 'integration',
-              description: description,
-              flow_summary: parsedResult.flowSummary,
-              flow_implementation: parsedResult.flowImplementation,
-              flow_constants: parsedResult.flowConstants,
-              pom_dependencies: parsedResult.pomDependencies,
-              compilation_check: parsedResult.compilationCheck
-            }]);
-          
-          if (error) throw error;
-          
-          if (onSaveTask) {
-            onSaveTask(taskId);
-          }
-        } catch (err) {
-          console.error('Error saving integration task:', err);
-          toast.error('Failed to save integration task');
-        }
+      if (onSaveTask) {
+        onSaveTask(taskId);
       }
 
       toast.success('Integration code generated successfully!');
