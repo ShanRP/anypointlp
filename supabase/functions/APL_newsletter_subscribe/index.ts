@@ -34,6 +34,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Initialize Supabase client with service role key for RLS bypass
+    // The service role key is stored as a secret in the Supabase platform
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -75,30 +76,17 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log(`Newsletter subscription received for: ${email}`);
     
-    // Call the send_welcome_email edge function securely
-    const welcomeEmailResponse = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1/send_welcome_email`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({ email }),
-      }
+    // Call the database function to send welcome email, which uses the service role key securely from database settings
+    const { data: emailResult, error: functionError } = await supabaseAdmin.rpc(
+      'send_welcome_email',
+      { subscriber_email: email }
     );
-    
-    if (!welcomeEmailResponse.ok) {
-      const errorData = await welcomeEmailResponse.json();
-      console.error("Failed to send welcome email:", errorData);
+
+    if (functionError) {
+      console.error("Error calling send_welcome_email function:", functionError);
       // We still want to return success since we stored the email
     } else {
-      console.log("Welcome email function called successfully");
-      // Update the last_email_sent timestamp
-      await supabaseAdmin
-        .from("apl_newsletter_subscribers")
-        .update({ last_email_sent: new Date().toISOString() })
-        .eq("email", email);
+      console.log("Welcome email function called successfully:", emailResult);
     }
 
     // Return success response

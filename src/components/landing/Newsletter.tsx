@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAnimations } from '@/utils/animationUtils';
 import { Mail } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 const Newsletter: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -27,8 +25,6 @@ const Newsletter: React.FC = () => {
     
     try {
       // Call the APL_newsletter_subscribe edge function directly
-      // This edge function handles everything: checking for existing email,
-      // inserting new subscriber, and sending welcome email
       const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/APL_newsletter_subscribe', {
         method: 'POST',
         headers: {
