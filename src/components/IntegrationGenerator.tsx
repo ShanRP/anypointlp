@@ -593,30 +593,33 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
 
       if (user) {
         try {
-          const { data: rpcData, error: rpcError } = await supabase.rpc('apl_save_integration_task', {
-            p_task_id: taskId,
-            p_task_name: 'Integration Flow',
-            p_description: description,
-            p_user_id: user.id,
-            p_workspace_id: workspaceId,
-            p_category: 'integration',
-            p_runtime: `Java ${javaVersion}, Maven ${mavenVersion}`,
-            p_raml_content: selectedRamlFile?.content || ramlContent || '',
-            p_generated_code: generatedCodeResult,
-            p_flow_summary: parsedResult.flowSummary || '',
-            p_flow_implementation: parsedResult.flowImplementation || '',
-            p_flow_constants: parsedResult.flowConstants || '',
-            p_pom_dependencies: parsedResult.pomDependencies || '',
-            p_compilation_check: parsedResult.compilationCheck || '',
-            p_diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null
-          });
+          const { data: rpcData, error: rpcError } = await supabase
+            .from('apl_integration_tasks')
+            .insert([{
+              task_id: taskId,
+              task_name: 'Integration Flow',
+              description: description,
+              user_id: user.id,
+              workspace_id: workspaceId,
+              category: 'integration',
+              runtime: `Java ${javaVersion}, Maven ${mavenVersion}`,
+              raml_content: selectedRamlFile?.content || ramlContent || '',
+              generated_code: generatedCodeResult,
+              flow_summary: parsedResult.flowSummary || '',
+              flow_implementation: parsedResult.flowImplementation || '',
+              flow_constants: parsedResult.flowConstants || '',
+              pom_dependencies: parsedResult.pomDependencies || '',
+              compilation_check: parsedResult.compilationCheck || '',
+              diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null
+            }])
+            .select();
 
           if (rpcError) {
             console.error('Error saving integration task:', rpcError);
           } else {
             console.log('Successfully saved integration task:', rpcData);
-            if (rpcData && onSaveTask) {
-              onSaveTask(rpcData);
+            if (rpcData && rpcData.length > 0 && onSaveTask) {
+              onSaveTask(taskId);
             }
           }
         } catch (error) {
@@ -624,46 +627,10 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
         }
       }
 
-      if (user) {
-        try {
-          const taskData = {
-            user_id: user.id,
-            workspace_id: workspaceId,
-            task_id: taskId,
-            task_name: 'Integration Flow',
-            input_format: 'Flow Specification',
-            input_samples: JSON.parse(JSON.stringify([{ id: 'input1', value: description, isValid: true }])),
-            output_samples: JSON.parse(JSON.stringify([])),
-            notes: description,
-            generated_scripts: JSON.parse(JSON.stringify([{
-              id: `script-${Date.now()}`,
-              code: generatedCodeResult,
-              pairId: 'input1'
-            }])),
-            category: 'integration',
-            username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
-            description: description.substring(0, 255)
-          };
-
-          console.log('Saving integration task to general tasks table:', taskData.task_id);
-          const { data, error } = await supabase
-            .from('apl_dataweave_tasks')
-            .insert([taskData]);
-            
-          if (error) {
-            console.error('Error saving to general tasks table:', error);
-          } else {
-            console.log('Successfully saved to general tasks table');
-          }
-        } catch (error) {
-          console.error("Error saving to general tasks table:", error);
-        }
-      }
-
       if (onTaskCreated) {
         const newTask = {
-          id: `task-${Date.now()}`,
-          label: `Integration Generator`,
+          id: taskId,
+          label: 'Integration Flow',
           category: 'integration',
           task_id: taskId,
           task_name: 'Integration Flow',

@@ -308,6 +308,12 @@ const Dashboard = () => {
       workspace_id: selectedWorkspace?.id || ''
     };
     setTasks(prevTasks => [...prevTasks, taskWithWorkspace]);
+    
+    if (selectedWorkspace?.id) {
+      const { fetchWorkspaceTasks } = useWorkspaceTasks(selectedWorkspace.id);
+      fetchWorkspaceTasks();
+    }
+    
     toast.success(`Task ${task.id} created successfully!`);
   };
 

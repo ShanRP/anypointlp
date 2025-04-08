@@ -51,9 +51,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching integration tasks for workspace:', workspaceId);
       
-      const { data, error } = await supabase.rpc('apl_get_integration_tasks', { 
-        workspace_id_param: workspaceId 
-      });
+      // Direct query to the integration tasks table instead of using RPC
+      const { data, error } = await supabase
+        .from('apl_integration_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching integration tasks:', error);
@@ -133,9 +136,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching integration task details for:', taskId);
       
-      const { data, error } = await supabase.rpc('apl_get_integration_task_details', { 
-        task_id_param: taskId 
-      });
+      // Direct query to get integration task details
+      const { data, error } = await supabase
+        .from('apl_integration_tasks')
+        .select('*')
+        .eq('task_id', taskId)
+        .limit(1);
       
       if (error) {
         console.error('Error fetching integration task details:', error);
