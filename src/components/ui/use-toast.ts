@@ -1,5 +1,5 @@
 
-import React from 'react';
-import { useToast, toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
-export { useToast, toast };
+// Re-export toast for use in components
+export { toast };

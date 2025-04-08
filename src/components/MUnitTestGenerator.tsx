@@ -41,7 +41,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   onBack,
   onSaveTask
 }) => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [sourceType, setSourceType] = useState<'noRepository' | 'withRepository' | 'local'>('noRepository');

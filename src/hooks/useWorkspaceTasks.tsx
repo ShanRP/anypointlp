@@ -114,16 +114,18 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching RAML tasks for workspace:', workspaceId);
       
-      const { data, error } = await supabase.rpc('apl_get_raml_tasks', { 
-        workspace_id_param: workspaceId 
-      });
+      const { data, error } = await supabase
+        .from('apl_raml_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching RAML tasks:', error);
         throw error;
       }
       
-      const ramlTasks = Array.isArray(data) ? data.map((task: any) => ({
+      const ramlTasks = (data || []).map((task: any) => ({
         id: task.id,
         task_id: task.task_id,
         task_name: task.task_name,
@@ -131,7 +133,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         workspace_id: workspaceId,
         category: 'raml',
         description: task.description || ''
-      })) : [];
+      }));
       
       console.log('Fetched RAML tasks:', ramlTasks.length);
       return ramlTasks;
@@ -380,7 +382,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           task_id: integrationTask.task_id,
           task_name: integrationTask.task_name || 'Integration Flow',
           input_format: 'Flow Specification',
-          input_samples: [{ id: 'input1', value: integrationTask.description, isValid: true }],
+          input_samples: [],
           output_samples: [],
           notes: integrationTask.description || '',
           generated_scripts: [{
@@ -408,9 +410,19 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching RAML task details for:', taskId);
       
-      let { data, error } = await supabase.rpc('apl_get_raml_task_details', { 
-        task_id_param: taskId 
-      });
+      let { data, error } = await supabase
+        .from('apl_raml_tasks')
+        .select('*')
+        .eq('task_id', taskId)
+        .limit(1);
+      
+      if ((!data || data.length === 0) && taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        ({ data, error } = await supabase
+          .from('apl_raml_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .limit(1));
+      }
       
       if (error) {
         console.error('Error fetching RAML task details:', error);
@@ -440,7 +452,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           api_name: ramlTask.api_name,
           api_version: ramlTask.api_version,
           base_uri: ramlTask.base_uri,
-          endpoints: ramlTask.endpoints,
+          endpoints: ramlTask.endpoints as any[],
           raml_content: ramlTask.raml_content,
           documentation: ramlTask.documentation
         };
@@ -728,19 +740,34 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           description?: string;
         };
         
+        const parsedInputSamples = typeof taskDetails.input_samples === 'string' 
+          ? JSON.parse(taskDetails.input_samples as string) 
+          : taskDetails.input_samples;
+          
+        const parsedOutputSamples = typeof taskDetails.output_samples === 'string' 
+          ? JSON.parse(taskDetails.output_samples as string) 
+          : taskDetails.output_samples;
+          
+        const parsedGeneratedScripts = typeof taskDetails.generated_scripts === 'string' 
+          ? JSON.parse(taskDetails.generated_scripts as string) 
+          : taskDetails.generated_scripts;
+        
         const taskWithWorkspace = {
           ...taskDetails,
           workspace_id: workspaceId,
           category: taskDetails.category || 'dataweave',
           description: taskDetails.description || '',
-          task_id: taskDetails.task_id || `T-${taskDetails.id.substring(0, 8).toUpperCase()}`
+          task_id: taskDetails.task_id || `T-${taskDetails.id.substring(0, 8).toUpperCase()}`,
+          input_samples: parsedInputSamples,
+          output_samples: parsedOutputSamples,
+          generated_scripts: parsedGeneratedScripts
         } as TaskDetails;
         
         setSelectedTask(taskWithWorkspace);
         console.log('Found task in regular tasks table');
       } else {
         setSelectedTask(null);
-        toast.warning('Task not found');
+        toast.error('Task not found');
       }
     } catch (err: any) {
       console.error('Error fetching task details:', err);
