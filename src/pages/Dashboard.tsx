@@ -310,7 +310,6 @@ const Dashboard = () => {
     setTasks(prevTasks => [...prevTasks, taskWithWorkspace]);
     
     if (selectedWorkspace?.id) {
-      const { fetchWorkspaceTasks } = useWorkspaceTasks(selectedWorkspace.id);
       fetchWorkspaceTasks();
     }
     
@@ -361,6 +360,13 @@ const Dashboard = () => {
     );
 
     setFilteredAgents(filtered);
+  };
+
+  const fetchWorkspaceTasks = () => {
+    if (selectedWorkspace?.id) {
+      const { fetchWorkspaceTasks } = useWorkspaceTasks(selectedWorkspace.id);
+      fetchWorkspaceTasks();
+    }
   };
 
   if (loading) {

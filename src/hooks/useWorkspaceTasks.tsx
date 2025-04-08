@@ -136,12 +136,22 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching integration task details for:', taskId);
       
-      // Direct query to get integration task details
-      const { data, error } = await supabase
+      // First try by task_id (string identifier)
+      let { data, error } = await supabase
         .from('apl_integration_tasks')
         .select('*')
         .eq('task_id', taskId)
         .limit(1);
+      
+      // If not found by task_id, try by id (UUID)
+      if ((!data || data.length === 0) && taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log('Task not found by task_id, trying UUID:', taskId);
+        ({ data, error } = await supabase
+          .from('apl_integration_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .limit(1));
+      }
       
       if (error) {
         console.error('Error fetching integration task details:', error);
@@ -150,19 +160,20 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       if (data && data.length > 0) {
         const integrationTask = data[0];
+        console.log('Found task in integration tasks table');
         
         // Convert to TaskDetails format
         const taskDetails: TaskDetails = {
           id: integrationTask.id,
           task_id: integrationTask.task_id,
-          task_name: integrationTask.task_name,
+          task_name: integrationTask.task_name || 'Integration Flow',
           input_format: 'Flow Specification',
           input_samples: [{ id: 'input1', value: integrationTask.description, isValid: true }],
           output_samples: [],
           notes: integrationTask.description || '',
           generated_scripts: [{
             id: `script-${Date.now()}`,
-            code: integrationTask.generated_code,
+            code: integrationTask.generated_code || '',
           }],
           created_at: integrationTask.created_at,
           workspace_id: workspaceId,
