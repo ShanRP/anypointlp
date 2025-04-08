@@ -9,7 +9,11 @@ DECLARE
   result JSONB;
   url TEXT := 'https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/send_welcome_email';
   payload JSONB := json_build_object('email', subscriber_email);
+  service_role_key TEXT;
 BEGIN
+  -- Get the service role key from the database secrets
+  service_role_key := current_setting('app.settings.SUPABASE_SERVICE_ROLE_KEY', true);
+  
   -- Call the edge function to send the email
   SELECT 
     COALESCE(
@@ -20,7 +24,10 @@ BEGIN
   FROM http((
     'POST',
     url,
-    ARRAY[('Content-Type', 'application/json')],
+    ARRAY[
+      ('Content-Type', 'application/json'),
+      ('Authorization', 'Bearer ' || service_role_key)
+    ],
     payload::TEXT,
     NULL
   )::http_request);

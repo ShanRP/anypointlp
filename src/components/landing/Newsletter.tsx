@@ -26,57 +26,33 @@ const Newsletter: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Check if email already exists
-      const { data: existingSubscriber, error: checkError } = await supabase
-        .from('apl_newsletter_subscribers')
-        .select('email')
-        .eq('email', email)
-        .single();
+      // Call the APL_newsletter_subscribe edge function directly
+      // This edge function handles everything: checking for existing email,
+      // inserting new subscriber, and sending welcome email
+      const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/APL_newsletter_subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      });
       
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows found" error
-        throw new Error(`Error checking subscription: ${checkError.message}`);
-      }
+      const data = await response.json();
       
-      if (existingSubscriber) {
-        toast.info(`${email} is already subscribed to our newsletter. Thank you for your continued interest!`, {
+      if (!response.ok) {
+        console.error('Error calling newsletter subscribe function:', data);
+        toast.error(`Something went wrong with your subscription. Please try again later.`, {
           duration: 5000
         });
       } else {
-        // Insert new subscriber using the service role to bypass RLS if needed
-        const { error: insertError } = await supabase
-          .from('apl_newsletter_subscribers')
-          .insert([{ email, status: 'active' }]);
-        
-        if (insertError) {
-          throw new Error(`Error saving subscription: ${insertError.message}`);
-        }
-        
-        // Call the APL_newsletter_subscribe edge function to handle email sending
-        const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/APL_newsletter_subscribe', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-          console.error('Error calling newsletter subscribe function:', data);
-          toast.success(`Thank you for subscribing! However, there was an issue sending the welcome email. Our team will reach out to you soon.`, {
+        if (data.alreadySubscribed) {
+          toast.info(`${email} is already subscribed to our newsletter. Thank you for your continued interest!`, {
             duration: 5000
           });
         } else {
-          if (data.alreadySubscribed) {
-            toast.info(`${email} is already subscribed to our newsletter. Thank you for your continued interest!`, {
-              duration: 5000
-            });
-          } else {
-            toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
-              duration: 5000
-            });
-          }
+          toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
+            duration: 5000
+          });
         }
         
         console.log('Subscription and email status:', data);

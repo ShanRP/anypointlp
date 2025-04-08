@@ -127,3 +127,6 @@ verify_jwt = false
 
 [functions.send_welcome_email]
 verify_jwt = false
+
+[functions.secure-api-proxy]
+verify_jwt = true
