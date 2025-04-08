@@ -1,3 +1,4 @@
+'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -15,131 +16,65 @@ const Newsletter: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Improved email validation
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
       toast.error('Please enter a valid email address.');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // Check if the email already exists
       const { data: existingSubscriber, error: lookupError } = await supabase
         .from('apl_newsletter_subscribers')
-        .select('id, email')
+        .select('id')
         .eq('email', email)
         .maybeSingle();
-      
+
       if (lookupError) {
         console.error('Error checking existing subscriber:', lookupError);
         throw new Error('Error checking subscription status');
       }
-      
+
       if (existingSubscriber) {
-        toast.info(`${email} is already subscribed to our newsletter. Thank you for your continued interest!`, {
-          duration: 5000
-        });
+        toast.info(`${email} is already subscribed. Thank you!`);
       } else {
-        // Insert the new subscriber
+        // Save to subscriber table
         const { error: insertError } = await supabase
           .from('apl_newsletter_subscribers')
           .insert([{ email, status: 'active' }]);
-          
+
         if (insertError) {
-          console.error('Error saving subscriber:', insertError);
-          throw new Error('Error saving your subscription');
+          console.error('Insert error:', insertError);
+          throw new Error('Failed to save subscriber');
         }
-        
-        // Send the welcome email using the Resend API directly
-        const resendResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_RESEND_API_KEY || 're_'}`
-          },
-          body: JSON.stringify({
-            from: 'Anypoint Learning Platform <noreply@anypointlearningplatform.com>',
-            to: email,
-            subject: 'Welcome to the Anypoint Learning Platform Newsletter!',
-            html: getWelcomeEmailHtml()
-          })
+
+        // Send a magic link email using Supabase Auth (SMTP must be configured)
+        const { error: emailError } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            shouldCreateUser: false, // Avoid creating user accounts
+            emailRedirectTo: `${window.location.origin}/thank-you`
+          }
         });
-        
-        if (!resendResponse.ok) {
-          console.warn('Welcome email may not have been sent:', await resendResponse.text());
+
+        if (emailError) {
+          console.error('Email send error:', emailError);
+          toast.warning(`Subscription saved, but email failed to send.`);
         } else {
-          console.log('Welcome email sent successfully');
-          
-          // Update the last_email_sent timestamp in the database
-          await supabase
-            .from('apl_newsletter_subscribers')
-            .update({ last_email_sent: new Date().toISOString() })
-            .eq('email', email);
+          toast.success(`🎉 Subscription successful! A confirmation email has been sent to ${email}`);
         }
-        
-        toast.success(`Thank you for subscribing to our newsletter! We've added ${email} to our mailing list.`, {
-          duration: 5000
-        });
       }
-      
-      // Reset form
+
       setEmail('');
-    } catch (error) {
-      console.error('Newsletter submission error:', error);
-      toast.error('Something went wrong with your subscription. Please try again later.');
+    } catch (err) {
+      console.error('Newsletter error:', err);
+      toast.error('An error occurred. Please try again later.');
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Function to generate welcome email HTML
-  const getWelcomeEmailHtml = () => {
-    return `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-            h1 { color: #5a67d8; }
-            h2 { color: #4c51bf; margin-top: 24px; }
-            .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 14px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <h1>Welcome to the Anypoint Learning Platform!</h1>
-          <p>Thank you for subscribing to our newsletter! We're excited to have you join our community of MuleSoft enthusiasts and API developers.</p>
-          
-          <h2>Here's what you can expect:</h2>
-          <ul>
-            <li>Latest updates on MuleSoft and API development best practices</li>
-            <li>Exclusive tutorials and guides for building better integrations</li>
-            <li>Early access to new features and tools we're developing</li>
-            <li>Invitations to webinars and online events</li>
-            <li>Tips and tricks from industry experts</li>
-          </ul>
-          
-          <h2>Coming soon to our platform:</h2>
-          <ul>
-            <li>Advanced AI-powered MuleSoft flow generation</li>
-            <li>Interactive DataWeave transformation tools</li>
-            <li>Comprehensive API documentation generators</li>
-            <li>Integration with popular CI/CD pipelines</li>
-            <li>Enhanced visualization tools for your API ecosystem</li>
-          </ul>
-          
-          <p>You'll be the first to know when these exciting features are released!</p>
-          
-          <p>If you have any questions or feedback, feel free to reply to this email or contact our support team.</p>
-          
-          <div class="footer">
-            <p>Thank you again for subscribing, and welcome to the Anypoint Learning Platform community!</p>
-            <p>Best regards,<br>The Anypoint Learning Platform Team</p>
-          </div>
-        </body>
-      </html>
-    `;
   };
 
   return (
@@ -154,7 +89,7 @@ const Newsletter: React.FC = () => {
           >
             Stay Updated
           </motion.h2>
-          
+
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -164,7 +99,7 @@ const Newsletter: React.FC = () => {
           >
             Subscribe to our newsletter for the latest updates, best practices, and tips for your MuleSoft and API development journey.
           </motion.p>
-          
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
