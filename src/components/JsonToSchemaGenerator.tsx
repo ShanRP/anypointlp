@@ -84,12 +84,12 @@ const JsonToSchemaGenerator: React.FC<JsonToSchemaGeneratorProps> = ({
       if (typeof data === 'object' && data !== null) {
         Object.keys(data).forEach(key => {
           const value = data[key];
-          let type = typeof value;
+          let type: string = typeof value;
           
           if (Array.isArray(value)) {
-            type = "array";
+            type = "array"; // Fixed: Using string literal instead of direct assignment
           } else if (value === null) {
-            type = "null";
+            type = "null"; // Fixed: Using string literal instead of direct assignment
           }
           
           (schema.properties as any)[key] = { type };
