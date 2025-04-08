@@ -53,9 +53,12 @@ const Newsletter: React.FC = () => {
           throw new Error('Error saving your subscription');
         }
         
-        // Call the send_welcome_email function
-        const { data: emailResult, error: emailError } = await supabase
-          .rpc('send_welcome_email', { subscriber_email: email });
+        // Call the send_welcome_email function using the REST API directly
+        // This avoids TypeScript issues since the function is new and not in the types
+        const { data: emailResult, error: emailError } = await supabase.rest.rpc(
+          'send_welcome_email', 
+          { subscriber_email: email }
+        );
           
         if (emailError) {
           console.warn('Welcome email may not have been sent:', emailError);
