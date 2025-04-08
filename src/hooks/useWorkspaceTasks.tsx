@@ -230,7 +230,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
   }) => {
     try {
       // Generate a unique task_id if not provided
-      const taskId = task.task_id || `T-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
+      const taskId = task.task_id || `IG-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
       if (task.category === 'integration') {
         // Save to integration tasks table
@@ -254,12 +254,23 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           compilation_check: task.compilation_check || ''
         };
 
+        console.log("Saving integration task:", taskData);
+        
         const { data, error } = await typedSupabase
           .from('apl_integration_tasks')
           .insert([taskData])
           .select();
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error inserting integration task:", error);
+          throw error;
+        }
+        
+        console.log("Integration task saved successfully:", data);
+        
+        if (data && data.length > 0) {
+          toast.success(`Task "${taskData.task_name}" saved successfully!`);
+        }
         
       } else {
         // Save to dataweave tasks table
