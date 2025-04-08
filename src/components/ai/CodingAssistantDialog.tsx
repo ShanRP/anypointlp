@@ -1,30 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import CodingAssistant from './CodingAssistant';
 import { Code, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { motion } from 'framer-motion';
-
-// Create a global state to manage a single dialog instance
-let globalSetIsOpen: ((open: boolean) => void) | null = null;
-let globalOpenCallback: ((open: boolean) => void) | null = null;
-
-// Function to control the dialog from anywhere in the app
-export const openCodingAssistantDialog = () => {
-  if (globalSetIsOpen) {
-    globalSetIsOpen(true);
-    if (globalOpenCallback) globalOpenCallback(true);
-  }
-};
-
-export const closeCodingAssistantDialog = () => {
-  if (globalSetIsOpen) {
-    globalSetIsOpen(false);
-    if (globalOpenCallback) globalOpenCallback(false);
-  }
-};
 
 interface CodingAssistantDialogProps {
   trigger?: React.ReactNode;
@@ -39,22 +20,6 @@ const CodingAssistantDialog: React.FC<CodingAssistantDialogProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState(0); // Add a key to force re-render when dialog opens
-  
-  // Register the setter with the global reference
-  useEffect(() => {
-    globalSetIsOpen = setOpen;
-    globalOpenCallback = onOpenChange || null;
-    
-    return () => {
-      // Clean up when component unmounts
-      if (globalSetIsOpen === setOpen) {
-        globalSetIsOpen = null;
-      }
-      if (globalOpenCallback === onOpenChange) {
-        globalOpenCallback = null;
-      }
-    };
-  }, [onOpenChange]);
   
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
@@ -71,11 +36,16 @@ const CodingAssistantDialog: React.FC<CodingAssistantDialogProps> = ({
 
   return (
     <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
-      {trigger && (
-        <DialogTrigger asChild>
-          {trigger}
-        </DialogTrigger>
-      )}
+      <DialogTrigger asChild>
+        {trigger || (
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md">
+              <Code size={16} />
+              <span>Coding Assistant</span>
+            </Button>
+          </motion.div>
+        )}
+      </DialogTrigger>
       <DialogContent 
         className={cn(
           "sm:max-w-[90vw] md:max-w-[80vw] lg:max-w-5xl xl:max-w-6xl h-[85vh] p-0 overflow-hidden rounded-xl border-0 shadow-2xl",
