@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Home, 
@@ -22,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from '@/components/ui/use-toast';
 import { AnimatePresence, motion } from "framer-motion";
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import { useWorkspaceTasks, WorkspaceTask } from '@/hooks/useWorkspaceTasks';

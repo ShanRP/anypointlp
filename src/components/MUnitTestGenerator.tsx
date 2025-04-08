@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, Save, RefreshCw, Copy } from 'lucide-react';
+import { ArrowLeft, UploadCloud, Save, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from '@/components/ui/separator';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useMUnitRepositoryData } from '@/hooks/useMUnitRepositoryData';
 import MonacoEditor from './MonacoEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,9 +16,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from '@/hooks/useAuth';
-import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type MUnitTestGeneratorProps = {
   onTaskCreated?: (task: any) => void;
@@ -40,6 +37,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   onBack,
   onSaveTask
 }) => {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [sourceType, setSourceType] = useState<'noRepository' | 'withRepository' | 'local'>('noRepository');
@@ -50,10 +48,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [scenarioCount, setScenarioCount] = useState(1);
   const [generatedTests, setGeneratedTests] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('input');
-  const [taskId, setTaskId] = useState<string>('');
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [taskName, setTaskName] = useState('');
-  const { user } = useAuth();
   
   const { 
     repositories, 
@@ -69,24 +63,21 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     loading 
   } = useMUnitRepositoryData();
 
-  const { saveMUnitTask } = useWorkspaceTasks(selectedWorkspaceId || '');
-
-  useEffect(() => {
-    // Generate a unique task ID when component loads
-    setTaskId(`M-${crypto.randomUUID().substring(0, 8).toUpperCase()}`);
-  }, []);
-
   const handleGenerate = async () => {
     if (!description) {
       toast({
-        description: "Please provide a description for the test."
+        title: "Missing information",
+        description: "Please provide a description for the test.",
+        variant: "destructive"
       });
       return;
     }
 
     if (!flowImplementation) {
       toast({
-        description: "Please provide the flow implementation to generate tests for."
+        title: "Missing flow implementation",
+        description: "Please provide the flow implementation to generate tests for.",
+        variant: "destructive"
       });
       return;
     }
@@ -94,6 +85,8 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     setIsGenerating(true);
     
     try {
+      const taskId = uuidv4();
+      
       console.log("Sending request with payload:", {
         description,
         notes,
@@ -138,14 +131,20 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         });
 
         toast({
-          description: "MUnit tests generated successfully."
+          title: "Success!",
+          description: "MUnit tests generated successfully.",
         });
+
+        if (onSaveTask) {
+          onSaveTask(taskId);
+        }
       }
       
       setActiveTab('result');
     } catch (error) {
       console.error('Error generating MUnit tests:', error);
       toast({
+        title: "Generation failed",
         description: error instanceof Error ? error.message : "Failed to generate MUnit tests. Please try again.",
         variant: "destructive"
       });
@@ -168,57 +167,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     selectFile(filePath);
     if (fileContent) {
       setFlowImplementation(fileContent);
-    }
-  };
-
-  const handleSaveTask = async () => {
-    if (!taskName.trim()) {
-      toast({
-        description: "Please provide a name for this task",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!selectedWorkspaceId || !user) {
-      toast({
-        description: "Workspace or user information is missing",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const task = {
-        task_id: taskId,
-        task_name: taskName,
-        user_id: user.id,
-        workspace_id: selectedWorkspaceId,
-        description: description,
-        flow_implementation: flowImplementation,
-        generated_tests: generatedTests,
-        runtime: runtime,
-        notes: notes,
-        scenario_count: scenarioCount
-      };
-
-      await saveMUnitTask(task);
-      
-      toast({
-        description: "MUnit task has been saved successfully"
-      });
-
-      setSaveDialogOpen(false);
-      
-      if (onSaveTask) {
-        onSaveTask(taskId);
-      }
-    } catch (error) {
-      console.error('Error saving MUnit task:', error);
-      toast({
-        description: "Failed to save the MUnit task",
-        variant: "destructive"
-      });
     }
   };
 
@@ -394,7 +342,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                 </div>
               )}
 
-              <div className="flex-1 flex flex-col h-full">
+              <div className="flex-1 flex flex-col  h-full">
                 <Label htmlFor="flowImplementation" className="font-medium mb-1 block">
                   Flow Implementation<span className="text-red-500">*</span>
                 </Label>
@@ -499,15 +447,11 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                   <Button onClick={() => {
                     navigator.clipboard.writeText(generatedTests);
                     toast({
-                      description: "MUnit tests copied to clipboard"
+                      title: "Copied!",
+                      description: "MUnit tests copied to clipboard",
                     });
                   }}>
-                    <Copy className="h-4 w-4 mr-2" />
                     Copy to Clipboard
-                  </Button>
-                  <Button onClick={() => setSaveDialogOpen(true)}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
                   </Button>
                 </div>
               </div>
@@ -526,41 +470,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
           </TabsContent>
         </Tabs>
       </div>
-
-      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Save MUnit Task</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="task-name">Task Name</Label>
-              <Input
-                id="task-name"
-                value={taskName}
-                onChange={(e) => setTaskName(e.target.value)}
-                placeholder="MUnit tests for..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="task-id">Task ID</Label>
-              <Input
-                id="task-id"
-                value={taskId}
-                readOnly
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveTask}>
-              Save Task
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

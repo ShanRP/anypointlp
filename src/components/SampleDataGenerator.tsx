@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, Save } from 'lucide-react';
+import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
@@ -15,27 +14,11 @@ import { toast } from 'sonner';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { FileNode, isFileOfType, pathExistsInFileStructure, getNodeByPath } from '@/utils/githubUtils';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
-import { useAuth } from '@/hooks/useAuth';
 
 type GenerationType = 'JSON' | 'XML' | 'CSV' | 'YAML';
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 
-type SampleDataGeneratorProps = {
-  onBack: () => void;
-  selectedWorkspaceId?: string;
-  onTaskCreated?: (task: any) => void;
-  onSaveTask?: (taskId: string) => void;
-};
-
-function SampleDataGenerator({ 
-  onBack, 
-  selectedWorkspaceId,
-  onTaskCreated,
-  onSaveTask
-}: SampleDataGeneratorProps) {
+function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const [generationType, setGenerationType] = useState<GenerationType>('JSON');
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
   const [schema, setSchema] = useState('');
@@ -44,16 +27,11 @@ function SampleDataGenerator({
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState('input');
   const [isLoadingFile, setIsLoadingFile] = useState(false);
-  const [taskId, setTaskId] = useState('');
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [taskName, setTaskName] = useState('');
   
   const { repositories, loadingRepositories, fetchRepositories, 
           fileStructure, loadingFileStructure, fetchFileStructure,
           fetchFileContent } = useGithubApi();
   const { selectedRepository, setSelectedRepository } = useRepositoryData();
-  const { user } = useAuth();
-  const { saveSampleDataTask } = useWorkspaceTasks(selectedWorkspaceId || '');
   
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [fileContent, setFileContent] = useState<string>('');
@@ -62,11 +40,6 @@ function SampleDataGenerator({
   
   const projectFolderRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // Generate a unique task ID when component loads
-    setTaskId(`S-${crypto.randomUUID().substring(0, 8).toUpperCase()}`);
-  }, []);
 
   const isValidFileForFormat = (fileName: string): boolean => {
     return isFileOfType(fileName, generationType);
@@ -272,44 +245,6 @@ function SampleDataGenerator({
       setIsLoadingFile(false);
     };
     reader.readAsText(file);
-  };
-
-  const handleSaveTask = async () => {
-    if (!taskName.trim()) {
-      toast.error("Task name is required");
-      return;
-    }
-
-    if (!selectedWorkspaceId || !user) {
-      toast.error("Workspace or user information missing");
-      return;
-    }
-
-    try {
-      const task = {
-        task_id: taskId,
-        task_name: taskName,
-        workspace_id: selectedWorkspaceId,
-        user_id: user.id,
-        description: `Sample ${generationType} data generator`,
-        schema: schema,
-        result: result,
-        format: generationType,
-        notes: notes
-      };
-
-      await saveSampleDataTask(task);
-      
-      setSaveDialogOpen(false);
-      toast.success("Sample data task saved successfully!");
-      
-      if (onSaveTask) {
-        onSaveTask(taskId);
-      }
-    } catch (error) {
-      console.error('Error saving sample data task:', error);
-      toast.error("Failed to save sample data task");
-    }
   };
 
   useEffect(() => {
@@ -693,13 +628,6 @@ function SampleDataGenerator({
                       <Copy size={16} />
                       Copy to Clipboard
                     </Button>
-                    <Button 
-                      onClick={() => setSaveDialogOpen(true)}
-                      className="flex items-center gap-2"
-                    >
-                      <Save size={16} />
-                      Save Task
-                    </Button>
                   </div>
                 </div>
               ) : (
@@ -718,41 +646,6 @@ function SampleDataGenerator({
           </Tabs>
         </CardContent>
       </Card>
-
-      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Save Sample Data Task</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="task-name">Task Name</Label>
-              <Input
-                id="task-name"
-                value={taskName}
-                onChange={(e) => setTaskName(e.target.value)}
-                placeholder={`${generationType} Sample Data`}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="task-id">Task ID</Label>
-              <Input
-                id="task-id"
-                value={taskId}
-                readOnly
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveTask}>
-              Save Task
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
