@@ -13,6 +13,13 @@ import { motion } from 'framer-motion';
 import { Loader2, Send, Globe, Lock } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface ExchangePublishProps {}
 
@@ -24,6 +31,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
   const [description, setDescription] = useState(location.state?.item?.description || '');
   const [visibility, setVisibility] = useState('public'); // Default to public
   const [publishing, setPublishing] = useState(false);
+  const [showDialog, setShowDialog] = useState(true);
 
   if (!location.state?.item) {
     return (
@@ -88,116 +96,96 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
   };
 
   return (
-    <div className="w-full h-full max-w-none mx-0 p-0 bg-white">
-      <div className="p-8 border-b border-purple-100">
-        <BackButton onBack={() => navigate(-1)} />
-        <h1 className="text-3xl font-bold text-gray-900 mt-4">Publish to Exchange</h1>
-        <p className="text-gray-600">Share your {contentTypeDisplay} with the community</p>
-      </div>
-
-      <div className="p-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Publish Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium mb-2 text-gray-700">
-                  Title <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter a descriptive title"
-                  required
-                  className="w-full"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="description" className="block text-sm font-medium mb-2 text-gray-700">
-                  Description
-                </label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Provide a detailed description of your content"
-                  rows={4}
-                  className="w-full"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-700">Visibility</h3>
-                <RadioGroup value={visibility} onValueChange={setVisibility} className="flex flex-col space-y-3">
-                  <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
-                    <RadioGroupItem value="public" id="visibility-public" />
-                    <Label htmlFor="visibility-public" className="flex items-center cursor-pointer">
-                      <Globe size={18} className="mr-2 text-blue-500" />
-                      <div>
-                        <span className="font-medium">Public</span>
-                        <p className="text-sm text-gray-500">Visible to everyone in the Exchange</p>
-                      </div>
-                    </Label>
+    <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold">Publish to Exchange</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <label htmlFor="title" className="text-sm font-medium mb-2 text-gray-700 block">
+              Title <span className="text-red-500">*</span>
+            </label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Enter a descriptive title"
+              required
+              className="w-full"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="description" className="text-sm font-medium mb-2 text-gray-700 block">
+              Description
+            </label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Provide a detailed description of your content"
+              rows={4}
+              className="w-full"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-gray-700">Visibility</h3>
+            <RadioGroup value={visibility} onValueChange={setVisibility} className="flex flex-col space-y-3">
+              <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                <RadioGroupItem value="public" id="visibility-public" />
+                <Label htmlFor="visibility-public" className="flex items-center cursor-pointer">
+                  <Globe size={18} className="mr-2 text-blue-500" />
+                  <div>
+                    <span className="font-medium">Public</span>
+                    <p className="text-sm text-gray-500">Visible to everyone in the Exchange</p>
                   </div>
-                  <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
-                    <RadioGroupItem value="private" id="visibility-private" />
-                    <Label htmlFor="visibility-private" className="flex items-center cursor-pointer">
-                      <Lock size={18} className="mr-2 text-gray-500" />
-                      <div>
-                        <span className="font-medium">Private</span>
-                        <p className="text-sm text-gray-500">Only visible to members of your workspace</p>
-                      </div>
-                    </Label>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                <RadioGroupItem value="private" id="visibility-private" />
+                <Label htmlFor="visibility-private" className="flex items-center cursor-pointer">
+                  <Lock size={18} className="mr-2 text-gray-500" />
+                  <div>
+                    <span className="font-medium">Private</span>
+                    <p className="text-sm text-gray-500">Only visible to members of your workspace</p>
                   </div>
-                </RadioGroup>
+                </Label>
               </div>
-              
-              <div>
-                <p className="text-sm font-medium mb-2 text-gray-700">Content Type</p>
-                <p className="text-gray-600 bg-gray-50 p-3 rounded-md">
-                  {contentTypeDisplay}
-                </p>
-              </div>
-              
-              <div>
-                <p className="text-sm font-medium mb-2 text-gray-700">Author</p>
-                <p className="text-gray-600 bg-gray-50 p-3 rounded-md">
-                  {user ? (user.user_metadata?.name || user.email?.split('@')[0] || 'Anonymous') : 'Anonymous'}
-                </p>
-              </div>
-              
-              <div className="flex justify-end pt-4">
-                <Button
-                  onClick={handlePublish}
-                  disabled={publishing || !title.trim()}
-                  className="flex items-center gap-2"
-                >
-                  {publishing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <Send size={16} className="mr-2" />
-                      Publish to Exchange
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    </div>
+            </RadioGroup>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setShowDialog(false);
+              navigate(-1);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handlePublish}
+            disabled={publishing || !title.trim()}
+            className="flex items-center gap-2"
+          >
+            {publishing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Publishing...
+              </>
+            ) : (
+              <>
+                <Send size={16} className="mr-2" />
+                Publish
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
