@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -37,6 +38,14 @@ interface SidebarTask {
 }
 
 type PageType = 'dashboard' | 'settings' | 'dataweave' | 'integration' | 'raml' | 'taskView' | 'exchange' | 'exchangeItem' | 'exchangePublish' | 'jobBoard' | 'munit' | 'sampleData' | 'document' | 'diagram' | 'chat';
+
+interface DashboardAgentCardProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  selected?: boolean;
+  onClick?: () => void;
+}
 
 const DashboardAgentCard: React.FC<DashboardAgentCardProps> = ({
   title,
@@ -227,6 +236,7 @@ const Dashboard = () => {
   const [selectedExchangeItemId, setSelectedExchangeItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredAgents, setFilteredAgents] = useState<any[]>([]);
+  const [previousPage, setPreviousPage] = useState<PageType>('dashboard');
   
   const {
     user,
@@ -361,6 +371,24 @@ const Dashboard = () => {
     }
   };
 
+  // Handler for the CodingAssistantDialog open/close
+  const handleCodingAssistantOpenChange = (open: boolean) => {
+    if (!open && currentPage === 'chat') {
+      // Restore previous page when dialog is closed
+      setCurrentPage(previousPage);
+    }
+  };
+
+  // Handler for chat navigation
+  const handleChatNavigation = () => {
+    // Save current page before switching to chat
+    if (currentPage !== 'chat') {
+      setPreviousPage(currentPage);
+    }
+    setCurrentPage('chat');
+    openCodingAssistantDialog();
+  };
+
   if (loading) {
     return <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-light dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800">
         <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -380,7 +408,7 @@ const Dashboard = () => {
             setSelectedAgent(null);
             setSelectedTaskId(null);
           } else if (page === 'chat') {
-            setCurrentPage('chat' as PageType);
+            handleChatNavigation();
           } else {
             setCurrentPage(page as PageType);
             setSelectedAgent(page);
@@ -400,34 +428,34 @@ const Dashboard = () => {
         </div>
 
         <header className="relative z-10 h-16 flex items-center px-8 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
-  <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
-    <div className="relative w-[400px]">
-      <input
-        type="text"
-        placeholder="Search or type a command..."
-        value={searchQuery}
-        onChange={(e) => handleSearch(e.target.value)}
-        className="w-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 pr-8 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
-      />
-      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-        <Search className="h-4 w-4" />
-      </div>
-      {searchQuery.length > 0 && (
-        <div 
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer" 
-          onClick={() => {
-            setSearchQuery('');
-            setFilteredAgents([]);
-          }}
-        >
-          <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+        <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
+          <div className="relative w-[400px]">
+            <input
+              type="text"
+              placeholder="Search or type a command..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 pr-8 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+            />
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <Search className="h-4 w-4" />
+            </div>
+            {searchQuery.length > 0 && (
+              <div 
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer" 
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilteredAgents([]);
+                }}
+              >
+                <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+              </div>
+            )}
+          </div>
         </div>
-      )}
-    </div>
-  </div>
-  <div className="ml-auto flex items-center gap-3">
-  </div>
-</header>
+        <div className="ml-auto flex items-center gap-3">
+        </div>
+      </header>
 
         
         <div className="relative z-10 flex-1 overflow-auto">
@@ -576,7 +604,7 @@ const Dashboard = () => {
               <DiagramGenerator onBack={handleBackToDashboard} />
             </motion.div>}
         </div>
-        <CodingAssistantDialog />
+        <CodingAssistantDialog onOpenChange={handleCodingAssistantOpenChange} />
       </div>
     </div>;
 };

@@ -159,7 +159,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const { tasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
   const { fadeIn } = useAnimations();
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
-  
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -241,6 +241,10 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   ) : [];
   
+  const handleChatClick = () => {
+    onNavigate('chat');
+  };
+
   return (
     <div className="w-72 relative z-10">
       <div className="absolute inset-0 bg-white dark:bg-gray-900 shadow-xl rounded-r-3xl overflow-hidden">
@@ -439,10 +443,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 icon={<MessageSquare className="h-4 w-4" />} 
                 label="AI Chat"
                 active={currentPage === 'chat'}
-                onClick={() => {
-                  openCodingAssistantDialog();
-                  onNavigate('chat');
-                }}
+                onClick={handleChatClick}
               />
             </nav>
 
