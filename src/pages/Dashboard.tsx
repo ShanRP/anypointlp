@@ -1,20 +1,27 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { SidebarTask } from '@/components/Sidebar';
-import { DataweaveGenerator } from '@/components/DataweaveGenerator';
-import { JsonToSchemaGenerator } from '@/components/JsonToSchemaGenerator';
-import { Settings } from '@/components/Settings';
-import { IntegrationGenerator } from '@/components/IntegrationGenerator';
+import DataWeaveGenerator from '@/components/DataWeaveGenerator';
+import JsonToSchemaGenerator from '@/components/JsonToSchemaGenerator';
+import Settings from '@/components/SettingsPage';
+import IntegrationGenerator from '@/components/IntegrationGenerator';
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast"
 
+interface SidebarTask {
+  id: string;
+  label: string;
+  category: string;
+  icon?: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { workspaces, selectedWorkspace, selectWorkspace, createWorkspace, isLoading: isLoadingWorkspaces } = useWorkspaces();
+  const { workspaces, selectedWorkspace, selectWorkspace, createWorkspace, loading: isLoadingWorkspaces } = useWorkspaces();
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [showCreateWorkspaceModal, setShowCreateWorkspaceModal] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
@@ -39,9 +46,12 @@ const Dashboard = () => {
       icon: task.icon
     };
 
-    // Update tasks in selected workspace
-    const updatedTasks = [...(selectedWorkspace?.tasks || []), sidebarTask];
-    selectWorkspace({ ...selectedWorkspace, tasks: updatedTasks } as any);
+    // Update tasks in selected workspace if tasks property exists
+    if (selectedWorkspace) {
+      const updatedTasks = [...(selectedWorkspace.tasks || []), sidebarTask];
+      const updatedWorkspace = { ...selectedWorkspace, tasks: updatedTasks };
+      selectWorkspace(updatedWorkspace);
+    }
 
     toast({
       title: "Task created.",
@@ -50,7 +60,10 @@ const Dashboard = () => {
   };
 
   const handleWorkspaceSelect = (workspaceId: string) => {
-    selectWorkspace(workspaces?.find(w => w.id === workspaceId));
+    const workspace = workspaces?.find(w => w.id === workspaceId);
+    if (workspace) {
+      selectWorkspace(workspace);
+    }
   };
 
   const handleCreateWorkspace = async () => {
@@ -63,7 +76,7 @@ const Dashboard = () => {
 
   const renderDataweaveGenerator = () => {
     return (
-      <DataweaveGenerator
+      <DataWeaveGenerator
         selectedWorkspaceId={selectedWorkspace?.id || ''}
         onTaskCreated={handleTaskCreated}
         onBack={() => setSelectedTool(null)}
