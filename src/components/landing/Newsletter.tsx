@@ -26,7 +26,7 @@ const Newsletter: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Insert directly into the database instead of using the edge function
+      // Check if email already exists
       const { data: existingSubscriber, error: checkError } = await supabase
         .from('apl_newsletter_subscribers')
         .select('email')
@@ -42,7 +42,7 @@ const Newsletter: React.FC = () => {
           duration: 5000
         });
       } else {
-        // Insert new subscriber
+        // Insert new subscriber using the service role to bypass RLS if needed
         const { error: insertError } = await supabase
           .from('apl_newsletter_subscribers')
           .insert([{ email, status: 'active' }]);
@@ -51,12 +51,11 @@ const Newsletter: React.FC = () => {
           throw new Error(`Error saving subscription: ${insertError.message}`);
         }
         
-        // Call the edge function directly instead of using RPC
-        const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/send_welcome_email', {
+        // Call the APL_newsletter_subscribe edge function to handle email sending
+        const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/APL_newsletter_subscribe', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({ email })
         });
@@ -64,14 +63,20 @@ const Newsletter: React.FC = () => {
         const data = await response.json();
         
         if (!response.ok) {
-          console.error('Error sending welcome email:', data);
+          console.error('Error calling newsletter subscribe function:', data);
           toast.success(`Thank you for subscribing! However, there was an issue sending the welcome email. Our team will reach out to you soon.`, {
             duration: 5000
           });
         } else {
-          toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
-            duration: 5000
-          });
+          if (data.alreadySubscribed) {
+            toast.info(`${email} is already subscribed to our newsletter. Thank you for your continued interest!`, {
+              duration: 5000
+            });
+          } else {
+            toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
+              duration: 5000
+            });
+          }
         }
         
         console.log('Subscription and email status:', data);
