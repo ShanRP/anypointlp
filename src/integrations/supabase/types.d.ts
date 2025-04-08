@@ -189,10 +189,6 @@ export interface ExtendedDatabase extends OriginalDatabase {
           documentation: string;
         }[];
       };
-      send_welcome_email: {
-        Args: { subscriber_email: string };
-        Returns: Json;
-      };
     };
   };
 }
