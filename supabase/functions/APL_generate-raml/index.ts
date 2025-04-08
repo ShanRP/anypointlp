@@ -24,7 +24,25 @@ serve(async (req) => {
     console.log('Received request for RAML generation');
     
     // Parse the request body
-    const requestData = await req.json();
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON in request body' 
+        }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+    
     const { 
       apiName, 
       apiVersion,
@@ -113,6 +131,16 @@ serve(async (req) => {
 
 // Function to clean RAML output from any markdown formatting or unwanted content
 function cleanRamlOutput(raml: string): string {
+  if (!raml) {
+    return '#%RAML 1.0\ntitle: Empty API';
+  }
+  
+  // Check if the response is HTML (which would indicate an error)
+  if (raml.trim().startsWith('<!DOCTYPE') || raml.trim().startsWith('<html')) {
+    console.error('Received HTML response instead of RAML');
+    throw new Error('Invalid response format received from AI service');
+  }
+  
   // Remove markdown code block markers if present
   const cleanedRaml = raml
     .replace(/^```yaml\s*/g, '')
@@ -203,15 +231,28 @@ async function generateWithMistral(
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Mistral API error response:', errorText);
-      throw new Error(`Mistral API error: ${response.status} ${response.statusText}`);
+      // Attempt to parse error response
+      let errorMessage = `Mistral API error: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = `Mistral API error: ${errorData.error?.message || errorData.error || errorMessage}`;
+      } catch (jsonError) {
+        // If JSON parsing fails, get the text
+        const errorText = await response.text();
+        errorMessage = `Mistral API error: ${errorText || errorMessage}`;
+      }
+      console.error(errorMessage);
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();
     console.log('Mistral response received');
     
     // Extract the generated RAML from the response
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      throw new Error('Invalid response structure from Mistral API');
+    }
+    
     const generatedRaml = data.choices[0].message.content.trim();
     
     // Clean and return the RAML

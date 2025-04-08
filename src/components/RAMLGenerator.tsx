@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,9 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { MonacoEditor } from '@/components/MonacoEditor';
+import MonacoEditor from '@/components/MonacoEditor'; // Fixed import
 import { supabase } from '@/integrations/supabase/client';
-import { useProfileStore } from '@/providers/ProfileProvider';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 
@@ -283,24 +283,25 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     }
     
     try {
+      // Fix: Use apl_dataweave_tasks table instead of apl_tasks
       const { data, error } = await supabase
-        .from('apl_tasks')
+        .from('apl_dataweave_tasks')
         .insert([
           {
             workspace_id: effectiveWorkspaceId,
+            task_id: `RAML-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+            task_name: apiName || 'New RAML Specification',
             category: 'raml',
-            title: apiName,
-            content: ramlOutput,
-            metadata: JSON.stringify({
-              apiName,
-              apiVersion,
-              baseUri,
-              apiDescription,
-              mediaTypes,
-              protocols,
-              types,
-              endpoints
-            })
+            input_format: 'raml',
+            input_samples: [],
+            output_samples: [],
+            notes: apiDescription,
+            generated_scripts: [{
+              title: "Generated RAML Specification",
+              language: "raml",
+              code: ramlOutput
+            }],
+            user_id: user?.id
           }
         ])
         .select();
@@ -369,13 +370,27 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response from APL_generate-raml:', response.status, errorText);
-        throw new Error(`HTTP error ${response.status}: ${errorText}`);
+        let errorMessage = `HTTP error ${response.status}`;
+        try {
+          // Try to parse error as JSON
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, use text response
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
       
       // Parse the response JSON
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('Error parsing JSON response:', jsonError);
+        throw new Error('Invalid response format. Response is not valid JSON.');
+      }
       
       if (data.error) {
         throw new Error(data.error);
