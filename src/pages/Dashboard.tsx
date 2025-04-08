@@ -36,13 +36,7 @@ interface SidebarTask {
   workspace_id: string;
 }
 
-type DashboardAgentCardProps = {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  selected?: boolean;
-  onClick?: () => void;
-};
+type PageType = 'dashboard' | 'settings' | 'dataweave' | 'integration' | 'raml' | 'taskView' | 'exchange' | 'exchangeItem' | 'exchangePublish' | 'jobBoard' | 'munit' | 'sampleData' | 'document' | 'diagram' | 'chat';
 
 const DashboardAgentCard: React.FC<DashboardAgentCardProps> = ({
   title,
@@ -106,8 +100,6 @@ const AgentCategory: React.FC<AgentCategoryProps> = ({
       </div>
     </div>;
 };
-
-type PageType = 'dashboard' | 'settings' | 'dataweave' | 'integration' | 'raml' | 'taskView' | 'exchange' | 'exchangeItem' | 'exchangePublish' | 'jobBoard' | 'munit' | 'sampleData' | 'document' | 'diagram';
 
 const DashboardContent = ({
   selectedCategory,
@@ -388,7 +380,7 @@ const Dashboard = () => {
             setSelectedAgent(null);
             setSelectedTaskId(null);
           } else if (page === 'chat') {
-            setCurrentPage('chat');
+            setCurrentPage('chat' as PageType);
           } else {
             setCurrentPage(page as PageType);
             setSelectedAgent(page);
