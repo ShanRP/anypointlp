@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -108,9 +107,13 @@ const Dashboard = () => {
 
   const renderSettings = () => {
     return (
-      <Settings
-        onBack={() => setSelectedTool(null)}
-      />
+      <div>
+        <Button variant="ghost" onClick={() => setSelectedTool(null)} className="mb-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Tools
+        </Button>
+        <Settings />
+      </div>
     );
   };
 
