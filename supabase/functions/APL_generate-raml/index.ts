@@ -141,6 +141,10 @@ serve(async (req) => {
 });
 
 function cleanRamlOutput(raml) {
+  if (!raml) {
+    return '#%RAML 1.0\ntitle: API Specification\n';
+  }
+  
   // Remove any text before the #%RAML header
   const ramlHeaderIndex = raml.indexOf('#%RAML 1.0');
   if (ramlHeaderIndex > 0) {
@@ -156,7 +160,10 @@ function cleanRamlOutput(raml) {
     "Hope this helps",
     "Let me know if you need",
     "Please let me know",
-    "Note: "
+    "Note: ",
+    "```",
+    "Here is",
+    "This is"
   ];
   
   for (const marker of explanationMarkers) {
@@ -234,22 +241,32 @@ async function generateWithMistral(
       throw new Error(`Mistral API error: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
-    console.log('Mistral response received');
-    
-    // Extract the generated RAML from the response
-    let generatedRaml = data.choices[0].message.content.trim();
-    
-    // Clean up the output to ensure it's properly formatted RAML
-    generatedRaml = cleanRamlOutput(generatedRaml);
-    
-    // Validate basic RAML structure
-    if (!generatedRaml.startsWith('#%RAML 1.0')) {
-      console.warn('Mistral response does not start with RAML header, adding it');
-      return '#%RAML 1.0\n' + generatedRaml;
+    try {
+      const data = await response.json();
+      console.log('Mistral response received');
+      
+      // Extract the generated RAML from the response
+      if (data && data.choices && data.choices[0] && data.choices[0].message) {
+        let generatedRaml = data.choices[0].message.content.trim();
+        
+        // Clean up the output to ensure it's properly formatted RAML
+        generatedRaml = cleanRamlOutput(generatedRaml);
+        
+        // Validate basic RAML structure
+        if (!generatedRaml.startsWith('#%RAML 1.0')) {
+          console.warn('Mistral response does not start with RAML header, adding it');
+          return '#%RAML 1.0\n' + generatedRaml;
+        }
+        
+        return generatedRaml;
+      } else {
+        console.error('Unexpected Mistral API response format:', data);
+        throw new Error('Invalid response format from Mistral API');
+      }
+    } catch (jsonError) {
+      console.error('Error parsing Mistral API response as JSON:', jsonError);
+      throw new Error('Failed to parse Mistral API response');
     }
-    
-    return generatedRaml;
   } catch (error) {
     console.error('Error calling Mistral API:', error);
     throw error;

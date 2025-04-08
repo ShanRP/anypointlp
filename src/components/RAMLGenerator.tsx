@@ -246,25 +246,48 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
       const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
       console.log("Using workspace ID for RAML generation:", workspaceId);
       
-      const response = await fetch('/api/apl_generate-raml', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          apiName,
-          apiVersion,
-          baseUri,
-          apiDescription,
-          types,
-          endpoints,
-          mediaTypes: ["application/json"],
-          protocols: ["HTTPS"],
-          workspaceId // Pass the workspace ID to the function
-        })
-      });
+      // Fetch with error handling
+      let response;
+      try {
+        response = await fetch('/api/apl_generate-raml', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            apiName,
+            apiVersion,
+            baseUri,
+            apiDescription,
+            types,
+            endpoints,
+            mediaTypes: ["application/json"],
+            protocols: ["HTTPS"],
+            workspaceId
+          })
+        });
+      } catch (fetchError) {
+        console.error('Network error:', fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
+      }
       
-      const data = await response.json();
+      // Check for HTTP errors
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('HTTP error response:', response.status, errorText);
+        throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      }
+      
+      // Try to parse the JSON response
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('Error parsing response as JSON:', jsonError);
+        const rawText = await response.text();
+        console.error('Raw response:', rawText.substring(0, 200) + '...');
+        throw new Error('Failed to parse response as JSON. Server might be returning non-JSON data.');
+      }
       
       if (data.error) {
         throw new Error(data.error);
