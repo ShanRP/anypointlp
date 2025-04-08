@@ -35,13 +35,20 @@ const Newsletter: React.FC = () => {
         throw new Error(error.message);
       }
       
-      // Show success message
-      toast.success(`Thank you for subscribing to our newsletter! A welcome email has been sent to ${email}`, {
-        duration: 5000
-      });
+      // Check if the user was already subscribed
+      if (data && data.alreadySubscribed) {
+        toast.info(data.message, {
+          duration: 5000
+        });
+      } else {
+        // Show success message
+        toast.success(`Thank you for subscribing to our newsletter! A welcome email has been sent to ${email}`, {
+          duration: 5000
+        });
+      }
       
       // Log for verification that email was submitted
-      console.log("Newsletter subscription successful:", data);
+      console.log("Newsletter subscription response:", data);
       
       // Reset form
       setEmail('');

@@ -351,6 +351,30 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_newsletter_subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          last_email_sent: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          last_email_sent?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          last_email_sent?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       apl_peer_connections: {
         Row: {
           created_at: string

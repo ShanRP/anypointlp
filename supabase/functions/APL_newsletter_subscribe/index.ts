@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +22,8 @@ const handler = async (req: Request): Promise<Response> => {
     const { email }: SubscribeRequest = await req.json();
 
     // Validate the email format
-    if (!email || !email.includes('@')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
       return new Response(
         JSON.stringify({ error: "Invalid email format" }),
         { 
@@ -31,17 +33,62 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // In a real implementation, we would:
-    // 1. Store the email in a database table
-    // 2. Send a confirmation email
+    // Initialize Supabase client with service role key for RLS bypass
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Check if the email already exists
+    const { data: existingSubscriber, error: lookupError } = await supabaseAdmin
+      .from("apl_newsletter_subscribers")
+      .select("id, email")
+      .eq("email", email)
+      .single();
+    
+    if (lookupError && lookupError.code !== "PGRST116") { // PGRST116 is "no rows returned" error
+      throw new Error(`Error checking existing subscriber: ${lookupError.message}`);
+    }
+
+    if (existingSubscriber) {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `${email} is already subscribed to our newsletter. Thank you for your continued interest!`,
+          alreadySubscribed: true
+        }),
+        { 
+          status: 200, 
+          headers: { "Content-Type": "application/json", ...corsHeaders } 
+        }
+      );
+    }
+
+    // Insert the email into the subscribers table
+    const { error: insertError } = await supabaseAdmin
+      .from("apl_newsletter_subscribers")
+      .insert([{ email, status: "active" }]);
+
+    if (insertError) {
+      throw new Error(`Error saving subscriber: ${insertError.message}`);
+    }
     
     console.log(`Newsletter subscription received for: ${email}`);
     
-    // Actually send the email (in production this would call an email service API)
+    // Send a thank you email
     const emailSent = await sendThankYouEmail(email);
     
     if (!emailSent.success) {
-      throw new Error("Failed to send confirmation email");
+      console.error("Failed to send confirmation email:", emailSent.error);
+      // We still want to return success since we stored the email
+    }
+
+    // Update the last_email_sent timestamp if email was sent successfully
+    if (emailSent.success) {
+      await supabaseAdmin
+        .from("apl_newsletter_subscribers")
+        .update({ last_email_sent: new Date().toISOString() })
+        .eq("email", email);
     }
 
     // Return success response
