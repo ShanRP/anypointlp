@@ -1,864 +1,1223 @@
-
 import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Trash, Plus, Copy, PlayCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { supabase } from '@/integrations/supabase/client';
 import MonacoEditor from './MonacoEditor';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { BackButton } from './ui/BackButton';
-import { Textarea } from './ui/textarea';
-import { Separator } from './ui/separator';
 
-// Define interfaces for our data types
-interface APIType {
+interface Parameter {
   name: string;
-  baseType: string;
-  properties: Array<{
-    name: string;
-    type: string;
-    required?: boolean;
-    description?: string;
-  }>;
+  type: string;
+  required: boolean;
+  description?: string;
+}
+
+interface Response {
+  code: string;
+  description: string;
+  bodyType?: string;
   example?: string;
 }
 
-interface APIMethod {
+interface Method {
   type: string;
   description?: string;
   requestBody?: boolean;
   requestType?: string;
   requestExample?: string;
-  responses: Array<{
-    code: number;
-    description?: string;
-    body?: boolean;
-    bodyType?: string;
-    example?: string;
-  }>;
+  responses: Response[];
+  queryParams?: Parameter[];
+  uriParams?: Parameter[];
 }
 
-interface APIEndpoint {
+interface Endpoint {
   path: string;
   description?: string;
-  methods: APIMethod[];
+  methods: Method[];
+  uriParams?: Parameter[];
 }
+
+interface DataType {
+  name: string;
+  baseType: string;
+  properties: Parameter[];
+  example?: string;
+}
+
+const DEFAULT_METHOD: Method = {
+  type: 'get',
+  description: '',
+  responses: [{ code: '200', description: 'Success response' }]
+};
 
 interface RAMLGeneratorProps {
-  onBack: () => void;
   selectedWorkspaceId?: string;
+  onBack?: () => void;
 }
 
-const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspaceId }) => {
-  const { user } = useAuth();
+const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBack }) => {
+  const navigate = useNavigate();
   const { selectedWorkspace } = useWorkspaces();
-  const [apiName, setApiName] = useState('My API');
+  const [apiName, setApiName] = useState('');
   const [apiVersion, setApiVersion] = useState('v1');
   const [baseUri, setBaseUri] = useState('https://api.example.com/v1');
   const [apiDescription, setApiDescription] = useState('');
-  const [types, setTypes] = useState<APIType[]>([]);
-  const [endpoints, setEndpoints] = useState<APIEndpoint[]>([]);
-  const [currentType, setCurrentType] = useState<APIType>({
-    name: '',
-    baseType: 'object',
-    properties: []
-  });
-  const [currentEndpoint, setCurrentEndpoint] = useState<APIEndpoint>({
-    path: '',
-    methods: []
-  });
-  const [currentMethod, setCurrentMethod] = useState<APIMethod>({
-    type: 'get',
-    responses: [{ code: 200 }]
-  });
-  const [currentProperty, setCurrentProperty] = useState({
-    name: '',
-    type: 'string'
-  });
-  const [currentResponse, setCurrentResponse] = useState({
-    code: 200,
-    description: 'Success response'
-  });
-  const [activeTab, setActiveTab] = useState<'types' | 'endpoints' | 'raml'>('types');
+  const [mediaTypes, setMediaTypes] = useState(['application/json']);
+  const [protocols, setProtocols] = useState(['HTTPS']);
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
+  const [types, setTypes] = useState<DataType[]>([]);
   const [generatedRAML, setGeneratedRAML] = useState('');
+  const [currentTab, setCurrentTab] = useState('editor'); // 'editor' or 'preview'
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [publishTitle, setPublishTitle] = useState('');
+  const [publishDescription, setPublishDescription] = useState('');
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [visibility, setVisibility] = useState('public'); // Default to public
+
+  const [showEndpointDialog, setShowEndpointDialog] = useState(false);
+  const [showMethodDialog, setShowMethodDialog] = useState(false);
+  const [currentEndpointIndex, setCurrentEndpointIndex] = useState<number | null>(null);
+  const [currentMethodIndex, setCurrentMethodIndex] = useState<number | null>(null);
+  const [editingEndpoint, setEditingEndpoint] = useState<Endpoint | null>(null);
+  const [editingMethod, setEditingMethod] = useState<Method | null>(null);
+  const [newParam, setNewParam] = useState({ name: '', type: 'string', required: true, description: '' });
+  const [newResponse, setNewResponse] = useState<Response>({ code: '200', description: 'Success response' });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationError, setGenerationError] = useState('');
-  
-  // Handle adding a new type
-  const handleAddType = () => {
-    if (!currentType.name) {
-      toast.error('Type name is required');
-      return;
+  const [showAddResponseDialog, setShowAddResponseDialog] = useState(false);
+
+  useEffect(() => {
+    if (endpoints.length === 0) {
+      setEndpoints([{
+        path: 'resource',
+        description: 'A sample resource',
+        methods: [{ ...DEFAULT_METHOD }]
+      }]);
     }
-    
-    if (types.some(t => t.name === currentType.name)) {
-      toast.error(`Type '${currentType.name}' already exists`);
-      return;
-    }
-    
-    setTypes([...types, {...currentType}]);
-    setCurrentType({
-      name: '',
-      baseType: 'object',
-      properties: []
-    });
-    toast.success(`Type '${currentType.name}' added`);
-  };
-  
-  // Handle adding a property to the current type
-  const handleAddProperty = () => {
-    if (!currentProperty.name) {
-      toast.error('Property name is required');
-      return;
-    }
-    
-    if (currentType.properties.some(p => p.name === currentProperty.name)) {
-      toast.error(`Property '${currentProperty.name}' already exists on this type`);
-      return;
-    }
-    
-    setCurrentType({
-      ...currentType,
-      properties: [...currentType.properties, {...currentProperty}]
-    });
-    
-    setCurrentProperty({
-      name: '',
-      type: 'string'
-    });
-  };
-  
-  // Handle deleting a property from the current type
-  const handleDeleteProperty = (index: number) => {
-    const updatedProperties = [...currentType.properties];
-    updatedProperties.splice(index, 1);
-    setCurrentType({
-      ...currentType,
-      properties: updatedProperties
-    });
-  };
-  
-  // Handle deleting a type
-  const handleDeleteType = (index: number) => {
-    const updatedTypes = [...types];
-    updatedTypes.splice(index, 1);
-    setTypes(updatedTypes);
-    toast.success('Type deleted');
-  };
-  
-  // Handle adding a new endpoint
+  }, []);
+
   const handleAddEndpoint = () => {
-    if (!currentEndpoint.path) {
+    setEditingEndpoint({
+      path: '',
+      description: '',
+      methods: [{ ...DEFAULT_METHOD }],
+      uriParams: []
+    });
+    setShowEndpointDialog(true);
+  };
+
+  const handleEditEndpoint = (index: number) => {
+    setCurrentEndpointIndex(index);
+    setEditingEndpoint({ ...endpoints[index] });
+    setShowEndpointDialog(true);
+  };
+
+  const handleSaveEndpoint = () => {
+    if (!editingEndpoint) return;
+    
+    if (!editingEndpoint.path.trim()) {
       toast.error('Endpoint path is required');
       return;
     }
+
+    const updatedEndpoints = [...endpoints];
     
-    if (endpoints.some(e => e.path === currentEndpoint.path)) {
-      toast.error(`Endpoint '${currentEndpoint.path}' already exists`);
-      return;
+    if (currentEndpointIndex !== null) {
+      updatedEndpoints[currentEndpointIndex] = editingEndpoint;
+    } else {
+      updatedEndpoints.push(editingEndpoint);
     }
     
-    setEndpoints([...endpoints, {...currentEndpoint}]);
-    setCurrentEndpoint({
-      path: '',
-      methods: []
-    });
-    toast.success(`Endpoint '${currentEndpoint.path}' added`);
+    setEndpoints(updatedEndpoints);
+    setShowEndpointDialog(false);
+    setEditingEndpoint(null);
+    setCurrentEndpointIndex(null);
+    toast.success(currentEndpointIndex !== null ? 'Endpoint updated' : 'Endpoint added');
   };
-  
-  // Handle adding a method to the current endpoint
-  const handleAddMethod = () => {
-    if (currentEndpoint.methods.some(m => m.type === currentMethod.type)) {
-      toast.error(`Method '${currentMethod.type}' already exists on this endpoint`);
-      return;
-    }
-    
-    setCurrentEndpoint({
-      ...currentEndpoint,
-      methods: [...currentEndpoint.methods, {...currentMethod}]
-    });
-    
-    setCurrentMethod({
-      type: 'get',
-      responses: [{ code: 200 }]
-    });
-    
-    toast.success(`${currentMethod.type.toUpperCase()} method added`);
-  };
-  
-  // Handle adding a response to the current method
-  const handleAddResponse = () => {
-    if (currentMethod.responses.some(r => r.code === currentResponse.code)) {
-      toast.error(`Response code ${currentResponse.code} already exists for this method`);
-      return;
-    }
-    
-    setCurrentMethod({
-      ...currentMethod,
-      responses: [...currentMethod.responses, {...currentResponse}]
-    });
-    
-    setCurrentResponse({
-      code: 200,
-      description: 'Success response'
-    });
-  };
-  
-  // Handle deleting a response from the current method
-  const handleDeleteResponse = (index: number) => {
-    const updatedResponses = [...currentMethod.responses];
-    updatedResponses.splice(index, 1);
-    setCurrentMethod({
-      ...currentMethod,
-      responses: updatedResponses
-    });
-  };
-  
-  // Handle deleting a method from the current endpoint
-  const handleDeleteMethod = (index: number) => {
-    const updatedMethods = [...currentEndpoint.methods];
-    updatedMethods.splice(index, 1);
-    setCurrentEndpoint({
-      ...currentEndpoint,
-      methods: updatedMethods
-    });
-  };
-  
-  // Handle deleting an endpoint
+
   const handleDeleteEndpoint = (index: number) => {
     const updatedEndpoints = [...endpoints];
     updatedEndpoints.splice(index, 1);
     setEndpoints(updatedEndpoints);
     toast.success('Endpoint deleted');
   };
-  
-  // Generate RAML
-  const handleGenerateRAML = async () => {
-    setGenerationError('');
+
+  const handleAddMethod = (endpointIndex: number) => {
+    setCurrentEndpointIndex(endpointIndex);
+    setEditingMethod({ ...DEFAULT_METHOD });
+    setShowMethodDialog(true);
+  };
+
+  const handleEditMethod = (endpointIndex: number, methodIndex: number) => {
+    setCurrentEndpointIndex(endpointIndex);
+    setCurrentMethodIndex(methodIndex);
+    setEditingMethod({ ...endpoints[endpointIndex].methods[methodIndex] });
+    setShowMethodDialog(true);
+  };
+
+  const handleSaveMethod = () => {
+    if (!editingMethod || currentEndpointIndex === null) return;
+    
+    if (!editingMethod.type) {
+      toast.error('Method type is required');
+      return;
+    }
+
+    const updatedEndpoints = [...endpoints];
+    
+    if (currentMethodIndex !== null) {
+      updatedEndpoints[currentEndpointIndex].methods[currentMethodIndex] = editingMethod;
+    } else {
+      updatedEndpoints[currentEndpointIndex].methods.push(editingMethod);
+    }
+    
+    setEndpoints(updatedEndpoints);
+    setShowMethodDialog(false);
+    setEditingMethod(null);
+    setCurrentMethodIndex(null);
+    toast.success(currentMethodIndex !== null ? 'Method updated' : 'Method added');
+  };
+
+  const handleDeleteMethod = (endpointIndex: number, methodIndex: number) => {
+    const updatedEndpoints = [...endpoints];
+    if (updatedEndpoints[endpointIndex].methods.length > 1) {
+      updatedEndpoints[endpointIndex].methods.splice(methodIndex, 1);
+      setEndpoints(updatedEndpoints);
+      toast.success('Method deleted');
+    } else {
+      toast.error('Cannot delete the only method. Endpoints must have at least one method.');
+    }
+  };
+
+  const handleAddEndpointParam = () => {
+    if (!editingEndpoint) return;
+    
+    if (!newParam.name.trim()) {
+      toast.error('Parameter name is required');
+      return;
+    }
+
+    const updatedEndpoint = { ...editingEndpoint };
+    if (!updatedEndpoint.uriParams) {
+      updatedEndpoint.uriParams = [];
+    }
+    
+    updatedEndpoint.uriParams.push({ ...newParam });
+    setEditingEndpoint(updatedEndpoint);
+    setNewParam({ name: '', type: 'string', required: true, description: '' });
+  };
+
+  const handleDeleteEndpointParam = (index: number) => {
+    if (!editingEndpoint || !editingEndpoint.uriParams) return;
+    
+    const updatedParams = [...editingEndpoint.uriParams];
+    updatedParams.splice(index, 1);
+    
+    setEditingEndpoint({
+      ...editingEndpoint,
+      uriParams: updatedParams
+    });
+  };
+
+  const handleAddMethodParam = (paramType: 'queryParams' | 'uriParams') => {
+    if (!editingMethod) return;
+    
+    if (!newParam.name.trim()) {
+      toast.error('Parameter name is required');
+      return;
+    }
+
+    const updatedMethod = { ...editingMethod };
+    if (!updatedMethod[paramType]) {
+      updatedMethod[paramType] = [];
+    }
+    
+    updatedMethod[paramType]?.push({ ...newParam });
+    setEditingMethod(updatedMethod);
+    setNewParam({ name: '', type: 'string', required: true, description: '' });
+  };
+
+  const handleDeleteMethodParam = (paramType: 'queryParams' | 'uriParams', index: number) => {
+    if (!editingMethod || !editingMethod[paramType]) return;
+    
+    const updatedParams = [...(editingMethod[paramType] || [])];
+    updatedParams.splice(index, 1);
+    
+    setEditingMethod({
+      ...editingMethod,
+      [paramType]: updatedParams
+    });
+  };
+
+  const handleAddResponse = () => {
+    if (!editingMethod) return;
+    
+    if (!newResponse.code.trim()) {
+      toast.error('Response code is required');
+      return;
+    }
+
+    const updatedMethod = { ...editingMethod };
+    updatedMethod.responses.push({ ...newResponse });
+    setEditingMethod(updatedMethod);
+    setNewResponse({ code: '', description: '' });
+    setShowAddResponseDialog(false);
+  };
+
+  const handleDeleteResponse = (index: number) => {
+    if (!editingMethod) return;
+    
+    if (editingMethod.responses.length > 1) {
+      const updatedResponses = [...editingMethod.responses];
+      updatedResponses.splice(index, 1);
+      
+      setEditingMethod({
+        ...editingMethod,
+        responses: updatedResponses
+      });
+    } else {
+      toast.error('Cannot delete the only response. Methods must have at least one response.');
+    }
+  };
+
+  const handleAddMediaType = (type: string) => {
+    if (!mediaTypes.includes(type)) {
+      setMediaTypes([...mediaTypes, type]);
+    }
+  };
+
+  const handleRemoveMediaType = (index: number) => {
+    const updatedTypes = [...mediaTypes];
+    updatedTypes.splice(index, 1);
+    setMediaTypes(updatedTypes);
+  };
+
+  const handleAddProtocol = (protocol: string) => {
+    if (!protocols.includes(protocol)) {
+      setProtocols([...protocols, protocol]);
+    }
+  };
+
+  const handleRemoveProtocol = (index: number) => {
+    const updatedProtocols = [...protocols];
+    updatedProtocols.splice(index, 1);
+    setProtocols(updatedProtocols);
+  };
+
+  const generateRAML = async () => {
+    if (!apiName.trim()) {
+      toast.error('API name is required');
+      return;
+    }
+
     setIsGenerating(true);
+    
     try {
-      // Get workspace ID for contextual data
-      const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
-      console.log("Using workspace ID for RAML generation:", workspaceId);
-      
-      // Fetch with error handling
-      let response;
-      try {
-        response = await fetch('/api/apl_generate-raml', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            apiName,
-            apiVersion,
-            baseUri,
-            apiDescription,
-            types,
-            endpoints,
-            mediaTypes: ["application/json"],
-            protocols: ["HTTPS"],
-            workspaceId
-          })
-        });
-      } catch (fetchError) {
-        console.error('Network error:', fetchError);
-        throw new Error(`Network error: ${fetchError.message}`);
+      const { data, error } = await supabase.functions.invoke('APL_generate-raml', {
+        body: {
+          apiName,
+          apiVersion,
+          baseUri,
+          apiDescription,
+          types,
+          endpoints,
+          mediaTypes,
+          protocols
+        },
+      });
+
+      if (error) {
+        throw error;
       }
-      
-      // Check for HTTP errors
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('HTTP error response:', response.status, errorText);
-        throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
-      }
-      
-      // Try to parse the JSON response
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        console.error('Error parsing response as JSON:', jsonError);
-        const rawText = await response.text();
-        console.error('Raw response:', rawText.substring(0, 200) + '...');
-        throw new Error('Failed to parse response as JSON. Server might be returning non-JSON data.');
-      }
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      if (data.raml) {
+
+      if (data && data.raml) {
         setGeneratedRAML(data.raml);
-        setActiveTab('raml');
-        toast.success('RAML generated successfully');
+        setCurrentTab('preview');
+        toast.success('RAML specification generated successfully');
       } else {
         throw new Error('Failed to generate RAML');
       }
     } catch (error) {
       console.error('Error generating RAML:', error);
-      setGenerationError(error.message || 'Failed to generate RAML');
-      toast.error(`RAML generation failed: ${error.message}`);
+      toast.error('Failed to generate RAML specification');
     } finally {
       setIsGenerating(false);
     }
   };
-  
+
+  const publishToExchange = async () => {
+    if (!publishTitle.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+
+    if (!generatedRAML) {
+      toast.error('Generate RAML before publishing');
+      return;
+    }
+
+    setIsPublishing(true);
+
+    try {
+      const workspaceId = localStorage.getItem('currentWorkspaceId') || '';
+      
+      const { data, error } = await supabase
+        .from('apl_exchange_items')
+        .insert({
+          title: publishTitle,
+          description: publishDescription,
+          type: 'raml',
+          content: { raml: generatedRAML },
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          username: (await supabase.auth.getUser()).data.user?.email?.split('@')[0] || 'Anonymous',
+          visibility: visibility,
+          workspace_id: visibility === 'private' ? workspaceId : null
+        })
+        .select();
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        toast.success('RAML specification published to Exchange');
+        setShowPublishDialog(false);
+        navigate(`/dashboard/exchange/item/${data[0].id}`);
+      }
+    } catch (error) {
+      console.error('Error publishing to Exchange:', error);
+      toast.error('Failed to publish specification');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedRAML);
     toast.success('RAML copied to clipboard');
   };
-  
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <BackButton onBack={onBack} label="Back to Dashboard" />
-      
-      <Card className="mt-4 border border-gray-200 shadow-sm overflow-hidden">
-        <CardHeader className="bg-gray-50 border-b border-gray-200">
-          <CardTitle className="text-xl font-semibold">RAML API Specification Generator</CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <motion.div 
-            className="mb-6 h-1 bg-gradient-to-r from-green-500 to-blue-500 rounded-full"
-            initial={{ width: '0%' }}
-            animate={{ width: '100%' }}
-            transition={{ duration: 0.5 }}
-          />
-          
-          {/* API Metadata Section */}
-          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="apiName">API Name</Label>
-              <Input 
-                id="apiName"
-                value={apiName} 
-                onChange={(e) => setApiName(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="apiVersion">API Version</Label>
-              <Input 
-                id="apiVersion"
-                value={apiVersion} 
-                onChange={(e) => setApiVersion(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="baseUri">Base URI</Label>
-              <Input 
-                id="baseUri"
-                value={baseUri} 
-                onChange={(e) => setBaseUri(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="apiDescription">API Description</Label>
-              <Textarea 
-                id="apiDescription"
-                value={apiDescription} 
-                onChange={(e) => setApiDescription(e.target.value)}
-                className="mt-1 h-20"
-              />
-            </div>
-          </div>
-          
-          {/* Workspace Info */}
-          {selectedWorkspace && (
-            <div className="mb-4 p-3 bg-blue-50 rounded-md">
-              <p className="text-sm text-blue-700">
-                Using workspace: {selectedWorkspace.name} (ID: {selectedWorkspace.id.substring(0, 8)}...)
-              </p>
-            </div>
-          )}
-          
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'types' | 'endpoints' | 'raml')} className="w-full">
-            <TabsList className="mb-4 grid grid-cols-3">
-              <TabsTrigger value="types">Types</TabsTrigger>
-              <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
-              <TabsTrigger value="raml">Generated RAML</TabsTrigger>
-            </TabsList>
-            
-            {/* Types Tab */}
-            <TabsContent value="types" className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">API Types</h3>
-                
-                {/* Add new type form */}
-                <div className="border border-gray-200 rounded-md p-4 space-y-4">
-                  <h4 className="text-md font-medium">Add New Type</h4>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="typeName">Type Name</Label>
-                      <Input 
-                        id="typeName"
-                        value={currentType.name} 
-                        onChange={(e) => setCurrentType({...currentType, name: e.target.value})}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="baseType">Base Type</Label>
-                      <select 
-                        id="baseType"
-                        value={currentType.baseType}
-                        onChange={(e) => setCurrentType({...currentType, baseType: e.target.value})}
-                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="object">object</option>
-                        <option value="array">array</option>
-                        <option value="string">string</option>
-                        <option value="number">number</option>
-                        <option value="boolean">boolean</option>
-                        <option value="date">date</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="typeExample">Example (JSON)</Label>
-                    <Textarea 
-                      id="typeExample"
-                      value={currentType.example || ''} 
-                      onChange={(e) => setCurrentType({...currentType, example: e.target.value})}
-                      className="mt-1 h-20 font-mono"
-                      placeholder='{"id": 123, "name": "Example"}'
-                    />
-                  </div>
-                  
-                  {/* Properties section */}
-                  <div className="space-y-2">
-                    <h5 className="text-sm font-medium">Properties</h5>
-                    
-                    {currentType.properties.length > 0 && (
-                      <div className="border border-gray-200 rounded-md overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Name
-                              </th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Type
-                              </th>
-                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {currentType.properties.map((prop, index) => (
-                              <tr key={index}>
-                                <td className="px-4 py-2 whitespace-nowrap text-sm">{prop.name}</td>
-                                <td className="px-4 py-2 whitespace-nowrap text-sm">{prop.type}</td>
-                                <td className="px-4 py-2 whitespace-nowrap text-right text-sm">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteProperty(index)}
-                                  >
-                                    <Trash className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                    
-                    {/* Add property form */}
-                    <div className="flex space-x-2">
-                      <div className="flex-1">
-                        <Input 
-                          placeholder="Property Name"
-                          value={currentProperty.name} 
-                          onChange={(e) => setCurrentProperty({...currentProperty, name: e.target.value})}
-                        />
-                      </div>
-                      <div className="w-40">
-                        <select 
-                          value={currentProperty.type}
-                          onChange={(e) => setCurrentProperty({...currentProperty, type: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+    <div className="p-6 max-w-screen-xl mx-auto">
+      <div className="flex items-center mb-6">
+        {onBack && (
+          <Button variant="outline" size="icon" className="mr-2" onClick={() => onBack()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
+        <h1 className="text-2xl font-bold">RAML API Specification Generator</h1>
+      </div>
+
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsTrigger value="editor">Editor</TabsTrigger>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="editor" className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>API Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">API Name*</label>
+                  <Input 
+                    value={apiName} 
+                    onChange={(e) => setApiName(e.target.value)} 
+                    placeholder="My API"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">API Version</label>
+                  <Input 
+                    value={apiVersion} 
+                    onChange={(e) => setApiVersion(e.target.value)} 
+                    placeholder="v1"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Base URI</label>
+                <Input 
+                  value={baseUri} 
+                  onChange={(e) => setBaseUri(e.target.value)} 
+                  placeholder="https://api.example.com/v1"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Textarea 
+                  value={apiDescription} 
+                  onChange={(e) => setApiDescription(e.target.value)} 
+                  placeholder="Describe your API"
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Media Types</label>
+                  <div className="flex flex-wrap gap-2">
+                    {mediaTypes.map((type, index) => (
+                      <div key={index} className="flex items-center bg-blue-100 px-2 py-1 rounded-md">
+                        <span className="text-sm">{type}</span>
+                        <button 
+                          onClick={() => handleRemoveMediaType(index)}
+                          className="ml-2 text-red-500 hover:text-red-700"
                         >
-                          <option value="string">string</option>
-                          <option value="number">number</option>
-                          <option value="integer">integer</option>
-                          <option value="boolean">boolean</option>
-                          <option value="date">date</option>
-                          <option value="datetime">datetime</option>
-                          <option value="object">object</option>
-                          <option value="array">array</option>
-                        </select>
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
+                    ))}
+                    <div className="flex items-center">
                       <Button 
-                        variant="outline"
-                        onClick={handleAddProperty}
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleAddMediaType('application/xml')}
+                        className="h-7"
                       >
-                        <Plus className="h-4 w-4 mr-1" /> Add
+                        <Plus className="h-3 w-3 mr-1" /> Add
                       </Button>
                     </div>
                   </div>
-                  
-                  <Button 
-                    className="w-full"
-                    onClick={handleAddType}
-                  >
-                    Add Type
-                  </Button>
                 </div>
-                
-                {/* List of defined types */}
-                {types.length > 0 && (
-                  <div className="border border-gray-200 rounded-md p-4 space-y-4">
-                    <h4 className="text-md font-medium">Defined Types</h4>
-                    <div className="space-y-2">
-                      {types.map((type, index) => (
-                        <div key={index} className="border border-gray-200 rounded-md p-3 flex justify-between items-center">
-                          <div>
-                            <span className="font-medium">{type.name}</span>
-                            <span className="text-gray-500 text-sm ml-2">({type.baseType})</span>
-                            <span className="text-gray-500 text-sm ml-2">{type.properties.length} properties</span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteType(index)}
-                          >
-                            <Trash className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
-                      ))}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Protocols</label>
+                  <div className="flex flex-wrap gap-2">
+                    {protocols.map((protocol, index) => (
+                      <div key={index} className="flex items-center bg-blue-100 px-2 py-1 rounded-md">
+                        <span className="text-sm">{protocol}</span>
+                        <button 
+                          onClick={() => handleRemoveProtocol(index)}
+                          className="ml-2 text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="flex items-center">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleAddProtocol('HTTP')}
+                        className="h-7"
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Add
+                      </Button>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
-            </TabsContent>
-            
-            {/* Endpoints Tab */}
-            <TabsContent value="endpoints" className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">API Endpoints</h3>
-                
-                {/* Add new endpoint form */}
-                <div className="border border-gray-200 rounded-md p-4 space-y-4">
-                  <h4 className="text-md font-medium">Add New Endpoint</h4>
-                  
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <Label htmlFor="endpointPath">Path</Label>
-                      <Input 
-                        id="endpointPath"
-                        value={currentEndpoint.path} 
-                        onChange={(e) => setCurrentEndpoint({...currentEndpoint, path: e.target.value})}
-                        className="mt-1"
-                        placeholder="users/{userId}"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="endpointDescription">Description</Label>
-                      <Textarea 
-                        id="endpointDescription"
-                        value={currentEndpoint.description || ''} 
-                        onChange={(e) => setCurrentEndpoint({...currentEndpoint, description: e.target.value})}
-                        className="mt-1 h-20"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Methods section */}
-                  <div className="space-y-2">
-                    <h5 className="text-sm font-medium">Methods</h5>
-                    
-                    {currentEndpoint.methods.length > 0 && (
-                      <div className="border border-gray-200 rounded-md p-3 space-y-2">
-                        {currentEndpoint.methods.map((method, index) => (
-                          <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded-md">
-                            <div>
-                              <span className="uppercase font-medium">{method.type}</span>
-                              <span className="text-gray-500 text-sm ml-2">{method.responses.length} responses</span>
-                            </div>
-                            <Button
-                              variant="ghost"
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Endpoints</CardTitle>
+              <Button onClick={handleAddEndpoint} size="sm">
+                <Plus className="h-4 w-4 mr-1" /> Create Endpoint
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {endpoints.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No endpoints defined. Click "Create Endpoint" to add one.
+                </div>
+              ) : (
+                <Accordion type="multiple" className="w-full">
+                  {endpoints.map((endpoint, endpointIndex) => (
+                    <AccordionItem value={`endpoint-${endpointIndex}`} key={endpointIndex}>
+                      <AccordionTrigger className="hover:bg-gray-50 px-4 py-2 rounded-md">
+                        <div className="flex items-center">
+                          <span className="font-mono text-blue-600 mr-2">/{endpoint.path}</span>
+                          <span className="text-gray-600 text-sm">{endpoint.description}</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 py-2">
+                        <div className="space-y-4">
+                          <div className="flex justify-end space-x-2">
+                            <Button 
+                              variant="outline" 
                               size="sm"
-                              onClick={() => handleDeleteMethod(index)}
+                              onClick={() => handleEditEndpoint(endpointIndex)}
                             >
-                              <Trash className="h-4 w-4 text-red-500" />
+                              <Edit className="h-4 w-4 mr-1" /> Edit Endpoint
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleDeleteEndpoint(endpointIndex)}
+                            >
+                              <Trash className="h-4 w-4 mr-1" /> Delete
                             </Button>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Add method form */}
-                    <div className="border border-gray-200 rounded-md p-3 space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="methodType">Method Type</Label>
-                          <select 
-                            id="methodType"
-                            value={currentMethod.type}
-                            onChange={(e) => setCurrentMethod({...currentMethod, type: e.target.value})}
-                            className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-                          >
-                            <option value="get">GET</option>
-                            <option value="post">POST</option>
-                            <option value="put">PUT</option>
-                            <option value="delete">DELETE</option>
-                            <option value="patch">PATCH</option>
-                            <option value="options">OPTIONS</option>
-                          </select>
-                        </div>
-                        <div>
-                          <Label htmlFor="methodDescription">Description</Label>
-                          <Input 
-                            id="methodDescription"
-                            value={currentMethod.description || ''} 
-                            onChange={(e) => setCurrentMethod({...currentMethod, description: e.target.value})}
-                            className="mt-1"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center mt-2">
-                        <input 
-                          type="checkbox" 
-                          id="requestBody"
-                          checked={currentMethod.requestBody || false}
-                          onChange={(e) => setCurrentMethod({...currentMethod, requestBody: e.target.checked})}
-                          className="mr-2 rounded"
-                        />
-                        <Label htmlFor="requestBody" className="text-sm">Has Request Body</Label>
-                      </div>
-                      
-                      {currentMethod.requestBody && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                          <div>
-                            <Label htmlFor="requestType">Request Type</Label>
-                            <select 
-                              id="requestType"
-                              value={currentMethod.requestType || ''}
-                              onChange={(e) => setCurrentMethod({...currentMethod, requestType: e.target.value})}
-                              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-                            >
-                              <option value="">Select Type</option>
-                              {types.map((type, idx) => (
-                                <option key={idx} value={type.name}>{type.name}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <Label htmlFor="requestExample">Request Example</Label>
-                            <Textarea 
-                              id="requestExample"
-                              value={currentMethod.requestExample || ''} 
-                              onChange={(e) => setCurrentMethod({...currentMethod, requestExample: e.target.value})}
-                              className="mt-1 h-20 font-mono"
-                              placeholder='{"key": "value"}'
-                            />
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Responses */}
-                      <div className="space-y-2 mt-3">
-                        <h6 className="text-sm font-medium">Responses</h6>
-                        
-                        {currentMethod.responses.length > 0 && (
-                          <div className="border border-gray-200 rounded-md overflow-hidden">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Code
-                                  </th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Description
-                                  </th>
-                                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {currentMethod.responses.map((response, index) => (
-                                  <tr key={index}>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{response.code}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{response.description || '-'}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm">
-                                      <Button
-                                        variant="ghost"
+
+                          <div className="border-t pt-4">
+                            <div className="flex justify-between items-center mb-2">
+                              <h4 className="font-medium">Methods</h4>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleAddMethod(endpointIndex)}
+                              >
+                                <Plus className="h-4 w-4 mr-1" /> Add Method
+                              </Button>
+                            </div>
+                            
+                            <div className="space-y-4">
+                              {endpoint.methods.map((method, methodIndex) => (
+                                <div 
+                                  key={methodIndex}
+                                  className="border rounded-md p-4 bg-gray-50"
+                                >
+                                  <div className="flex justify-between items-center mb-2">
+                                    <div className="flex items-center">
+                                      <span className={`uppercase font-mono ${
+                                        method.type === 'get' ? 'text-green-600' :
+                                        method.type === 'post' ? 'text-blue-600' :
+                                        method.type === 'put' ? 'text-orange-600' :
+                                        method.type === 'delete' ? 'text-red-600' : 'text-gray-600'
+                                      }`}>
+                                        {method.type}
+                                      </span>
+                                      {method.description && (
+                                        <span className="ml-2 text-sm text-gray-600">
+                                          {method.description}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <Button 
+                                        variant="ghost" 
                                         size="sm"
-                                        onClick={() => handleDeleteResponse(index)}
+                                        onClick={() => handleEditMethod(endpointIndex, methodIndex)}
                                       >
-                                        <Trash className="h-4 w-4 text-red-500" />
+                                        <Edit className="h-3 w-3 mr-1" /> Edit
                                       </Button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => handleDeleteMethod(endpointIndex, methodIndex)}
+                                        className="text-red-500 hover:text-red-700"
+                                      >
+                                        <Trash className="h-3 w-3 mr-1" /> Delete
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  
+                                  {method.requestBody && (
+                                    <div className="mt-2 text-sm">
+                                      <div className="font-medium">Request Body:</div>
+                                      {method.requestType && (
+                                        <div className="text-gray-600">Type: {method.requestType}</div>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {method.responses && method.responses.length > 0 && (
+                                    <div className="mt-2 text-sm">
+                                      <div className="font-medium">Responses:</div>
+                                      <div className="space-y-1 mt-1">
+                                        {method.responses.map((response, respIndex) => (
+                                          <div key={respIndex} className="text-gray-600">
+                                            {response.code}: {response.description}
+                                            {response.bodyType && ` (${response.bodyType})`}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {method.queryParams && method.queryParams.length > 0 && (
+                                    <div className="mt-2 text-sm">
+                                      <div className="font-medium">Query Parameters:</div>
+                                      <div className="space-y-1 mt-1">
+                                        {method.queryParams.map((param, paramIndex) => (
+                                          <div key={paramIndex} className="text-gray-600">
+                                            {param.name} ({param.type}){param.required ? ' *' : ''}
+                                            {param.description && `: ${param.description}`}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        )}
-                        
-                        {/* Add response form */}
-                        <div className="flex space-x-2">
-                          <div className="w-24">
-                            <Input 
-                              type="number"
-                              placeholder="Status"
-                              value={currentResponse.code} 
-                              onChange={(e) => setCurrentResponse({...currentResponse, code: parseInt(e.target.value)})}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <Input 
-                              placeholder="Description"
-                              value={currentResponse.description || ''} 
-                              onChange={(e) => setCurrentResponse({...currentResponse, description: e.target.value})}
-                            />
-                          </div>
-                          <Button 
-                            variant="outline"
-                            onClick={handleAddResponse}
-                          >
-                            <Plus className="h-4 w-4 mr-1" /> Add
-                          </Button>
                         </div>
-                      </div>
-                      
-                      <Button 
-                        className="w-full mt-3"
-                        onClick={handleAddMethod}
-                      >
-                        Add Method
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    className="w-full"
-                    onClick={handleAddEndpoint}
-                  >
-                    Add Endpoint
-                  </Button>
-                </div>
-                
-                {/* List of defined endpoints */}
-                {endpoints.length > 0 && (
-                  <div className="border border-gray-200 rounded-md p-4 space-y-4">
-                    <h4 className="text-md font-medium">Defined Endpoints</h4>
-                    <div className="space-y-2">
-                      {endpoints.map((endpoint, index) => (
-                        <div key={index} className="border border-gray-200 rounded-md p-3 flex justify-between items-center">
-                          <div>
-                            <span className="font-medium">/{endpoint.path}</span>
-                            <span className="text-gray-500 text-sm ml-2">{endpoint.methods.length} methods</span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteEndpoint(index)}
-                          >
-                            <Trash className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            
-            {/* Generated RAML Tab */}
-            <TabsContent value="raml" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Generated RAML</h3>
-                
-                <div className="flex space-x-2">
-                  <Button 
-                    variant={generatedRAML ? "default" : "outline"} 
-                    onClick={handleGenerateRAML}
-                    disabled={isGenerating}
-                  >
-                    <PlayCircle className="h-4 w-4 mr-2" />
-                    {isGenerating ? 'Generating...' : generatedRAML ? 'Regenerate' : 'Generate RAML'}
-                  </Button>
-                  
-                  {generatedRAML && (
-                    <Button onClick={copyToClipboard}>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy
-                    </Button>
-                  )}
-                </div>
-              </div>
-              
-              {generationError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-                  Error: {generationError}
-                </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               )}
-              
-              {!generatedRAML && !isGenerating && !generationError && (
-                <div className="p-8 bg-gray-50 border border-gray-200 rounded-md text-center">
-                  <p className="text-gray-500">
-                    {types.length === 0 && endpoints.length === 0 
-                      ? 'Start by adding some types and endpoints, then generate RAML'
-                      : 'Click "Generate RAML" to create your API specification'}
-                  </p>
-                </div>
-              )}
-              
-              {generatedRAML && (
-                <div className="border border-gray-200 rounded-md" style={{ minHeight: '500px' }}>
+            </CardContent>
+            <CardFooter className="flex justify-end space-x-4 pt-6">
+              <Button 
+                variant="secondary" 
+                onClick={() => setCurrentTab('preview')}
+                disabled={!generatedRAML}
+              >
+                View Generated RAML
+              </Button>
+              <Button 
+                onClick={generateRAML}
+                disabled={isGenerating || !apiName.trim()}
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
+                    Generating...
+                  </>
+                ) : 'Generate RAML'}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="preview">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Generated RAML</CardTitle>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setCurrentTab('editor')}
+                >
+                  Back to Editor
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={copyToClipboard}
+                >
+                  <Copy className="h-4 w-4 mr-1" /> Copy
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowPublishDialog(true)}
+                  disabled={!generatedRAML}
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" /> Publish to Exchange
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-md overflow-hidden bg-gray-50">
+                {generatedRAML ? (
                   <MonacoEditor
                     value={generatedRAML}
                     language="yaml"
-                    height="500px"
+                    height="600px"
+                    readOnly={true}
                     options={{
-                      readOnly: true,
-                      minimap: { enabled: false },
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
+                      minimap: { enabled: true }
                     }}
                   />
+                ) : (
+                  <div className="flex items-center justify-center h-60 text-gray-500">
+                    No RAML generated yet. Go to Editor tab and click "Generate RAML".
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={showEndpointDialog} onOpenChange={setShowEndpointDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{currentEndpointIndex !== null ? 'Edit Endpoint' : 'Create New Endpoint'}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 my-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Path*</label>
+                <Input 
+                  value={editingEndpoint?.path || ''}
+                  onChange={(e) => setEditingEndpoint(prev => prev ? ({...prev, path: e.target.value}) : null)}
+                  placeholder="resource/{id}"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Input 
+                  value={editingEndpoint?.description || ''}
+                  onChange={(e) => setEditingEndpoint(prev => prev ? ({...prev, description: e.target.value}) : null)}
+                  placeholder="Description of this endpoint"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">URI Parameters</label>
+                <div className="flex space-x-2 items-center">
+                  <Input 
+                    placeholder="Parameter name"
+                    value={newParam.name}
+                    onChange={(e) => setNewParam({...newParam, name: e.target.value})}
+                    className="w-32"
+                  />
+                  <Select 
+                    value={newParam.type}
+                    onValueChange={(value) => setNewParam({...newParam, type: value})}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="string">string</SelectItem>
+                      <SelectItem value="number">number</SelectItem>
+                      <SelectItem value="integer">integer</SelectItem>
+                      <SelectItem value="boolean">boolean</SelectItem>
+                      <SelectItem value="date">date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleAddEndpointParam}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {editingEndpoint?.uriParams && editingEndpoint.uriParams.length > 0 ? (
+                <div className="space-y-2 border rounded-md p-2">
+                  {editingEndpoint.uriParams.map((param, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{param.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({param.type}{param.required ? ', required' : ''})</span>
+                        {param.description && (
+                          <span className="text-sm text-gray-500 ml-2">{param.description}</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteEndpointParam(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No URI parameters defined</div>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEndpointDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveEndpoint}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMethodDialog} onOpenChange={setShowMethodDialog}>
+        <DialogContent className="max-w-3xl max-h-screen overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{currentMethodIndex !== null ? 'Edit Method' : 'Add New Method'}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 my-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Method Type*</label>
+                <Select 
+                  value={editingMethod?.type || ''}
+                  onValueChange={(value) => setEditingMethod(prev => prev ? ({...prev, type: value}) : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select method type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="get">GET</SelectItem>
+                    <SelectItem value="post">POST</SelectItem>
+                    <SelectItem value="put">PUT</SelectItem>
+                    <SelectItem value="patch">PATCH</SelectItem>
+                    <SelectItem value="delete">DELETE</SelectItem>
+                    <SelectItem value="options">OPTIONS</SelectItem>
+                    <SelectItem value="head">HEAD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Input 
+                  value={editingMethod?.description || ''}
+                  onChange={(e) => setEditingMethod(prev => prev ? ({...prev, description: e.target.value}) : null)}
+                  placeholder="Method description"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input 
+                  type="checkbox" 
+                  id="requestBody"
+                  checked={editingMethod?.requestBody || false}
+                  onChange={(e) => setEditingMethod(prev => 
+                    prev ? ({...prev, requestBody: e.target.checked}) : null
+                  )}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="requestBody" className="text-sm font-medium">Request Body</label>
+              </div>
+              
+              {editingMethod?.requestBody && (
+                <div className="pl-6 space-y-4 mt-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Request Type</label>
+                    <Input 
+                      value={editingMethod?.requestType || ''}
+                      onChange={(e) => setEditingMethod(prev => 
+                        prev ? ({...prev, requestType: e.target.value}) : null
+                      )}
+                      placeholder="e.g. User"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Example (JSON)</label>
+                    <Textarea 
+                      value={editingMethod?.requestExample || ''}
+                      onChange={(e) => setEditingMethod(prev => 
+                        prev ? ({...prev, requestExample: e.target.value}) : null
+                      )}
+                      placeholder='{"name": "John", "email": "john@example.com"}'
+                      rows={3}
+                    />
+                  </div>
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
-          
-          <div className="mt-6 flex justify-center">
-            <Button 
-              size="lg"
-              onClick={handleGenerateRAML}
-              disabled={isGenerating || (types.length === 0 && endpoints.length === 0)}
-              className="px-8"
-            >
-              {isGenerating ? (
-                <span className="flex items-center">
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Generating RAML...
-                </span>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Responses</label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddResponseDialog(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add Response
+                </Button>
+              </div>
+              
+              {editingMethod?.responses && editingMethod.responses.length > 0 ? (
+                <div className="space-y-4">
+                  {editingMethod.responses.map((response, index) => (
+                    <div key={index} className="border rounded-md p-3 bg-gray-50">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center">
+                          <span className="font-medium">{response.code}</span>
+                          <span className="text-gray-600 ml-2">{response.description}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteResponse(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      {response.bodyType && (
+                        <div className="text-sm">
+                          <span className="text-gray-600">Type: {response.bodyType}</span>
+                        </div>
+                      )}
+                      
+                      {response.example && (
+                        <div className="mt-2">
+                          <div className="text-sm font-medium">Example:</div>
+                          <pre className="text-xs bg-gray-100 p-2 rounded mt-1 overflow-x-auto">
+                            {response.example}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <span className="flex items-center">
-                  <PlayCircle className="h-4 w-4 mr-2" />
-                  Generate RAML
-                </span>
+                <div className="text-sm text-gray-500 italic">No responses defined</div>
               )}
-            </Button>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Query Parameters</label>
+                <div className="flex space-x-2 items-center">
+                  <Input 
+                    placeholder="Parameter name"
+                    value={newParam.name}
+                    onChange={(e) => setNewParam({...newParam, name: e.target.value})}
+                    className="w-32"
+                  />
+                  <Select 
+                    value={newParam.type}
+                    onValueChange={(value) => setNewParam({...newParam, type: value})}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="string">string</SelectItem>
+                      <SelectItem value="number">number</SelectItem>
+                      <SelectItem value="integer">integer</SelectItem>
+                      <SelectItem value="boolean">boolean</SelectItem>
+                      <SelectItem value="date">date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleAddMethodParam('queryParams')}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {editingMethod?.queryParams && editingMethod.queryParams.length > 0 ? (
+                <div className="space-y-2 border rounded-md p-2">
+                  {editingMethod.queryParams.map((param, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{param.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({param.type}{param.required ? ', required' : ''})</span>
+                        {param.description && (
+                          <span className="text-sm text-gray-500 ml-2">{param.description}</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteMethodParam('queryParams', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No query parameters defined</div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">URI Parameters</label>
+                <div className="flex space-x-2 items-center">
+                  <Input 
+                    placeholder="Parameter name"
+                    value={newParam.name}
+                    onChange={(e) => setNewParam({...newParam, name: e.target.value})}
+                    className="w-32"
+                  />
+                  <Select 
+                    value={newParam.type}
+                    onValueChange={(value) => setNewParam({...newParam, type: value})}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="string">string</SelectItem>
+                      <SelectItem value="number">number</SelectItem>
+                      <SelectItem value="integer">integer</SelectItem>
+                      <SelectItem value="boolean">boolean</SelectItem>
+                      <SelectItem value="date">date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleAddMethodParam('uriParams')}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {editingMethod?.uriParams && editingMethod.uriParams.length > 0 ? (
+                <div className="space-y-2 border rounded-md p-2">
+                  {editingMethod.uriParams.map((param, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{param.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({param.type}{param.required ? ', required' : ''})</span>
+                        {param.description && (
+                          <span className="text-sm text-gray-500 ml-2">{param.description}</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteMethodParam('uriParams', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No URI parameters defined</div>
+              )}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMethodDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveMethod}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddResponseDialog} onOpenChange={setShowAddResponseDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Response</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 my-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status Code*</label>
+                <Input 
+                  value={newResponse.code}
+                  onChange={(e) => setNewResponse({...newResponse, code: e.target.value})}
+                  placeholder="200"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Body Type</label>
+                <Input 
+                  value={newResponse.bodyType || ''}
+                  onChange={(e) => setNewResponse({...newResponse, bodyType: e.target.value})}
+                  placeholder="e.g. User"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Input 
+                value={newResponse.description}
+                onChange={(e) => setNewResponse({...newResponse, description: e.target.value})}
+                placeholder="Success response"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Example (JSON)</label>
+              <Textarea 
+                value={newResponse.example || ''}
+                onChange={(e) => setNewResponse({...newResponse, example: e.target.value})}
+                placeholder='{"id": 1, "name": "John"}'
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddResponseDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddResponse}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Publish to Exchange</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 my-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title*</label>
+              <Input 
+                value={publishTitle || apiName}
+                onChange={(e) => setPublishTitle(e.target.value)}
+                placeholder="RAML title"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea 
+                value={publishDescription || apiDescription}
+                onChange={(e) => setPublishDescription(e.target.value)}
+                placeholder="Describe your RAML specification"
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Visibility</h3>
+              <RadioGroup value={visibility} onValueChange={setVisibility} className="flex flex-col space-y-3">
+                <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <RadioGroupItem value="public" id="visibility-public" />
+                  <Label htmlFor="visibility-public" className="flex items-center cursor-pointer">
+                    <Globe size={18} className="mr-2 text-blue-500" />
+                    <div>
+                      <span className="font-medium">Public</span>
+                      <p className="text-sm text-gray-500">Visible to everyone in the Exchange</p>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <RadioGroupItem value="private" id="visibility-private" />
+                  <Label htmlFor="visibility-private" className="flex items-center cursor-pointer">
+                    <Lock size={18} className="mr-2 text-gray-500" />
+                    <div>
+                      <span className="font-medium">Private</span>
+                      <p className="text-sm text-gray-500">Only visible to members of your workspace</p>
+                    </div>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={publishToExchange}
+              disabled={isPublishing}
+            >
+              {isPublishing ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
+                  Publishing...
+                </>
+              ) : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

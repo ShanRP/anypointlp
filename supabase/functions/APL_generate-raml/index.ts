@@ -1,11 +1,7 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 
 const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') || 'EbjQ32KdE7j8qv1wTZWEZZyq0XQPqtiX';
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,8 +32,7 @@ serve(async (req) => {
       types = [],
       endpoints = [], 
       mediaTypes = ["application/json"],
-      protocols = ["HTTPS"],
-      workspaceId
+      protocols = ["HTTPS"]
     } = requestData;
     
     // Log the received data
@@ -47,38 +42,8 @@ serve(async (req) => {
       baseUri,
       apiDescription, 
       types: types.length,
-      endpoints: endpoints.length,
-      workspaceId
+      endpoints: endpoints.length 
     });
-    
-    // Set up Supabase client if we have workspace ID
-    let selectedWorkspaceId = null;
-    if (workspaceId && supabaseUrl && supabaseServiceKey) {
-      try {
-        console.log('Connecting to Supabase to verify workspace');
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        
-        // Verify the workspace exists - only if workspaceId is a valid UUID
-        if (workspaceId && workspaceId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          const { data: workspace, error: workspaceError } = await supabase
-            .from('apl_workspaces')
-            .select('id')
-            .eq('id', workspaceId)
-            .single();
-          
-          if (workspace && !workspaceError) {
-            console.log('Valid workspace found:', workspace.id);
-            selectedWorkspaceId = workspace.id;
-          } else {
-            console.log('Workspace not found or error:', workspaceError);
-          }
-        } else {
-          console.log('Invalid workspace ID format, skipping verification');
-        }
-      } catch (supabaseError) {
-        console.error('Error connecting to Supabase:', supabaseError);
-      }
-    }
     
     // Generate RAML specification using Mistral
     let ramlSpec;
@@ -107,14 +72,10 @@ serve(async (req) => {
       );
     }
     
-    // Clean up the RAML output by removing any explanatory text
-    ramlSpec = cleanRamlOutput(ramlSpec);
-    
     // Return the generated RAML
     return new Response(
       JSON.stringify({ 
-        raml: ramlSpec,
-        workspaceId: selectedWorkspaceId 
+        raml: ramlSpec 
       }),
       { 
         headers: { 
@@ -140,45 +101,6 @@ serve(async (req) => {
   }
 });
 
-function cleanRamlOutput(raml) {
-  if (!raml) {
-    return '#%RAML 1.0\ntitle: API Specification\n';
-  }
-  
-  // Remove any text before the #%RAML header
-  const ramlHeaderIndex = raml.indexOf('#%RAML 1.0');
-  if (ramlHeaderIndex > 0) {
-    raml = raml.substring(ramlHeaderIndex);
-  }
-  
-  // Remove any trailing explanation text (anything after the RAML content)
-  // This is harder to detect, but we can try to find common markers indicating end of RAML
-  const explanationMarkers = [
-    "This completes the RAML specification",
-    "The RAML specification is now complete",
-    "That's the complete RAML specification",
-    "Hope this helps",
-    "Let me know if you need",
-    "Please let me know",
-    "Note: ",
-    "```",
-    "Here is",
-    "This is"
-  ];
-  
-  for (const marker of explanationMarkers) {
-    const markerIndex = raml.indexOf(marker);
-    if (markerIndex > 0) {
-      raml = raml.substring(0, markerIndex).trim();
-    }
-  }
-  
-  // Further cleanup to remove code block markers
-  raml = raml.replace(/```ya?ml/g, '').replace(/```/g, '').trim();
-  
-  return raml;
-}
-
 async function generateWithMistral(
   apiName: string, 
   apiVersion: string = 'v1',
@@ -190,6 +112,24 @@ async function generateWithMistral(
   protocols: string[] = ["HTTPS"]
 ) {
   console.log('Generating RAML with Mistral AI');
+  
+  // Prepare data for Mistral prompt
+  const typesSummary = types.map(type => {
+    return {
+      name: type.name,
+      baseType: type.baseType,
+      propertiesCount: type.properties?.length || 0,
+      hasExample: !!type.example
+    };
+  });
+  
+  const endpointsSummary = endpoints.map(endpoint => {
+    return {
+      path: endpoint.path,
+      methodsCount: endpoint.methods?.length || 0,
+      description: endpoint.description?.substring(0, 100)
+    };
+  });
   
   // Create a detailed prompt for Mistral
   const prompt = `
@@ -241,32 +181,19 @@ async function generateWithMistral(
       throw new Error(`Mistral API error: ${response.status} ${response.statusText}`);
     }
     
-    try {
-      const data = await response.json();
-      console.log('Mistral response received');
-      
-      // Extract the generated RAML from the response
-      if (data && data.choices && data.choices[0] && data.choices[0].message) {
-        let generatedRaml = data.choices[0].message.content.trim();
-        
-        // Clean up the output to ensure it's properly formatted RAML
-        generatedRaml = cleanRamlOutput(generatedRaml);
-        
-        // Validate basic RAML structure
-        if (!generatedRaml.startsWith('#%RAML 1.0')) {
-          console.warn('Mistral response does not start with RAML header, adding it');
-          return '#%RAML 1.0\n' + generatedRaml;
-        }
-        
-        return generatedRaml;
-      } else {
-        console.error('Unexpected Mistral API response format:', data);
-        throw new Error('Invalid response format from Mistral API');
-      }
-    } catch (jsonError) {
-      console.error('Error parsing Mistral API response as JSON:', jsonError);
-      throw new Error('Failed to parse Mistral API response');
+    const data = await response.json();
+    console.log('Mistral response received');
+    
+    // Extract the generated RAML from the response
+    const generatedRaml = data.choices[0].message.content.trim();
+    
+    // Validate basic RAML structure
+    if (!generatedRaml.startsWith('#%RAML 1.0')) {
+      console.warn('Mistral response does not start with RAML header, adding it');
+      return '#%RAML 1.0\n' + generatedRaml;
     }
+    
+    return generatedRaml;
   } catch (error) {
     console.error('Error calling Mistral API:', error);
     throw error;

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, FileText, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
@@ -13,8 +14,6 @@ import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Label } from "./ui/label";
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
-import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { useAuth } from '@/hooks/useAuth';
 
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 type DocumentType = 'flow-implementation' | 'flow-endpoints';
@@ -24,8 +23,6 @@ interface DocumentGeneratorProps {
 }
 
 const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ onBack }) => {
-  const { user } = useAuth();
-  const { selectedWorkspace } = useWorkspaces();
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
   const [documentType, setDocumentType] = useState<DocumentType>('flow-implementation');
   const [description, setDescription] = useState('');
@@ -168,10 +165,6 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ onBack }) => {
         prompt += ` Based on the uploaded file.`;
       }
       
-      // Get workspace ID for context if available
-      const workspaceId = selectedWorkspace?.id || null;
-      console.log("Using workspace ID for generation:", workspaceId);
-      
       // Using Mistral API key
       const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
@@ -306,6 +299,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ onBack }) => {
                     </div>
                   )}
                   
+                  {/* Repository file structure */}
                   {selectedRepository && (
                     <div className="mt-4">
                       <h4 className="font-medium mb-2">Files</h4>
@@ -439,14 +433,6 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ onBack }) => {
                   </div>
                 </RadioGroup>
               </div>
-
-              {selectedWorkspace && (
-                <div className="p-3 bg-blue-50 rounded-md">
-                  <p className="text-sm text-blue-700">
-                    Using workspace: {selectedWorkspace.name} (ID: {selectedWorkspace.id.substring(0, 8)}...)
-                  </p>
-                </div>
-              )}
 
               <div className="flex justify-between">
                 <Button 
