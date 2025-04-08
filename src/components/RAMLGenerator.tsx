@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,12 +9,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import MonacoEditor from '@/components/MonacoEditor'; // Fixed import
+import MonacoEditor from '@/components/MonacoEditor';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 
-// Define the props interface with the correct properties
 export interface RAMLGeneratorProps {
   onBack: () => void;
   selectedWorkspaceId?: string;
@@ -59,7 +57,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
   const { user } = useAuth();
   const { workspaces, selectedWorkspace } = useWorkspaces();
   
-  // Use selectedWorkspaceId from props, fallback to selectedWorkspace.id from hook
   const effectiveWorkspaceId = selectedWorkspaceId || selectedWorkspace?.id || "";
   
   const [activeTab, setActiveTab] = useState<'types' | 'endpoints' | 'raml'>('types');
@@ -67,7 +64,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
   const [ramlOutput, setRamlOutput] = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
   
-  // API Spec fields
   const [apiName, setApiName] = useState('');
   const [apiVersion, setApiVersion] = useState('v1');
   const [baseUri, setBaseUri] = useState('https://api.example.com/v1');
@@ -75,11 +71,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
   const [mediaTypes, setMediaTypes] = useState(['application/json']);
   const [protocols, setProtocols] = useState(['HTTPS']);
 
-  // Types and endpoints
   const [types, setTypes] = useState<ApiType[]>([]);
   const [endpoints, setEndpoints] = useState<ApiEndpoint[]>([]);
 
-  // Current type and endpoint being edited
   const [currentType, setCurrentType] = useState<ApiType>({
     name: '',
     baseType: 'object',
@@ -103,13 +97,11 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     }]
   });
 
-  // Current property being edited
   const [currentProperty, setCurrentProperty] = useState<TypeProperty>({
     name: '',
     type: 'string'
   });
 
-  // Handle adding a new type
   const handleAddType = () => {
     if (!currentType.name.trim()) {
       toast({
@@ -120,7 +112,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
       return;
     }
     
-    // Check if type already exists
     if (types.some(t => t.name === currentType.name)) {
       toast({
         title: "Error",
@@ -144,7 +135,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Handle adding a property to the current type
   const handleAddProperty = () => {
     if (!currentProperty.name.trim()) {
       toast({
@@ -155,7 +145,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
       return;
     }
     
-    // Check if property already exists
     if (currentType.properties.some(p => p.name === currentProperty.name)) {
       toast({
         title: "Error",
@@ -176,7 +165,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Handle removing a property
   const handleRemoveProperty = (propertyName: string) => {
     setCurrentType({
       ...currentType,
@@ -184,7 +172,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Handle removing a type
   const handleRemoveType = (typeName: string) => {
     setTypes(types.filter(t => t.name !== typeName));
     toast({
@@ -193,7 +180,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Handle adding a new endpoint
   const handleAddEndpoint = () => {
     if (!currentEndpoint.path.trim()) {
       toast({
@@ -204,7 +190,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
       return;
     }
     
-    // Check if endpoint already exists
     if (endpoints.some(e => e.path === currentEndpoint.path)) {
       toast({
         title: "Error",
@@ -227,7 +212,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Handle removing an endpoint
   const handleRemoveEndpoint = (path: string) => {
     setEndpoints(endpoints.filter(e => e.path !== path));
     toast({
@@ -236,7 +220,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Handle adding a method to the current endpoint
   const handleAddMethod = () => {
     if (currentEndpoint.methods.some(m => m.type === currentMethod.type)) {
       toast({
@@ -263,7 +246,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Handle removing a method
   const handleRemoveMethod = (methodType: 'get' | 'post' | 'put' | 'delete' | 'patch') => {
     setCurrentEndpoint({
       ...currentEndpoint,
@@ -271,7 +253,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Save RAML generation to workspace
   const saveToWorkspace = async () => {
     if (!effectiveWorkspaceId) {
       toast({
@@ -283,7 +264,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     }
     
     try {
-      // Fix: Use apl_dataweave_tasks table instead of apl_tasks
       const { data, error } = await supabase
         .from('apl_dataweave_tasks')
         .insert([
@@ -322,7 +302,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     }
   };
 
-  // Generate RAML from the defined types and endpoints
   const generateRAML = async () => {
     if (!apiName) {
       toast({
@@ -337,7 +316,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     setGenerationError(null);
     
     try {
-      // Log data being sent for debugging
       console.log('Sending to APL_generate-raml:', {
         apiName,
         apiVersion,
@@ -372,18 +350,15 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
       if (!response.ok) {
         let errorMessage = `HTTP error ${response.status}`;
         try {
-          // Try to parse error as JSON
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
         } catch (parseError) {
-          // If JSON parsing fails, use text response
           const errorText = await response.text();
           errorMessage = errorText || errorMessage;
         }
         throw new Error(errorMessage);
       }
       
-      // Parse the response JSON
       let data;
       try {
         data = await response.json();
@@ -423,7 +398,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     }
   };
 
-  // Copy RAML output to clipboard
   const copyToClipboard = () => {
     navigator.clipboard.writeText(ramlOutput);
     toast({
@@ -432,12 +406,10 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     });
   };
 
-  // Render the types tab content
   const renderTypesTab = () => {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left column: Type editor */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Define a New Type</h3>
             
@@ -534,7 +506,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
                 <Label htmlFor="example">Example (JSON)</Label>
                 <MonacoEditor
                   height="150px"
-                  defaultLanguage="json"
+                  language="json"
                   value={currentType.example}
                   onChange={(value) => setCurrentType({...currentType, example: value || ''})}
                   options={{
@@ -551,7 +523,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
             </div>
           </div>
           
-          {/* Right column: Type list */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Defined Types</h3>
             
@@ -609,12 +580,10 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     );
   };
 
-  // Render the endpoints tab content
   const renderEndpointsTab = () => {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left column: Endpoint editor */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Define a New Endpoint</h3>
             
@@ -700,7 +669,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
                       <Label htmlFor="requestExample">Request Example</Label>
                       <MonacoEditor
                         height="100px"
-                        defaultLanguage="json"
+                        language="json"
                         value={currentMethod.requestExample || ''}
                         onChange={(value) => setCurrentMethod({...currentMethod, requestExample: value || ''})}
                         options={{
@@ -777,7 +746,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
                           <Label htmlFor={`responseExample-${index}`}>Response Example</Label>
                           <MonacoEditor
                             height="100px"
-                            defaultLanguage="json"
+                            language="json"
                             value={response.example || ''}
                             onChange={(value) => {
                               const newResponses = [...currentMethod.responses];
@@ -805,7 +774,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
             </div>
           </div>
           
-          {/* Right column: Endpoint list */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Defined Endpoints</h3>
             
@@ -854,7 +822,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
     );
   };
 
-  // Render the RAML output tab content
   const renderRamlTab = () => {
     return (
       <div className="space-y-4">
@@ -880,7 +847,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspace
         {ramlOutput ? (
           <MonacoEditor
             height="600px"
-            defaultLanguage="yaml"
+            language="yaml"
             value={ramlOutput}
             options={{
               readOnly: true,
