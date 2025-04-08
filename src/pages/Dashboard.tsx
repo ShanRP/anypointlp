@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import GeneratorCard from '@/components/GeneratorCard';
-import CodingAssistantDialog, { openCodingAssistantDialog } from '@/components/ai/CodingAssistantDialog';
+import CodingAssistantDialog from '@/components/ai/CodingAssistantDialog';
 
 interface SidebarTask {
   id: string;
@@ -235,7 +235,7 @@ const Dashboard = () => {
   const [selectedExchangeItemId, setSelectedExchangeItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredAgents, setFilteredAgents] = useState<any[]>([]);
-  const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
+  
   const {
     user,
     loading
@@ -388,7 +388,7 @@ const Dashboard = () => {
             setSelectedAgent(null);
             setSelectedTaskId(null);
           } else if (page === 'chat') {
-            openCodingAssistantDialog();
+            setCurrentPage('chat');
           } else {
             setCurrentPage(page as PageType);
             setSelectedAgent(page);
@@ -409,7 +409,7 @@ const Dashboard = () => {
 
         <header className="relative z-10 h-16 flex items-center px-8 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
   <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
-    <div className="relative w-[400px]"> {/* Added relative positioning container */}
+    <div className="relative w-[400px]">
       <input
         type="text"
         placeholder="Search or type a command..."
@@ -434,7 +434,6 @@ const Dashboard = () => {
     </div>
   </div>
   <div className="ml-auto flex items-center gap-3">
-    {/* Other header content */}
   </div>
 </header>
 
@@ -585,10 +584,7 @@ const Dashboard = () => {
               <DiagramGenerator onBack={handleBackToDashboard} />
             </motion.div>}
         </div>
-        <CodingAssistantDialog 
-          isOpen={isCodingAssistantOpen} 
-          onOpenChange={setIsCodingAssistantOpen} 
-        />
+        <CodingAssistantDialog />
       </div>
     </div>;
 };

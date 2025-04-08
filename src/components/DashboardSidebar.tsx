@@ -32,7 +32,7 @@ import { useWorkspaceTasks, type WorkspaceTask } from '@/hooks/useWorkspaceTasks
 import { Button } from '@/components/ui/button';
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import WorkspaceDetailsDialog from './workspace/WorkspaceDetailsDialog';
-import CodingAssistantDialog, { openCodingAssistantDialog } from './ai/CodingAssistantDialog';
+import { openCodingAssistantDialog } from './ai/CodingAssistantDialog';
 import { useAnimations } from '@/utils/animationUtils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet";
 
@@ -155,7 +155,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const [isCreateWorkspaceDialogOpen, setIsCreateWorkspaceDialogOpen] = useState(false);
   const [isWorkspaceDetailsOpen, setIsWorkspaceDetailsOpen] = useState(false);
   const [selectedWorkspaceForDetails, setSelectedWorkspaceForDetails] = useState<WorkspaceOption | null>(null);
-  const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
   const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace, updateWorkspace, deleteWorkspace } = useWorkspaces();
   const { tasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
   const { fadeIn } = useAnimations();
@@ -441,7 +440,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 label="AI Chat"
                 active={currentPage === 'chat'}
                 onClick={() => {
-                  setIsCodingAssistantOpen(true);
+                  openCodingAssistantDialog();
                   onNavigate('chat');
                 }}
               />

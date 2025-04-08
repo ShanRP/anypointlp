@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Code } from 'lucide-react';
-import CodingAssistantDialog, { openCodingAssistantDialog } from './ai/CodingAssistantDialog';
+import { openCodingAssistantDialog } from './ai/CodingAssistantDialog';
 import { motion } from 'framer-motion';
 
 interface GeneratorCardProps {
