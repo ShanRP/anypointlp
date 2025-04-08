@@ -149,58 +149,97 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
 
   const handleFileSelect = async (file: FileNode) => {
     if (file.type === 'file' && file.isRaml) {
-      const ramlFile = ramlFiles.find(r => r.path === file.path);
+      setLoadingRamlFile(true);
+      try {
+        const existingRamlFile = ramlFiles.find(r => r.path === file.path);
 
-      if (ramlFile) {
-        setSelectedRamlFile(ramlFile);
-        if (ramlFile.content) {
-          setRamlContent(ramlFile.content);
+        if (existingRamlFile && existingRamlFile.content) {
+          setSelectedRamlFile(existingRamlFile);
+          setRamlContent(existingRamlFile.content);
           setRamlOption('input');
-          toast.success(`RAML file "${ramlFile.name}" selected`);
+          toast.success(`RAML file "${existingRamlFile.name}" selected`);
         } else {
-          const fetchContent = async () => {
+          if (selectedRepository) {
             try {
-              if (selectedRepository) {
-                const token = localStorage.getItem('APL_githubToken');
-                if (!token) {
-                  throw new Error('GitHub token not found');
-                }
-                
-                const response = await fetch(`https://api.github.com/repos/${selectedRepository.full_name}/contents/${file.path}`, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/vnd.github.v3.raw'
-                  }
-                });
-                
-                if (!response.ok) {
-                  throw new Error(`Failed to fetch file: ${response.statusText}`);
-                }
-                
-                const content = await response.text();
+              const content = await fetchFileContent(selectedRepository, file.path);
+              
+              if (content) {
+                const ramlFile: RamlFile = {
+                  name: file.name,
+                  path: file.path,
+                  sha: file.path,
+                  content: content
+                };
                 
                 const updatedRamlFiles = [...ramlFiles];
                 const fileIndex = updatedRamlFiles.findIndex(r => r.path === file.path);
+                
                 if (fileIndex !== -1) {
-                  updatedRamlFiles[fileIndex] = {
-                    ...updatedRamlFiles[fileIndex],
-                    content
-                  };
-                  setRamlFiles(updatedRamlFiles);
+                  updatedRamlFiles[fileIndex] = ramlFile;
+                } else {
+                  updatedRamlFiles.push(ramlFile);
                 }
                 
+                setRamlFiles(updatedRamlFiles);
+                setSelectedRamlFile(ramlFile);
                 setRamlContent(content);
                 setRamlOption('input');
-                toast.success(`RAML file "${file.name}" loaded and selected`);
+                toast.success(`RAML file "${file.name}" loaded successfully`);
+              } else {
+                throw new Error(`Could not load content from "${file.name}"`);
               }
             } catch (error) {
-              console.error('Error fetching file content:', error);
-              toast.error('Failed to fetch file content');
+              console.error("Error fetching file content:", error);
+              toast.error(`Failed to fetch RAML content: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
-          };
-          
-          fetchContent();
+          } else if (selectedOption === 'uploadComputer') {
+            try {
+              const localFile = Array.from(projectFolderRef.current?.files || [])
+                .find(f => f.webkitRelativePath === file.path);
+                
+              if (localFile) {
+                const content = await new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (e) => resolve(e.target?.result as string);
+                  reader.onerror = reject;
+                  reader.readAsText(localFile);
+                });
+                
+                const ramlFile: RamlFile = {
+                  name: file.name,
+                  path: file.path,
+                  sha: file.path,
+                  content: content
+                };
+                
+                const updatedRamlFiles = [...ramlFiles];
+                const fileIndex = updatedRamlFiles.findIndex(r => r.path === file.path);
+                
+                if (fileIndex !== -1) {
+                  updatedRamlFiles[fileIndex] = ramlFile;
+                } else {
+                  updatedRamlFiles.push(ramlFile);
+                }
+                
+                setRamlFiles(updatedRamlFiles);
+                setSelectedRamlFile(ramlFile);
+                setRamlContent(content);
+                setRamlOption('input');
+                toast.success(`RAML file "${file.name}" loaded successfully`);
+              } else {
+                throw new Error(`Could not find local file "${file.path}"`);
+              }
+            } catch (error) {
+              console.error("Error reading local file:", error);
+              toast.error(`Failed to read RAML file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+          }
         }
+      } catch (error) {
+        console.error("Error selecting RAML file:", error);
+        toast.error(`Error selecting RAML file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setLoadingRamlFile(false);
       }
     }
   };
@@ -489,15 +528,16 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
         diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null,
       };
       
-      if (ramlOption !== 'none' && ramlContent) {
+      if (selectedRamlFile && selectedRamlFile.content) {
+        requestBody.raml = { content: selectedRamlFile.content };
+      } else if (ramlOption !== 'none' && ramlContent) {
         requestBody.raml = { content: ramlContent };
       }
       
       if (selectedRamlFile) {
         requestBody.selectedFile = {
           name: selectedRamlFile.name,
-          path: selectedRamlFile.path,
-          content: selectedRamlFile.content
+          path: selectedRamlFile.path
         };
       }
 
@@ -505,11 +545,12 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
         description,
         runtime,
         diagrams: diagramsBase64.length > 0,
-        raml: ramlOption !== 'none' ? { content: ramlContent } : undefined,
-        selectedFile: selectedRamlFile ? {
-          name: selectedRamlFile.name,
-          path: selectedRamlFile.path
-        } : undefined
+        raml: (selectedRamlFile && selectedRamlFile.content) || (ramlOption !== 'none' && ramlContent) 
+          ? { content: 'RAML content present (not shown for brevity)' } 
+          : undefined,
+        selectedFile: selectedRamlFile 
+          ? { name: selectedRamlFile.name, path: selectedRamlFile.path }
+          : undefined
       });
 
       const { data, error } = await supabase.functions.invoke('generate-integration', {
