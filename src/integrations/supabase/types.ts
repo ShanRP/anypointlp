@@ -211,6 +211,54 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_integration_tasks: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          generated_scripts: Json
+          id: string
+          input_format: string
+          input_samples: Json
+          notes: string | null
+          output_samples: Json
+          task_id: string
+          task_name: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          generated_scripts: Json
+          id?: string
+          input_format: string
+          input_samples: Json
+          notes?: string | null
+          output_samples?: Json
+          task_id: string
+          task_name: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          generated_scripts?: Json
+          id?: string
+          input_format?: string
+          input_samples?: Json
+          notes?: string | null
+          output_samples?: Json
+          task_id?: string
+          task_name?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       apl_job_comments: {
         Row: {
           comment: string

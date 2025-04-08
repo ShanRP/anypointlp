@@ -10,7 +10,9 @@ import { BackButton } from '../ui/BackButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, Globe, Lock } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 interface ExchangePublishProps {}
 
@@ -20,6 +22,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
   const { user } = useAuth();
   const [title, setTitle] = useState(location.state?.item?.title || '');
   const [description, setDescription] = useState(location.state?.item?.description || '');
+  const [visibility, setVisibility] = useState('public'); // Default to public
   const [publishing, setPublishing] = useState(false);
 
   if (!location.state?.item) {
@@ -54,6 +57,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
     setPublishing(true);
     try {
       const username = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonymous';
+      const workspaceId = localStorage.getItem('currentWorkspaceId') || '';
       
       const exchangeItem = {
         title: title.trim(),
@@ -61,7 +65,9 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
         content: item.content,
         type: item.type,
         user_id: user.id,
-        username: username
+        username: username,
+        visibility: visibility, // Add visibility field
+        workspace_id: visibility === 'private' ? workspaceId : null // Store workspace_id for private items only
       };
 
       const { data, error } = await supabase
@@ -126,6 +132,32 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
                   rows={4}
                   className="w-full"
                 />
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-700">Visibility</h3>
+                <RadioGroup value={visibility} onValueChange={setVisibility} className="flex flex-col space-y-3">
+                  <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <RadioGroupItem value="public" id="visibility-public" />
+                    <Label htmlFor="visibility-public" className="flex items-center cursor-pointer">
+                      <Globe size={18} className="mr-2 text-blue-500" />
+                      <div>
+                        <span className="font-medium">Public</span>
+                        <p className="text-sm text-gray-500">Visible to everyone in the Exchange</p>
+                      </div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <RadioGroupItem value="private" id="visibility-private" />
+                    <Label htmlFor="visibility-private" className="flex items-center cursor-pointer">
+                      <Lock size={18} className="mr-2 text-gray-500" />
+                      <div>
+                        <span className="font-medium">Private</span>
+                        <p className="text-sm text-gray-500">Only visible to members of your workspace</p>
+                      </div>
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
               
               <div>
