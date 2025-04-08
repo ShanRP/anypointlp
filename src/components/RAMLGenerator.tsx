@@ -869,4 +869,3 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                         )}
                         <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
                           {item.name}
-                        </span>
