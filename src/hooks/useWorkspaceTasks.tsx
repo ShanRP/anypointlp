@@ -51,14 +51,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Function to fetch integration tasks
   const fetchIntegrationTasks = useCallback(async () => {
     if (!workspaceId) return [];
     
     try {
       console.log('Fetching integration tasks for workspace:', workspaceId);
       
-      // Direct query to the integration tasks table instead of using RPC
       const { data, error } = await supabase
         .from('apl_integration_tasks')
         .select('*')
@@ -70,7 +68,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         throw error;
       }
       
-      // Format integration tasks to match the WorkspaceTask interface
       const integrationTasks = (data || []).map((task: any) => ({
         id: task.id,
         task_id: task.task_id,
@@ -89,14 +86,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   }, [workspaceId]);
 
-  // Function to fetch RAML tasks
   const fetchRamlTasks = useCallback(async () => {
     if (!workspaceId) return [];
     
     try {
       console.log('Fetching RAML tasks for workspace:', workspaceId);
       
-      // Use the RAML tasks function
       const { data, error } = await supabase.rpc('apl_get_raml_tasks', { 
         workspace_id_param: workspaceId 
       });
@@ -106,8 +101,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         throw error;
       }
       
-      // Format RAML tasks to match the WorkspaceTask interface
-      const ramlTasks = (data || []).map((task: any) => ({
+      const ramlTasks = Array.isArray(data) ? data.map((task: any) => ({
         id: task.id,
         task_id: task.task_id,
         task_name: task.task_name,
@@ -115,7 +109,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         workspace_id: workspaceId,
         category: 'raml',
         description: task.description || ''
-      }));
+      })) : [];
       
       console.log('Fetched RAML tasks:', ramlTasks.length);
       return ramlTasks;
@@ -132,14 +126,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     setError(null);
     
     try {
-      // Fetch regular tasks
       const { data, error } = await supabase.rpc('apl_get_workspace_tasks', { 
         workspace_id_param: workspaceId 
       });
       
       if (error) throw error;
       
-      // Ensure each task is associated with the current workspace and has a category
       const workspaceTasks = (data as Array<{
         id: string;
         task_id: string;
@@ -149,19 +141,16 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         category?: string;
       }> || []).map(task => ({
         ...task,
-        workspace_id: workspaceId, // Explicitly set workspace_id
-        description: task.description || '', // Include description with fallback
-        category: task.category || 'dataweave', // Set default category if not present
-        task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}` // Ensure a proper task_id is set
+        workspace_id: workspaceId,
+        description: task.description || '',
+        category: task.category || 'dataweave',
+        task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}`
       }));
       
-      // Fetch integration tasks
       const integrationTasks = await fetchIntegrationTasks();
       
-      // Fetch RAML tasks
       const ramlTasks = await fetchRamlTasks();
       
-      // Combine all types of tasks and sort by creation date (newest first)
       const allTasks = [...workspaceTasks, ...integrationTasks, ...ramlTasks].sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -177,19 +166,16 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   }, [workspaceId, fetchIntegrationTasks, fetchRamlTasks]);
 
-  // Function to fetch integration task details
   const fetchIntegrationTaskDetails = async (taskId: string) => {
     try {
       console.log('Fetching integration task details for:', taskId);
       
-      // First try by task_id (string identifier)
       let { data, error } = await supabase
         .from('apl_integration_tasks')
         .select('*')
         .eq('task_id', taskId)
         .limit(1);
       
-      // If not found by task_id, try by id (UUID)
       if ((!data || data.length === 0) && taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
         console.log('Task not found by task_id, trying UUID:', taskId);
         ({ data, error } = await supabase
@@ -208,7 +194,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         const integrationTask = data[0];
         console.log('Found task in integration tasks table');
         
-        // Convert to TaskDetails format
         const taskDetails: TaskDetails = {
           id: integrationTask.id,
           task_id: integrationTask.task_id,
@@ -238,23 +223,28 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   };
 
-  // Function to fetch RAML task details
   const fetchRamlTaskDetails = async (taskId: string) => {
     try {
       console.log('Fetching RAML task details for:', taskId);
       
-      // First try by task_id (string identifier)
-      let { data, error } = await supabase.rpc('apl_get_raml_task_details', {
-        task_id_param: taskId
-      });
+      let data;
+      let error;
       
-      // If not found by task_id, try by id (UUID)
-      if ((!data || data.length === 0) && taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        console.log('Task not found by task_id, trying UUID:', taskId);
+      const isUuid = taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      
+      if (isUuid) {
+        console.log('Using UUID for RAML task lookup:', taskId);
         ({ data, error } = await supabase
           .from('apl_raml_tasks')
           .select('*')
           .eq('id', taskId)
+          .limit(1));
+      } else {
+        console.log('Using task_id for RAML task lookup:', taskId);
+        ({ data, error } = await supabase
+          .from('apl_raml_tasks')
+          .select('*')
+          .eq('task_id', taskId)
           .limit(1));
       }
       
@@ -267,13 +257,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         const ramlTask = data[0];
         console.log('Found task in RAML tasks table');
         
-        // Convert to TaskDetails format
         const taskDetails: TaskDetails = {
           id: ramlTask.id,
           task_id: ramlTask.task_id,
           task_name: ramlTask.task_name || 'RAML Specification',
           input_format: 'RAML Specification',
-          input_samples: [], // RAML doesn't use input samples in the same way
+          input_samples: [],
           output_samples: [],
           notes: ramlTask.description || '',
           generated_scripts: [{
@@ -308,27 +297,22 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     setError(null);
     
     try {
-      // First try to get integration task details
       const integrationTaskDetails = await fetchIntegrationTaskDetails(taskId);
       
       if (integrationTaskDetails) {
-        // Task found in integration tasks
         console.log('Found task in integration tasks table');
         return;
       }
       
-      // If not found, try RAML task details
       const ramlTaskDetails = await fetchRamlTaskDetails(taskId);
       
       if (ramlTaskDetails) {
-        // Task found in RAML tasks
         console.log('Found task in RAML tasks table');
         return;
       }
       
       console.log('Task not found in integration or RAML tasks, checking regular tasks');
       
-      // If not found, try regular task details
       const { data, error } = await supabase.rpc('apl_get_task_details', { 
         task_id_param: taskId 
       });
@@ -336,8 +320,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        // Handle the case where the description field might not be present in the return type
-        // of the apl_get_task_details function
         const taskDetails = data[0] as {
           id: string;
           task_id: string;
@@ -349,16 +331,15 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           generated_scripts: Json;
           created_at: string;
           category?: string;
-          description?: string; // Making this optional since it might not be in the RPC return
+          description?: string;
         };
         
-        // Set the workspace_id on the task details
         const taskWithWorkspace = {
           ...taskDetails,
           workspace_id: workspaceId,
-          category: taskDetails.category || 'dataweave', // Default category
-          description: taskDetails.description || '', // Ensure description exists with a fallback
-          task_id: taskDetails.task_id || `T-${taskDetails.id.substring(0, 8).toUpperCase()}` // Ensure task_id
+          category: taskDetails.category || 'dataweave',
+          description: taskDetails.description || '',
+          task_id: taskDetails.task_id || `T-${taskDetails.id.substring(0, 8).toUpperCase()}`
         } as TaskDetails;
         
         setSelectedTask(taskWithWorkspace);
@@ -386,14 +367,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     notes?: string;
     generated_scripts: any[];
     user_id: string;
-    category: string; // Making category required
-    description?: string; // Optional description field
+    category: string;
+    description?: string;
   }) => {
     try {
-      // Generate a unique task_id if not provided
       const taskId = task.task_id || `T-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
-      // Ensure workspace_id is set correctly
       const taskData = {
         workspace_id: task.workspace_id,
         task_id: taskId,
@@ -405,7 +384,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
         user_id: task.user_id,
         username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
-        category: task.category, // Ensure category is set
+        category: task.category,
         description: task.description || ''
       };
 
@@ -416,7 +395,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       if (error) throw error;
       
-      // Refresh the task list with the current workspace
       await fetchWorkspaceTasks();
       return data;
     } catch (err: any) {
@@ -440,10 +418,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     documentation?: string;
   }) => {
     try {
-      // Generate a unique task_id if not provided
       const taskId = task.task_id || `R-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
-      // Ensure workspace_id is set correctly
       const taskData = {
         workspace_id: task.workspace_id,
         task_id: taskId,
@@ -466,7 +442,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       if (error) throw error;
       
-      // Refresh the task list with the current workspace
       await fetchWorkspaceTasks();
       
       toast.success('RAML task saved successfully!');
@@ -482,7 +457,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (workspaceId) {
       fetchWorkspaceTasks();
     } else {
-      setTasks([]); // Clear tasks if no workspace is selected
+      setTasks([]);
     }
   }, [workspaceId, fetchWorkspaceTasks]);
 

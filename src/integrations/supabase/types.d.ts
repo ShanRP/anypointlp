@@ -1,4 +1,3 @@
-
 import { Database as OriginalDatabase } from './types';
 
 // Extend the original Database type to include our new tables
