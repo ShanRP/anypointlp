@@ -131,4 +131,3 @@ verify_jwt = true
 
 [functions.secure-api-proxy]
 verify_jwt = true
-
