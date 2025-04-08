@@ -53,33 +53,36 @@ const Newsletter: React.FC = () => {
           throw new Error('Error saving your subscription');
         }
         
-        // Use a direct POST request to an edge function for sending the welcome email
-        // This avoids the TypeScript issues with RPC calls
+        // Send the welcome email using the Resend API directly
+        const resendResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_RESEND_API_KEY || 're_'}`
+          },
+          body: JSON.stringify({
+            from: 'Anypoint Learning Platform <noreply@anypointlearningplatform.com>',
+            to: email,
+            subject: 'Welcome to the Anypoint Learning Platform Newsletter!',
+            html: getWelcomeEmailHtml()
+          })
+        });
+        
+        if (!resendResponse.ok) {
+          console.warn('Welcome email may not have been sent:', await resendResponse.text());
+        } else {
+          console.log('Welcome email sent successfully');
+          
+          // Update the last_email_sent timestamp in the database
+          await supabase
+            .from('apl_newsletter_subscribers')
+            .update({ last_email_sent: new Date().toISOString() })
+            .eq('email', email);
+        }
+        
         toast.success(`Thank you for subscribing to our newsletter! We've added ${email} to our mailing list.`, {
           duration: 5000
         });
-        
-        // Send a welcome email notification (we'll create this edge function)
-        try {
-          const response = await fetch('https://xrdzfyxesrcbkatygoij.supabase.co/functions/v1/send-welcome-email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabase.auth.getSession().then(res => res.data.session?.access_token || '')}`
-            },
-            body: JSON.stringify({ email })
-          });
-          
-          if (!response.ok) {
-            console.warn('Welcome email may not have been sent:', await response.text());
-          } else {
-            console.log('Welcome email sent successfully');
-          }
-        } catch (emailError) {
-          console.warn('Error sending welcome email:', emailError);
-          // We don't throw an error here as the subscription was successful
-          // The user is subscribed even if the welcome email fails
-        }
       }
       
       // Reset form
@@ -90,6 +93,53 @@ const Newsletter: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Function to generate welcome email HTML
+  const getWelcomeEmailHtml = () => {
+    return `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+            h1 { color: #5a67d8; }
+            h2 { color: #4c51bf; margin-top: 24px; }
+            .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 14px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <h1>Welcome to the Anypoint Learning Platform!</h1>
+          <p>Thank you for subscribing to our newsletter! We're excited to have you join our community of MuleSoft enthusiasts and API developers.</p>
+          
+          <h2>Here's what you can expect:</h2>
+          <ul>
+            <li>Latest updates on MuleSoft and API development best practices</li>
+            <li>Exclusive tutorials and guides for building better integrations</li>
+            <li>Early access to new features and tools we're developing</li>
+            <li>Invitations to webinars and online events</li>
+            <li>Tips and tricks from industry experts</li>
+          </ul>
+          
+          <h2>Coming soon to our platform:</h2>
+          <ul>
+            <li>Advanced AI-powered MuleSoft flow generation</li>
+            <li>Interactive DataWeave transformation tools</li>
+            <li>Comprehensive API documentation generators</li>
+            <li>Integration with popular CI/CD pipelines</li>
+            <li>Enhanced visualization tools for your API ecosystem</li>
+          </ul>
+          
+          <p>You'll be the first to know when these exciting features are released!</p>
+          
+          <p>If you have any questions or feedback, feel free to reply to this email or contact our support team.</p>
+          
+          <div class="footer">
+            <p>Thank you again for subscribing, and welcome to the Anypoint Learning Platform community!</p>
+            <p>Best regards,<br>The Anypoint Learning Platform Team</p>
+          </div>
+        </body>
+      </html>
+    `;
   };
 
   return (
