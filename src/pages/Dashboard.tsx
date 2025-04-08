@@ -182,7 +182,7 @@ const DashboardContent = ({
     },
     {
       id: 'jobBoard',
-      title: 'Job Board',
+      title: 'Community Board',
       description: 'Connect with MuleSoft developers to solve problems together',
       icon: <Users className="h-5 w-5" />,
       bgColor: 'from-purple-500 to-indigo-500',

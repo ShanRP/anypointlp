@@ -426,25 +426,25 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 label="Exchange Marketplace"
                 active={currentPage === 'exchange'}
                 onClick={() => onNavigate('exchange')}
-                badge={2}
+                // badge={2}
               />
               
               <NavItem 
                 icon={<Users className="h-4 w-4" />} 
-                label="Job Board"
+                label="Community Board"
                 active={currentPage === 'jobBoard'}
                 onClick={() => onNavigate('jobBoard')}
               />
               
-              <NavItem 
+              {/* <NavItem 
                 icon={<MessageSquare className="h-4 w-4" />} 
-                label="AI Chat"
+                label="Coding Assistant"
                 active={currentPage === 'chat'}
                 onClick={() => {
                   setIsCodingAssistantOpen(true);
                   onNavigate('chat');
                 }}
-              />
+              /> */}
             </nav>
 
             <div className="mt-6 px-3">

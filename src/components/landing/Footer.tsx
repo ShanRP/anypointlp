@@ -26,16 +26,16 @@ export const Footer = () => {
               Transforming MuleSoft workflows with AI-powered solutions for developers, architects, and businesses.
             </p>
             <div className="flex space-x-4 pt-2">
-              <a href="mailto:info@anypointlp.com" className="text-gray-400 hover:text-purple-400 transition-colors">
+              <a href="mailto:info@mulecraft.in" className="text-gray-400 hover:text-purple-400 transition-colors">
                 <Mail className="w-5 h-5" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-purple-400 transition-colors">
+              <a href="https://x.com/mulecraft_in" className="text-gray-400 hover:text-purple-400 transition-colors">
                 <Twitter className="w-5 h-5" />
               </a>
               <a href="#" className="text-gray-400 hover:text-purple-400 transition-colors">
                 <Github className="w-5 h-5" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-purple-400 transition-colors">
+              <a href="https://www.linkedin.com/company/mulecraft/" className="text-gray-400 hover:text-purple-400 transition-colors">
                 <Linkedin className="w-5 h-5" />
               </a>
             </div>
@@ -83,7 +83,7 @@ export const Footer = () => {
             <h4 className="font-semibold text-lg mb-4">Resources</h4>
             <ul className="space-y-3 text-gray-400">
               <li>
-                <Link to="/about" className="hover:text-purple-400 transition-colors">
+                <Link to="https://www.mulecraft.in/about" className="hover:text-purple-400 transition-colors">
                   About Us
                 </Link>
               </li>
@@ -98,7 +98,7 @@ export const Footer = () => {
                 </Link>
               </li>
               <li>
-                <a href="#contact" className="hover:text-purple-400 transition-colors">
+                <a href="https://www.mulecraft.in/contact" className="hover:text-purple-400 transition-colors">
                   Contact Us
                 </a>
               </li>
