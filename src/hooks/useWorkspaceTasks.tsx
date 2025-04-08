@@ -89,10 +89,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching RAML tasks for workspace:', workspaceId);
       
-      // Use the RPC function to get RAML tasks
-      const { data, error } = await supabase.rpc('apl_get_raml_tasks', { 
-        workspace_id_param: workspaceId 
-      });
+      // Use direct query to get RAML tasks instead of RPC function
+      const { data, error } = await supabase
+        .from('apl_raml_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching RAML tasks:', error);
@@ -175,10 +177,22 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching RAML task details for:', taskId);
       
-      // Use the RPC function to get RAML task details
-      const { data, error } = await supabase.rpc('apl_get_raml_task_details', { 
-        task_id_param: taskId 
-      });
+      // Try by task_id (string identifier)
+      let { data, error } = await supabase
+        .from('apl_raml_tasks')
+        .select('*')
+        .eq('task_id', taskId)
+        .limit(1);
+      
+      // If not found by task_id, try by id (UUID)
+      if ((!data || data.length === 0) && taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log('Task not found by task_id, trying UUID:', taskId);
+        ({ data, error } = await supabase
+          .from('apl_raml_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .limit(1));
+      }
       
       if (error) {
         console.error('Error fetching RAML task details:', error);
