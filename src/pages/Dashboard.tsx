@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import GeneratorCard from '@/components/GeneratorCard';
-import CodingAssistantDialog from '@/components/ai/CodingAssistantDialog';
+import CodingAssistantDialog, { openCodingAssistantDialog } from '@/components/ai/CodingAssistantDialog';
 
 interface SidebarTask {
   id: string;
@@ -388,7 +388,7 @@ const Dashboard = () => {
             setSelectedAgent(null);
             setSelectedTaskId(null);
           } else if (page === 'chat') {
-            setIsCodingAssistantOpen(true);
+            openCodingAssistantDialog();
           } else {
             setCurrentPage(page as PageType);
             setSelectedAgent(page);
@@ -588,7 +588,6 @@ const Dashboard = () => {
         <CodingAssistantDialog 
           isOpen={isCodingAssistantOpen} 
           onOpenChange={setIsCodingAssistantOpen} 
-          trigger={<button data-dialog-trigger="coding-assistant" className="hidden"></button>}
         />
       </div>
     </div>;

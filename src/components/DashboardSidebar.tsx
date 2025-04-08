@@ -32,7 +32,7 @@ import { useWorkspaceTasks, type WorkspaceTask } from '@/hooks/useWorkspaceTasks
 import { Button } from '@/components/ui/button';
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import WorkspaceDetailsDialog from './workspace/WorkspaceDetailsDialog';
-import CodingAssistantDialog from './ai/CodingAssistantDialog';
+import CodingAssistantDialog, { openCodingAssistantDialog } from './ai/CodingAssistantDialog';
 import { useAnimations } from '@/utils/animationUtils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet";
 
@@ -539,11 +539,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         onUpdate={updateWorkspace}
       />
       
-      <CodingAssistantDialog 
-        isOpen={isCodingAssistantOpen} 
-        onOpenChange={setIsCodingAssistantOpen} 
-      />
-
       <Sheet open={isActivitySheetOpen} onOpenChange={setIsActivitySheetOpen}>
         <SheetContent side="right" className="w-[400px] sm:w-[540px] p-0">
           <SheetHeader className="p-6 border-b">
