@@ -1,3 +1,4 @@
+
 import { Database as OriginalDatabase } from './types';
 
 // Extend the original Database type to include our new tables
@@ -163,6 +164,10 @@ export interface ExtendedDatabase extends OriginalDatabase {
           endpoints: Json;
           documentation: string;
         }[];
+      };
+      send_welcome_email: {
+        Args: { subscriber_email: string };
+        Returns: Json;
       };
     };
   };
