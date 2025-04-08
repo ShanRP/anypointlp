@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, X, Trash, Edit, Save as SaveIcon, CheckCircle, Copy, Globe, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { supabase } from '@/integrations/supabase/client';
 import MonacoEditor from '@/components/MonacoEditor';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 
 interface Parameter {
   name: string;
@@ -65,9 +66,10 @@ const DEFAULT_METHOD: Method = {
 interface RAMLGeneratorProps {
   selectedWorkspaceId?: string;
   onBack?: () => void;
+  onSaveTask?: (taskId: string) => void;
 }
 
-const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBack }) => {
+const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBack, onSaveTask }) => {
   const navigate = useNavigate();
   const { selectedWorkspace } = useWorkspaces();
   const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
@@ -406,6 +408,56 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
     }
   };
 
+  const saveRamlToWorkspace = async () => {
+    if (!apiName.trim()) {
+      toast.error('API name is required');
+      return;
+    }
+
+    if (!generatedRAML) {
+      toast.error('Generate RAML before saving');
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData || !userData.user) {
+        toast.error('You must be logged in to save RAML');
+        return;
+      }
+      
+      const { saveRamlTask } = useWorkspaceTasks(workspaceId);
+      
+      const ramlData = {
+        workspace_id: workspaceId,
+        task_name: `${apiName} API Specification`,
+        description: apiDescription || `RAML specification for ${apiName} API`,
+        user_id: userData.user.id,
+        raml_content: generatedRAML,
+        api_name: apiName,
+        api_version: apiVersion,
+        base_uri: baseUri,
+        media_types: mediaTypes,
+        protocols: protocols,
+        types: types,
+        endpoints: endpoints
+      };
+      
+      const savedData = await saveRamlTask(ramlData);
+      
+      if (savedData) {
+        toast.success('RAML specification saved to workspace tasks');
+        if (onSaveTask && savedData[0]?.id) {
+          onSaveTask(savedData[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving RAML task:', error);
+      toast.error('Failed to save RAML to workspace tasks');
+    }
+  };
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedRAML);
     toast.success('RAML copied to clipboard');
@@ -715,6 +767,14 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
                   disabled={!generatedRAML}
                 >
                   <CheckCircle className="h-4 w-4 mr-1" /> Publish to Exchange
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={saveRamlToWorkspace}
+                  disabled={!generatedRAML}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <SaveIcon className="h-4 w-4 mr-1" /> Save to Workspace
                 </Button>
               </div>
             </CardHeader>

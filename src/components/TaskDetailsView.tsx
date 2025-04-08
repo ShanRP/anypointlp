@@ -224,8 +224,49 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
     );
   };
 
-  // Check if this is an integration task by checking category or task name
+  const renderRamlSpec = (code: string) => {
+    return (
+      <div className="space-y-8">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">RAML Specification</h2>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => copyToClipboard(code)}
+              className="text-xs"
+            >
+              <Copy size={14} className="mr-1" /> Copy
+            </Button>
+          </div>
+          <div className="relative">
+            <pre className="bg-black text-yellow-400 p-4 rounded-md overflow-x-auto text-sm font-mono">
+              {code}
+            </pre>
+          </div>
+        </div>
+        
+        <div className="flex justify-end space-x-4">
+          <Button variant="outline" onClick={handleBackButton}>
+            Back to Dashboard
+          </Button>
+          <Button 
+            onClick={() => {
+              navigator.clipboard.writeText(code);
+              toast.success('RAML specification copied to clipboard!');
+            }}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            Copy All
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // Check task category to determine rendering style
   const isIntegrationTask = task.category === 'integration' || task.task_name?.includes('Integration Flow');
+  const isRamlTask = task.category === 'raml' || task.task_name?.includes('API Specification');
 
   return (
     <motion.div 
@@ -252,14 +293,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      {task.notes && !isIntegrationTask && (
+      {task.notes && !isIntegrationTask && !isRamlTask && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h3 className="text-sm font-medium mb-2">Notes</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300">{task.notes}</p>
         </div>
       )}
       
-      {isIntegrationTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
+      {isRamlTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
+        renderRamlSpec(task.generated_scripts[0].code)
+      ) : isIntegrationTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
         renderIntegrationFlow(task.generated_scripts[0].code)
       ) : task.generated_scripts && task.generated_scripts.length > 0 ? (
         <Tabs defaultValue={task.generated_scripts[0].id} className="w-full">
