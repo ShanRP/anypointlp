@@ -26,29 +26,48 @@ const Newsletter: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Call the Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke('APL_newsletter_subscribe', {
-        body: { email }
-      });
+      // Insert directly into the database instead of using the edge function
+      const { data: existingSubscriber, error: checkError } = await supabase
+        .from('apl_newsletter_subscribers')
+        .select('email')
+        .eq('email', email)
+        .single();
       
-      if (error) {
-        throw new Error(error.message);
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows found" error
+        throw new Error(`Error checking subscription: ${checkError.message}`);
       }
       
-      // Check if the user was already subscribed
-      if (data && data.alreadySubscribed) {
-        toast.info(data.message, {
+      if (existingSubscriber) {
+        toast.info(`${email} is already subscribed to our newsletter. Thank you for your continued interest!`, {
           duration: 5000
         });
       } else {
-        // Show success message
-        toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
-          duration: 5000
-        });
+        // Insert new subscriber
+        const { error: insertError } = await supabase
+          .from('apl_newsletter_subscribers')
+          .insert([{ email, status: 'active' }]);
+        
+        if (insertError) {
+          throw new Error(`Error saving subscription: ${insertError.message}`);
+        }
+        
+        // Send welcome email using our database function
+        const { data, error } = await supabase
+          .rpc('send_welcome_email', { subscriber_email: email });
+        
+        if (error) {
+          console.error('Error sending welcome email:', error);
+          toast.success(`Thank you for subscribing! However, there was an issue sending the welcome email. Our team will reach out to you soon.`, {
+            duration: 5000
+          });
+        } else {
+          toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {
+            duration: 5000
+          });
+        }
+        
+        console.log('Subscription and email status:', data);
       }
-      
-      // Log for verification that email was submitted
-      console.log("Newsletter subscription response:", data);
       
       // Reset form
       setEmail('');
