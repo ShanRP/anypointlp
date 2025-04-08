@@ -58,18 +58,22 @@ serve(async (req) => {
         console.log('Connecting to Supabase to verify workspace');
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         
-        // Verify the workspace exists
-        const { data: workspace, error: workspaceError } = await supabase
-          .from('apl_workspaces')
-          .select('id')
-          .eq('id', workspaceId)
-          .single();
-        
-        if (workspace && !workspaceError) {
-          console.log('Valid workspace found:', workspace.id);
-          selectedWorkspaceId = workspace.id;
+        // Verify the workspace exists - only if workspaceId is a valid UUID
+        if (workspaceId && workspaceId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          const { data: workspace, error: workspaceError } = await supabase
+            .from('apl_workspaces')
+            .select('id')
+            .eq('id', workspaceId)
+            .single();
+          
+          if (workspace && !workspaceError) {
+            console.log('Valid workspace found:', workspace.id);
+            selectedWorkspaceId = workspace.id;
+          } else {
+            console.log('Workspace not found or error:', workspaceError);
+          }
         } else {
-          console.log('Workspace not found or error:', workspaceError);
+          console.log('Invalid workspace ID format, skipping verification');
         }
       } catch (supabaseError) {
         console.error('Error connecting to Supabase:', supabaseError);
@@ -179,24 +183,6 @@ async function generateWithMistral(
   protocols: string[] = ["HTTPS"]
 ) {
   console.log('Generating RAML with Mistral AI');
-  
-  // Prepare data for Mistral prompt
-  const typesSummary = types.map(type => {
-    return {
-      name: type.name,
-      baseType: type.baseType,
-      propertiesCount: type.properties?.length || 0,
-      hasExample: !!type.example
-    };
-  });
-  
-  const endpointsSummary = endpoints.map(endpoint => {
-    return {
-      path: endpoint.path,
-      methodsCount: endpoint.methods?.length || 0,
-      description: endpoint.description?.substring(0, 100)
-    };
-  });
   
   // Create a detailed prompt for Mistral
   const prompt = `

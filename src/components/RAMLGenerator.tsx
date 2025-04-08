@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save, Trash, Plus, Copy, PlayCircle, RefreshCw } from 'lucide-react';
@@ -50,9 +51,10 @@ interface APIEndpoint {
 
 interface RAMLGeneratorProps {
   onBack: () => void;
+  selectedWorkspaceId?: string;
 }
 
-const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack }) => {
+const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack, selectedWorkspaceId }) => {
   const { user } = useAuth();
   const { selectedWorkspace } = useWorkspaces();
   const [apiName, setApiName] = useState('My API');
@@ -241,7 +243,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack }) => {
     setIsGenerating(true);
     try {
       // Get workspace ID for contextual data
-      const workspaceId = selectedWorkspace?.id;
+      const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
       console.log("Using workspace ID for RAML generation:", workspaceId);
       
       const response = await fetch('/api/apl_generate-raml', {
@@ -354,7 +356,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ onBack }) => {
             </div>
           )}
           
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'types' | 'endpoints' | 'raml')} className="w-full">
             <TabsList className="mb-4 grid grid-cols-3">
               <TabsTrigger value="types">Types</TabsTrigger>
               <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
