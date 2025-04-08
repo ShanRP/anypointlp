@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
+import { IntegrationTask, createCustomSupabaseClient } from '@/integrations/supabase/database.types';
+
+// Create a typed client
+const typedSupabase = createCustomSupabaseClient(supabase);
 
 export interface WorkspaceTask {
   id: string;
@@ -68,7 +72,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       if (dataweaveError) throw dataweaveError;
       
       // Then fetch integration tasks directly from the table
-      const { data: integrationData, error: integrationError } = await supabase
+      const { data: integrationData, error: integrationError } = await typedSupabase
         .from('apl_integration_tasks')
         .select('id, task_id, task_name, created_at, workspace_id, category, description')
         .eq('workspace_id', workspaceId)
@@ -161,7 +165,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       }
       
       // If not found in dataweave tasks, try integration tasks
-      const { data: integrationData, error: integrationError } = await supabase
+      const { data: integrationData, error: integrationError } = await typedSupabase
         .from('apl_integration_tasks')
         .select('*')
         .eq('id', taskId)
@@ -250,7 +254,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           compilation_check: task.compilation_check || ''
         };
 
-        const { data, error } = await supabase
+        const { data, error } = await typedSupabase
           .from('apl_integration_tasks')
           .insert([taskData])
           .select();
