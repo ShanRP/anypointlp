@@ -264,7 +264,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
           return node.children || [];
         }
         if (node.children) {
-          const result = findDirectory(nodes.children, path);
+          const result = findDirectory(node.children, path);
           if (result) return result;
         }
       }
