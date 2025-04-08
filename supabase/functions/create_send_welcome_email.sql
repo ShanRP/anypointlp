@@ -63,6 +63,9 @@ BEGIN
       </body>
     </html>';
 
+  -- Log key information for debugging
+  RAISE NOTICE 'Preparing to send email to: %', subscriber_email;
+  
   -- Send email using Resend API directly from the database function
   SELECT 
     COALESCE(
@@ -86,6 +89,9 @@ BEGIN
     NULL
   )::http_request);
   
+  -- Log the response for debugging
+  RAISE NOTICE 'Resend API response: %', result;
+  
   -- Update the last_email_sent timestamp in the database
   PERFORM pg_sleep(0.1); -- Small delay to ensure email is sent first
   UPDATE public.apl_newsletter_subscribers 
@@ -95,6 +101,7 @@ BEGIN
   RETURN result;
 EXCEPTION
   WHEN OTHERS THEN
+    RAISE WARNING 'Error sending email: %', SQLERRM;
     RETURN jsonb_build_object(
       'success', false,
       'error', SQLERRM

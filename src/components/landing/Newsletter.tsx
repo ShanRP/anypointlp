@@ -61,7 +61,10 @@ const Newsletter: React.FC = () => {
         
         if (functionError) {
           console.error('Error sending welcome email:', functionError);
+          console.log('Function error details:', functionError);
           // Still consider subscription successful even if email fails
+        } else {
+          console.log('Email function response:', emailResult);
         }
         
         toast.success(`Thank you for subscribing to our newsletter! We've sent a welcome email to ${email} with details about our platform.`, {

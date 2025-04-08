@@ -123,6 +123,30 @@ export interface ExtendedDatabase extends OriginalDatabase {
           }
         ];
       };
+      apl_newsletter_subscribers: {
+        Row: {
+          id: string;
+          created_at: string;
+          last_email_sent: string | null;
+          email: string;
+          status: string;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          last_email_sent?: string | null;
+          email: string;
+          status?: string;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          last_email_sent?: string | null;
+          email?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: OriginalDatabase['public']['Functions'] & {
       apl_get_raml_tasks: {
