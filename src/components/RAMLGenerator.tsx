@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock, Code } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -904,7 +905,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 <label className="text-sm font-medium">Method Type*</label>
                 <Select 
                   value={editingMethod?.type || ''}
-                  onChange={(value) => setEditingMethod(prev => prev ? ({...prev, type: value}) : null)}
+                  onValueChange={(value) => setEditingMethod(prev => prev ? ({...prev, type: value}) : null)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select method type" />
@@ -913,4 +914,341 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                     <SelectItem value="get">GET</SelectItem>
                     <SelectItem value="post">POST</SelectItem>
                     <SelectItem value="put">PUT</SelectItem>
-                    <SelectItem value
+                    <SelectItem value="delete">DELETE</SelectItem>
+                    <SelectItem value="patch">PATCH</SelectItem>
+                    <SelectItem value="options">OPTIONS</SelectItem>
+                    <SelectItem value="head">HEAD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Input 
+                  value={editingMethod?.description || ''}
+                  onChange={(e) => setEditingMethod(prev => prev ? ({...prev, description: e.target.value}) : null)}
+                  placeholder="Description of this method"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input 
+                  type="checkbox"
+                  id="requestBody"
+                  checked={editingMethod?.requestBody || false}
+                  onChange={(e) => setEditingMethod(prev => prev ? ({...prev, requestBody: e.target.checked}) : null)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="requestBody" className="text-sm font-medium">Has Request Body</label>
+              </div>
+              
+              {editingMethod?.requestBody && (
+                <div className="ml-6 space-y-2">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Content Type</label>
+                    <Input 
+                      value={editingMethod?.requestType || ''}
+                      onChange={(e) => setEditingMethod(prev => prev ? ({...prev, requestType: e.target.value}) : null)}
+                      placeholder="application/json"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Example (optional)</label>
+                    <Textarea 
+                      value={editingMethod?.requestExample || ''}
+                      onChange={(e) => setEditingMethod(prev => prev ? ({...prev, requestExample: e.target.value}) : null)}
+                      placeholder="Example request body"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Responses</label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddResponseDialog(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add Response
+                </Button>
+              </div>
+              
+              {editingMethod?.responses && editingMethod.responses.length > 0 ? (
+                <div className="space-y-2">
+                  {editingMethod.responses.map((response, index) => (
+                    <div key={index} className="flex justify-between items-center border rounded-md p-2">
+                      <div>
+                        <span className="font-medium">{response.code}</span>
+                        <span className="text-gray-600 ml-2">{response.description}</span>
+                        {response.bodyType && (
+                          <span className="text-gray-500 text-sm ml-2">({response.bodyType})</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteResponse(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No responses defined</div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Query Parameters</label>
+                <div className="flex space-x-2 items-center">
+                  <Input 
+                    placeholder="Parameter name"
+                    value={newParam.name}
+                    onChange={(e) => setNewParam({...newParam, name: e.target.value})}
+                    className="w-32"
+                  />
+                  <Select 
+                    value={newParam.type}
+                    onValueChange={(value) => setNewParam({...newParam, type: value})}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="string">string</SelectItem>
+                      <SelectItem value="number">number</SelectItem>
+                      <SelectItem value="integer">integer</SelectItem>
+                      <SelectItem value="boolean">boolean</SelectItem>
+                      <SelectItem value="date">date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleAddMethodParam('queryParams')}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {editingMethod?.queryParams && editingMethod.queryParams.length > 0 ? (
+                <div className="space-y-2 border rounded-md p-2">
+                  {editingMethod.queryParams.map((param, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{param.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({param.type}{param.required ? ', required' : ''})</span>
+                        {param.description && (
+                          <span className="text-sm text-gray-500 ml-2">{param.description}</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteMethodParam('queryParams', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No query parameters defined</div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">URI Parameters (specific to this method)</label>
+                <div className="flex space-x-2 items-center">
+                  <Input 
+                    placeholder="Parameter name"
+                    value={newParam.name}
+                    onChange={(e) => setNewParam({...newParam, name: e.target.value})}
+                    className="w-32"
+                  />
+                  <Select 
+                    value={newParam.type}
+                    onValueChange={(value) => setNewParam({...newParam, type: value})}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="string">string</SelectItem>
+                      <SelectItem value="number">number</SelectItem>
+                      <SelectItem value="integer">integer</SelectItem>
+                      <SelectItem value="boolean">boolean</SelectItem>
+                      <SelectItem value="date">date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleAddMethodParam('uriParams')}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {editingMethod?.uriParams && editingMethod.uriParams.length > 0 ? (
+                <div className="space-y-2 border rounded-md p-2">
+                  {editingMethod.uriParams.map((param, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{param.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({param.type}{param.required ? ', required' : ''})</span>
+                        {param.description && (
+                          <span className="text-sm text-gray-500 ml-2">{param.description}</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteMethodParam('uriParams', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No method-specific URI parameters defined</div>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMethodDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveMethod}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddResponseDialog} onOpenChange={setShowAddResponseDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Response</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 my-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status Code*</label>
+              <Input 
+                value={newResponse.code}
+                onChange={(e) => setNewResponse({...newResponse, code: e.target.value})}
+                placeholder="200"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description*</label>
+              <Input 
+                value={newResponse.description}
+                onChange={(e) => setNewResponse({...newResponse, description: e.target.value})}
+                placeholder="Success response"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Body Type (optional)</label>
+              <Input 
+                value={newResponse.bodyType || ''}
+                onChange={(e) => setNewResponse({...newResponse, bodyType: e.target.value})}
+                placeholder="application/json"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Example (optional)</label>
+              <Textarea 
+                value={newResponse.example || ''}
+                onChange={(e) => setNewResponse({...newResponse, example: e.target.value})}
+                placeholder="Example response body"
+                rows={4}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddResponseDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddResponse}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Publish RAML to Exchange</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 my-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title*</label>
+              <Input 
+                value={publishTitle}
+                onChange={(e) => setPublishTitle(e.target.value)}
+                placeholder="My API Specification"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea 
+                value={publishDescription}
+                onChange={(e) => setPublishDescription(e.target.value)}
+                placeholder="Description of this RAML specification"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Visibility</label>
+              <RadioGroup value={visibility} onValueChange={setVisibility}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="public" id="public" />
+                  <Label htmlFor="public" className="flex items-center">
+                    <Globe className="h-4 w-4 mr-2" />
+                    Public (visible to everyone)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="private" id="private" />
+                  <Label htmlFor="private" className="flex items-center">
+                    <Lock className="h-4 w-4 mr-2" />
+                    Private (visible only to workspace members)
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={publishToExchange}
+              disabled={isPublishing || !publishTitle.trim()}
+            >
+              {isPublishing ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
+                  Publishing...
+                </>
+              ) : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default RAMLGenerator;
