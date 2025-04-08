@@ -61,6 +61,110 @@ export interface ExtendedDatabase extends OriginalDatabase {
           }
         ];
       };
+      apl_raml_tasks: {
+        Row: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          raml_content: string;
+          api_name: string;
+          api_version: string;
+          base_uri: string;
+          endpoints: Json;
+          documentation: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description?: string;
+          created_at?: string;
+          updated_at?: string;
+          category?: string;
+          raml_content?: string;
+          api_name?: string;
+          api_version?: string;
+          base_uri?: string;
+          endpoints?: Json;
+          documentation?: string;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          task_name?: string;
+          user_id?: string;
+          workspace_id?: string;
+          description?: string;
+          created_at?: string;
+          updated_at?: string;
+          category?: string;
+          raml_content?: string;
+          api_name?: string;
+          api_version?: string;
+          base_uri?: string;
+          endpoints?: Json;
+          documentation?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "apl_raml_tasks_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+    };
+    Functions: OriginalDatabase['public']['Functions'] & {
+      apl_get_raml_tasks: {
+        Args: { workspace_id_param: string };
+        Returns: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          raml_content: string;
+          api_name: string;
+          api_version: string;
+          base_uri: string;
+          endpoints: Json;
+          documentation: string;
+        }[];
+      };
+      apl_get_raml_task_details: {
+        Args: { task_id_param: string };
+        Returns: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          raml_content: string;
+          api_name: string;
+          api_version: string;
+          base_uri: string;
+          endpoints: Json;
+          documentation: string;
+        }[];
+      };
     };
   };
 }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -28,6 +27,14 @@ export interface TaskDetails {
   workspace_id: string;
   category: string; // Category of the task
   description?: string; // Optional description field
+  
+  // RAML specific properties
+  api_name?: string;
+  api_version?: string;
+  base_uri?: string;
+  endpoints?: any[];
+  raml_content?: string;
+  documentation?: string;
 }
 
 export interface IntegrationGeneratorProps {
@@ -82,6 +89,42 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   }, [workspaceId]);
 
+  // Function to fetch RAML tasks
+  const fetchRamlTasks = useCallback(async () => {
+    if (!workspaceId) return [];
+    
+    try {
+      console.log('Fetching RAML tasks for workspace:', workspaceId);
+      
+      // Use the RAML tasks function
+      const { data, error } = await supabase.rpc('apl_get_raml_tasks', { 
+        workspace_id_param: workspaceId 
+      });
+      
+      if (error) {
+        console.error('Error fetching RAML tasks:', error);
+        throw error;
+      }
+      
+      // Format RAML tasks to match the WorkspaceTask interface
+      const ramlTasks = (data || []).map((task: any) => ({
+        id: task.id,
+        task_id: task.task_id,
+        task_name: task.task_name,
+        created_at: task.created_at,
+        workspace_id: workspaceId,
+        category: 'raml',
+        description: task.description || ''
+      }));
+      
+      console.log('Fetched RAML tasks:', ramlTasks.length);
+      return ramlTasks;
+    } catch (err: any) {
+      console.error('Error in fetchRamlTasks:', err);
+      return [];
+    }
+  }, [workspaceId]);
+
   const fetchWorkspaceTasks = useCallback(async () => {
     if (!workspaceId) return;
     
@@ -115,8 +158,11 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       // Fetch integration tasks
       const integrationTasks = await fetchIntegrationTasks();
       
-      // Combine both types of tasks and sort by creation date (newest first)
-      const allTasks = [...workspaceTasks, ...integrationTasks].sort((a, b) => 
+      // Fetch RAML tasks
+      const ramlTasks = await fetchRamlTasks();
+      
+      // Combine all types of tasks and sort by creation date (newest first)
+      const allTasks = [...workspaceTasks, ...integrationTasks, ...ramlTasks].sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       
@@ -129,7 +175,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, fetchIntegrationTasks]);
+  }, [workspaceId, fetchIntegrationTasks, fetchRamlTasks]);
 
   // Function to fetch integration task details
   const fetchIntegrationTaskDetails = async (taskId: string) => {
@@ -192,6 +238,71 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   };
 
+  // Function to fetch RAML task details
+  const fetchRamlTaskDetails = async (taskId: string) => {
+    try {
+      console.log('Fetching RAML task details for:', taskId);
+      
+      // First try by task_id (string identifier)
+      let { data, error } = await supabase.rpc('apl_get_raml_task_details', {
+        task_id_param: taskId
+      });
+      
+      // If not found by task_id, try by id (UUID)
+      if ((!data || data.length === 0) && taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log('Task not found by task_id, trying UUID:', taskId);
+        ({ data, error } = await supabase
+          .from('apl_raml_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .limit(1));
+      }
+      
+      if (error) {
+        console.error('Error fetching RAML task details:', error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        const ramlTask = data[0];
+        console.log('Found task in RAML tasks table');
+        
+        // Convert to TaskDetails format
+        const taskDetails: TaskDetails = {
+          id: ramlTask.id,
+          task_id: ramlTask.task_id,
+          task_name: ramlTask.task_name || 'RAML Specification',
+          input_format: 'RAML Specification',
+          input_samples: [], // RAML doesn't use input samples in the same way
+          output_samples: [],
+          notes: ramlTask.description || '',
+          generated_scripts: [{
+            id: `script-${Date.now()}`,
+            code: ramlTask.raml_content || '',
+          }],
+          created_at: ramlTask.created_at,
+          workspace_id: workspaceId,
+          category: 'raml',
+          description: ramlTask.description || '',
+          api_name: ramlTask.api_name,
+          api_version: ramlTask.api_version,
+          base_uri: ramlTask.base_uri,
+          endpoints: ramlTask.endpoints,
+          raml_content: ramlTask.raml_content,
+          documentation: ramlTask.documentation
+        };
+        
+        setSelectedTask(taskDetails);
+        return taskDetails;
+      }
+      
+      return null;
+    } catch (err: any) {
+      console.error('Error in fetchRamlTaskDetails:', err);
+      return null;
+    }
+  };
+
   const fetchTaskDetails = async (taskId: string) => {
     setLoading(true);
     setError(null);
@@ -206,7 +317,16 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         return;
       }
       
-      console.log('Task not found in integration tasks, checking regular tasks');
+      // If not found, try RAML task details
+      const ramlTaskDetails = await fetchRamlTaskDetails(taskId);
+      
+      if (ramlTaskDetails) {
+        // Task found in RAML tasks
+        console.log('Found task in RAML tasks table');
+        return;
+      }
+      
+      console.log('Task not found in integration or RAML tasks, checking regular tasks');
       
       // If not found, try regular task details
       const { data, error } = await supabase.rpc('apl_get_task_details', { 
@@ -306,6 +426,58 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   };
 
+  const saveRamlTask = async (task: {
+    workspace_id: string;
+    task_id?: string;
+    task_name: string;
+    user_id: string;
+    description?: string;
+    raml_content?: string;
+    api_name?: string;
+    api_version?: string;
+    base_uri?: string;
+    endpoints?: any;
+    documentation?: string;
+  }) => {
+    try {
+      // Generate a unique task_id if not provided
+      const taskId = task.task_id || `R-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
+      
+      // Ensure workspace_id is set correctly
+      const taskData = {
+        workspace_id: task.workspace_id,
+        task_id: taskId,
+        task_name: task.task_name,
+        user_id: task.user_id,
+        description: task.description || '',
+        raml_content: task.raml_content || '',
+        api_name: task.api_name || '',
+        api_version: task.api_version || '',
+        base_uri: task.base_uri || '',
+        endpoints: task.endpoints || [],
+        documentation: task.documentation || '',
+        category: 'raml'
+      };
+
+      const { data, error } = await supabase
+        .from('apl_raml_tasks')
+        .insert([taskData])
+        .select();
+      
+      if (error) throw error;
+      
+      // Refresh the task list with the current workspace
+      await fetchWorkspaceTasks();
+      
+      toast.success('RAML task saved successfully!');
+      return data;
+    } catch (err: any) {
+      console.error('Error saving RAML task:', err);
+      toast.error('Failed to save RAML task');
+      throw err;
+    }
+  };
+
   useEffect(() => {
     if (workspaceId) {
       fetchWorkspaceTasks();
@@ -321,6 +493,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     error,
     fetchWorkspaceTasks,
     fetchTaskDetails,
-    saveTask
+    saveTask,
+    saveRamlTask
   };
 };

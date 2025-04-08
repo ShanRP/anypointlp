@@ -16,6 +16,8 @@ import { useNavigate } from 'react-router-dom';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { supabase } from '@/integrations/supabase/client';
 import MonacoEditor from '@/components/MonacoEditor';
+import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 
 interface Parameter {
   name: string;
@@ -65,12 +67,21 @@ const DEFAULT_METHOD: Method = {
 interface RAMLGeneratorProps {
   selectedWorkspaceId?: string;
   onBack?: () => void;
+  onTaskCreated?: (task: any) => void;
+  onSaveTask?: (taskId: string) => void;
 }
 
-const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBack }) => {
+const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ 
+  selectedWorkspaceId, 
+  onBack,
+  onTaskCreated,
+  onSaveTask
+}) => {
   const navigate = useNavigate();
   const { selectedWorkspace } = useWorkspaces();
   const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
+  const { user } = useAuth();
+  const { saveRamlTask } = useWorkspaceTasks(workspaceId);
   
   const [apiName, setApiName] = useState('');
   const [apiVersion, setApiVersion] = useState('v1');
@@ -350,6 +361,50 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBa
         setGeneratedRAML(data.raml);
         setCurrentTab('preview');
         toast.success('RAML specification generated successfully');
+        
+        if (user) {
+          try {
+            const taskId = `R-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
+            
+            const taskData = {
+              task_id: taskId,
+              task_name: apiName,
+              user_id: user.id,
+              workspace_id: workspaceId,
+              description: apiDescription,
+              raml_content: data.raml,
+              api_name: apiName,
+              api_version: apiVersion,
+              base_uri: baseUri,
+              endpoints: endpoints as any,
+              category: 'raml'
+            };
+            
+            const savedTask = await saveRamlTask(taskData);
+            
+            if (savedTask && onTaskCreated) {
+              onTaskCreated({
+                id: taskId,
+                label: apiName,
+                category: 'raml',
+                icon: <FileCode2 className="h-4 w-4" />,
+                workspace_id: workspaceId
+              });
+            }
+            
+            if (onSaveTask && savedTask) {
+              onSaveTask(savedTask[0].id);
+            }
+            
+            setPublishTitle(apiName);
+            setPublishDescription(apiDescription);
+            
+            toast.success('RAML task saved to workspace');
+          } catch (err) {
+            console.error('Error saving RAML task:', err);
+            toast.error('Failed to save RAML task to workspace');
+          }
+        }
       } else {
         throw new Error('Failed to generate RAML');
       }

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Calendar, Tag, Code, Copy } from 'lucide-react';
 import { TaskDetails } from '@/hooks/useWorkspaceTasks';
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BackButton } from './ui/BackButton';
+import MonacoEditor from './MonacoEditor';
 
 interface TaskDetailsViewProps {
   task: TaskDetails;
@@ -224,8 +224,129 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
     );
   };
 
-  // Check if this is an integration task by checking category or task name
+  const renderRamlSpecification = (ramlContent: string) => {
+    return (
+      <div className="space-y-8">
+        {task.api_name && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">API Information</h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => copyToClipboard(task.api_name || '')}
+                className="text-xs"
+              >
+                <Copy size={14} className="mr-1" /> Copy
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-500">API Name</p>
+                <p>{task.api_name}</p>
+              </div>
+              {task.api_version && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">API Version</p>
+                  <p>{task.api_version}</p>
+                </div>
+              )}
+              {task.base_uri && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Base URI</p>
+                  <p>{task.base_uri}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {task.description && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Description</h2>
+            </div>
+            <p className="whitespace-pre-wrap">{task.description}</p>
+          </div>
+        )}
+
+        {task.endpoints && task.endpoints.length > 0 && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Endpoints</h2>
+            </div>
+            <div className="space-y-4">
+              {task.endpoints.map((endpoint: any, index: number) => (
+                <div key={index} className="border border-gray-200 rounded-md p-3">
+                  <p className="font-mono text-blue-600 font-medium">/{endpoint.path}</p>
+                  {endpoint.description && <p className="text-sm text-gray-600 mt-1">{endpoint.description}</p>}
+                  
+                  {endpoint.methods && endpoint.methods.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {endpoint.methods.map((method: any, methodIndex: number) => (
+                        <div key={methodIndex} className="pl-4 border-l-2 border-gray-200">
+                          <p className={`uppercase font-mono font-medium ${
+                            method.type === 'get' ? 'text-green-600' :
+                            method.type === 'post' ? 'text-blue-600' :
+                            method.type === 'put' ? 'text-orange-600' :
+                            method.type === 'delete' ? 'text-red-600' : 'text-gray-600'
+                          }`}>{method.type}</p>
+                          {method.description && <p className="text-sm text-gray-600">{method.description}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">RAML Specification</h2>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => copyToClipboard(ramlContent)}
+              className="text-xs"
+            >
+              <Copy size={14} className="mr-1" /> Copy
+            </Button>
+          </div>
+          <div className="relative">
+            <MonacoEditor
+              value={ramlContent}
+              language="yaml"
+              height="400px"
+              readOnly={true}
+              options={{
+                minimap: { enabled: true }
+              }}
+            />
+          </div>
+        </div>
+        
+        <div className="flex justify-end space-x-4">
+          <Button variant="outline" onClick={handleBackButton}>
+            Back to Dashboard
+          </Button>
+          <Button 
+            onClick={() => {
+              navigator.clipboard.writeText(ramlContent);
+              toast.success('All content copied to clipboard!');
+            }}
+            className="bg-black hover:bg-gray-800 text-white"
+          >
+            Copy All
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const isIntegrationTask = task.category === 'integration' || task.task_name?.includes('Integration Flow');
+  const isRamlTask = task.category === 'raml';
 
   return (
     <motion.div 
@@ -252,14 +373,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      {task.notes && !isIntegrationTask && (
+      {task.notes && !isIntegrationTask && !isRamlTask && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h3 className="text-sm font-medium mb-2">Notes</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300">{task.notes}</p>
         </div>
       )}
       
-      {isIntegrationTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
+      {isRamlTask && task.raml_content ? (
+        renderRamlSpecification(task.raml_content)
+      ) : isIntegrationTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
         renderIntegrationFlow(task.generated_scripts[0].code)
       ) : task.generated_scripts && task.generated_scripts.length > 0 ? (
         <Tabs defaultValue={task.generated_scripts[0].id} className="w-full">

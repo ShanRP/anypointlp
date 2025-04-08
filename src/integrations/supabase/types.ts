@@ -402,6 +402,60 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_raml_tasks: {
+        Row: {
+          api_name: string | null
+          api_version: string | null
+          base_uri: string | null
+          category: string
+          created_at: string
+          description: string | null
+          documentation: string | null
+          endpoints: Json | null
+          id: string
+          raml_content: string | null
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          api_name?: string | null
+          api_version?: string | null
+          base_uri?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          documentation?: string | null
+          endpoints?: Json | null
+          id?: string
+          raml_content?: string | null
+          task_id: string
+          task_name: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          api_name?: string | null
+          api_version?: string | null
+          base_uri?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          documentation?: string | null
+          endpoints?: Json | null
+          id?: string
+          raml_content?: string | null
+          task_id?: string
+          task_name?: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       apl_user_sessions: {
         Row: {
           created_at: string
@@ -512,6 +566,46 @@ export type Database = {
           task_id: string
           task_name: string
           updated_at: string | null
+          user_id: string | null
+          workspace_id: string
+        }[]
+      }
+      apl_get_raml_task_details: {
+        Args: { task_id_param: string }
+        Returns: {
+          api_name: string | null
+          api_version: string | null
+          base_uri: string | null
+          category: string
+          created_at: string
+          description: string | null
+          documentation: string | null
+          endpoints: Json | null
+          id: string
+          raml_content: string | null
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }[]
+      }
+      apl_get_raml_tasks: {
+        Args: { workspace_id_param: string }
+        Returns: {
+          api_name: string | null
+          api_version: string | null
+          base_uri: string | null
+          category: string
+          created_at: string
+          description: string | null
+          documentation: string | null
+          endpoints: Json | null
+          id: string
+          raml_content: string | null
+          task_id: string
+          task_name: string
+          updated_at: string
           user_id: string | null
           workspace_id: string
         }[]
