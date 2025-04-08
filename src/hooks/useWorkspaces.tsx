@@ -11,7 +11,6 @@ export interface WorkspaceOption {
   session_timeout?: string;
   invite_enabled?: boolean;
   invite_link?: string;
-  tasks?: any[]; // Add the tasks property
 }
 
 export const useWorkspaces = () => {

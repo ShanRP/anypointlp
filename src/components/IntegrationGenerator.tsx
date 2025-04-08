@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File, X } from 'lucide-react';
+import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -14,8 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { useGithubApi } from '@/hooks/useGithubApi';
-import { useRepositoryData } from '@/hooks/useRepositoryData';
-import type { FileNode, Repository } from '@/hooks/useRepositoryData';
+import type { FileNode, Repository } from '@/utils/githubUtils';
 
 export interface IntegrationGeneratorProps {
   onTaskCreated?: (task: any) => void;
@@ -85,20 +84,6 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   const { 
-    selectedRepository,
-    repositoryFileStructure,
-    localRepositoryPath,
-    localFileStructure,
-    selectedFiles,
-    isLoading: repoDataLoading,
-    toggleFileSelection,
-    setSelectedRepository,
-    setRepositoryFileStructure,
-    setLocalRepositoryPath,
-    setLocalFileStructure,
-  } = useRepositoryData();
-
-  const { 
     repositories, 
     loadingRepositories, 
     fetchRepositories, 
@@ -108,11 +93,12 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
     fetchFileContent 
   } = useGithubApi();
   
+  const [selectedRepository, setSelectedRepository] = useState<Repository | null>(null);
+  const [ramlFiles, setRamlFiles] = useState<RamlFile[]>([]);
   const [selectedRamlFile, setSelectedRamlFile] = useState<RamlFile | null>(null);
   const [loadingRamlFile, setLoadingRamlFile] = useState(false);
   const [currentDirectory, setCurrentDirectory] = useState<string>('/');
   const [localProjectFiles, setLocalProjectFiles] = useState<FileNode[]>([]);
-  const [ramlFiles, setRamlFiles] = useState<RamlFile[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectFolderRef = useRef<HTMLInputElement>(null);
@@ -163,87 +149,58 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
 
   const handleFileSelect = async (file: FileNode) => {
     if (file.type === 'file' && file.isRaml) {
-      setLoadingRamlFile(true);
-      try {
-        let content: string | undefined;
-        
-        // For GitHub repository files
-        if (selectedOption === 'withRepository' && selectedRepository) {
-          const token = localStorage.getItem('APL_githubToken');
-          if (!token) {
-            throw new Error('GitHub token not found');
-          }
-          
-          const response = await fetch(`https://api.github.com/repos/${selectedRepository.full_name}/contents/${file.path}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/vnd.github.v3.raw'
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch file: ${response.statusText}`);
-          }
-          
-          content = await response.text();
-        } 
-        // For local project files
-        else if (selectedOption === 'uploadComputer') {
-          const ramlFile = ramlFiles.find(r => r.path === file.path);
-          content = ramlFile?.content;
-          
-          if (!content) {
-            // Try to find the file in the uploaded files
-            const uploadedFiles = Array.from(projectFolderRef.current?.files || []);
-            const localFile = uploadedFiles.find(f => f.webkitRelativePath === file.path);
-            
-            if (localFile) {
-              content = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                  if (event.target && typeof event.target.result === 'string') {
-                    resolve(event.target.result);
-                  } else {
-                    resolve('');
+      const ramlFile = ramlFiles.find(r => r.path === file.path);
+
+      if (ramlFile) {
+        setSelectedRamlFile(ramlFile);
+        if (ramlFile.content) {
+          setRamlContent(ramlFile.content);
+          setRamlOption('input');
+          toast.success(`RAML file "${ramlFile.name}" selected`);
+        } else {
+          const fetchContent = async () => {
+            try {
+              if (selectedRepository) {
+                const token = localStorage.getItem('APL_githubToken');
+                if (!token) {
+                  throw new Error('GitHub token not found');
+                }
+                
+                const response = await fetch(`https://api.github.com/repos/${selectedRepository.full_name}/contents/${file.path}`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/vnd.github.v3.raw'
                   }
-                };
-                reader.readAsText(localFile);
-              });
-              
-              // Update ramlFiles for future reference
-              if (content) {
-                const newRamlFile: RamlFile = {
-                  name: file.name,
-                  path: file.path,
-                  sha: file.path,
-                  content
-                };
-                setRamlFiles(prev => [...prev, newRamlFile]);
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`Failed to fetch file: ${response.statusText}`);
+                }
+                
+                const content = await response.text();
+                
+                const updatedRamlFiles = [...ramlFiles];
+                const fileIndex = updatedRamlFiles.findIndex(r => r.path === file.path);
+                if (fileIndex !== -1) {
+                  updatedRamlFiles[fileIndex] = {
+                    ...updatedRamlFiles[fileIndex],
+                    content
+                  };
+                  setRamlFiles(updatedRamlFiles);
+                }
+                
+                setRamlContent(content);
+                setRamlOption('input');
+                toast.success(`RAML file "${file.name}" loaded and selected`);
               }
+            } catch (error) {
+              console.error('Error fetching file content:', error);
+              toast.error('Failed to fetch file content');
             }
-          }
-        }
-        
-        if (content) {
-          const ramlFile: RamlFile = {
-            name: file.name,
-            path: file.path,
-            sha: file.path,
-            content
           };
           
-          setSelectedRamlFile(ramlFile);
-          setRamlContent(content);
-          setRamlOption('input');
-          toast.success(`RAML file "${file.name}" loaded and selected`);
-        } else {
-          throw new Error('Could not extract content from the selected file');
+          fetchContent();
         }
-      } catch (error) {
-        console.error('Error fetching file content:', error);
-        toast.error('Failed to fetch file content');
-      } finally {
-        setLoadingRamlFile(false);
       }
     }
   };
@@ -257,9 +214,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
 
   const getCurrentDirectoryContents = () => {
     if (currentDirectory === '/') {
-      return selectedOption === 'withRepository' ? 
-        (repositoryFileStructure || []) : 
-        localProjectFiles;
+      return selectedOption === 'withRepository' ? fileStructure : localProjectFiles;
     }
 
     const findDirectory = (nodes: FileNode[], path: string): FileNode[] | null => {
@@ -276,9 +231,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
     };
 
     const dirContents = findDirectory(
-      selectedOption === 'withRepository' ? 
-        (repositoryFileStructure || []) : 
-        localProjectFiles,
+      selectedOption === 'withRepository' ? fileStructure : localProjectFiles,
       currentDirectory
     );
 
@@ -536,18 +489,27 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
         diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null,
       };
       
-      // Use RAML content from either selected file or manual input
-      if (selectedRamlFile && selectedRamlFile.content) {
-        requestBody.raml = { content: selectedRamlFile.content };
-      } else if (ramlOption === 'input' && ramlContent) {
+      if (ramlOption !== 'none' && ramlContent) {
         requestBody.raml = { content: ramlContent };
+      }
+      
+      if (selectedRamlFile) {
+        requestBody.selectedFile = {
+          name: selectedRamlFile.name,
+          path: selectedRamlFile.path,
+          content: selectedRamlFile.content
+        };
       }
 
       console.log('Sending integration request with:', {
         description,
         runtime,
         diagrams: diagramsBase64.length > 0,
-        raml: ramlOption !== 'none' || selectedRamlFile ? 'Included' : 'Not included',
+        raml: ramlOption !== 'none' ? { content: ramlContent } : undefined,
+        selectedFile: selectedRamlFile ? {
+          name: selectedRamlFile.name,
+          path: selectedRamlFile.path
+        } : undefined
       });
 
       const { data, error } = await supabase.functions.invoke('generate-integration', {
@@ -627,63 +589,6 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
     raml.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Render file item with RAML highlighting
-  const renderFileItem = (item: FileNode, index: number) => (
-    <div
-      key={index}
-      onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-      className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-        selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path
-          ? 'bg-purple-50'
-          : ''
-      }`}
-    >
-      {item.type === 'directory' ? (
-        <Folder className="h-4 w-4 mr-2 text-blue-500" />
-      ) : item.isRaml ? (
-        <FileCode className="h-4 w-4 mr-2 text-purple-600" />
-      ) : (
-        <File className="h-4 w-4 mr-2 text-gray-500" />
-      )}
-      <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
-        {item.name}
-      </span>
-      {selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path && (
-        <Check className="h-4 w-4 ml-auto text-purple-600" />
-      )}
-    </div>
-  );
-
-  // Render file browser with directory navigation
-  const renderFileBrowser = () => (
-    <div className="border rounded-md overflow-hidden">
-      <div className="bg-gray-100 p-2 flex items-center border-b">
-        <button
-          onClick={goUpDirectory}
-          disabled={currentDirectory === '/'}
-          className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <span className="text-sm font-medium truncate">
-          {currentDirectory === '/' ? 'Root' : currentDirectory}
-        </span>
-      </div>
-
-      <div className="max-h-60 overflow-y-auto">
-        {getCurrentDirectoryContents().length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            No files found in this directory
-          </div>
-        ) : (
-          <div className="divide-y">
-            {getCurrentDirectoryContents().map((item, index) => renderFileItem(item, index))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   const renderRepositorySelection = () => {
     if (selectedOption !== 'withRepository') return null;
 
@@ -726,51 +631,84 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                       <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   ) : (
-                    renderFileBrowser()
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="bg-gray-100 p-2 flex items-center border-b">
+                        <button
+                          onClick={goUpDirectory}
+                          disabled={currentDirectory === '/'}
+                          className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                        >
+                          <ArrowLeft size={16} />
+                        </button>
+                        <span className="text-sm font-medium truncate">
+                          {currentDirectory === '/' ? 'Root' : currentDirectory}
+                        </span>
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto">
+                        {getCurrentDirectoryContents().length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            No files found in this directory
+                          </div>
+                        ) : (
+                          <div className="divide-y">
+                            {getCurrentDirectoryContents().map((item, index) => (
+                              <div
+                                key={index}
+                                onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                                className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                                  selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path
+                                    ? 'bg-purple-50'
+                                    : ''
+                                }`}
+                              >
+                                {item.type === 'directory' ? (
+                                  <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                                ) : item.isRaml ? (
+                                  <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                                ) : (
+                                  <File className="h-4 w-4 mr-2 text-gray-500" />
+                                )}
+                                <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
+                                  {item.name}
+                                </span>
+                                {selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path && (
+                                  <Check className="h-4 w-4 ml-auto text-purple-600" />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
+
+                {selectedRamlFile && (
+                  <div className="mt-4">
+                    <h3 className="text-md font-medium mb-2">Selected File:</h3>
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+                      <div className="flex items-center mb-2">
+                        <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                        <span className="font-medium">{selectedRamlFile.name}</span>
+                      </div>
+                      <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
+                      {selectedRamlFile.content && (
+                        <div className="mt-2 border rounded-md overflow-hidden">
+                          <MonacoEditor
+                            value={selectedRamlFile.content}
+                            language="yaml"
+                            height="200px"
+                            options={{ minimap: { enabled: false }, readOnly: true }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>
-        )}
-
-        {/* Selected RAML File Display */}
-        {selectedRamlFile && (
-          <div className="mt-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-md font-medium">Selected RAML File:</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSelectedRamlFile(null);
-                  setRamlContent('');
-                  setRamlOption('none');
-                }}
-                className="text-red-500 hover:text-red-700"
-              >
-                <X className="h-4 w-4 mr-1" /> Clear
-              </Button>
-            </div>
-            
-            <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
-              <div className="flex items-center mb-2">
-                <FileCode className="h-4 w-4 mr-2 text-purple-600" />
-                <span className="font-medium">{selectedRamlFile.name}</span>
-              </div>
-              <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
-              {selectedRamlFile.content && (
-                <div className="mt-2 border rounded-md overflow-hidden">
-                  <MonacoEditor
-                    value={selectedRamlFile.content}
-                    language="yaml"
-                    height="200px"
-                    options={{ minimap: { enabled: false }, readOnly: true }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
         )}
       </div>
     );
@@ -811,52 +749,79 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
               Project Files:
             </label>
 
-            {loadingRamlFile ? (
-              <div className="flex justify-center py-4">
-                <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="border rounded-md overflow-hidden">
+              <div className="bg-gray-100 p-2 flex items-center border-b">
+                <button
+                  onClick={goUpDirectory}
+                  disabled={currentDirectory === '/'}
+                  className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <span className="text-sm font-medium truncate">
+                  {currentDirectory === '/' ? 'Root' : currentDirectory}
+                </span>
               </div>
-            ) : (
-              renderFileBrowser()
-            )}
-          </div>
-        )}
 
-        {/* Selected RAML File Display */}
-        {selectedRamlFile && (
-          <div className="mt-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-md font-medium">Selected RAML File:</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSelectedRamlFile(null);
-                  setRamlContent('');
-                  setRamlOption('none');
-                }}
-                className="text-red-500 hover:text-red-700"
-              >
-                <X className="h-4 w-4 mr-1" /> Clear
-              </Button>
-            </div>
-            
-            <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
-              <div className="flex items-center mb-2">
-                <FileCode className="h-4 w-4 mr-2 text-purple-600" />
-                <span className="font-medium">{selectedRamlFile.name}</span>
+              <div className="max-h-60 overflow-y-auto">
+                {getCurrentDirectoryContents().length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    No files found in this directory
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {getCurrentDirectoryContents().map((item, index) => (
+                      <div
+                        key={index}
+                        onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                        className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                          selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path
+                            ? 'bg-purple-50'
+                            : ''
+                        }`}
+                      >
+                        {item.type === 'directory' ? (
+                          <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                        ) : item.isRaml ? (
+                          <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                        ) : (
+                          <File className="h-4 w-4 mr-2 text-gray-500" />
+                        )}
+                        <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
+                          {item.name}
+                        </span>
+                        {selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path && (
+                          <Check className="h-4 w-4 ml-auto text-purple-600" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
-              {selectedRamlFile.content && (
-                <div className="mt-2 border rounded-md overflow-hidden">
-                  <MonacoEditor
-                    value={selectedRamlFile.content}
-                    language="yaml"
-                    height="200px"
-                    options={{ minimap: { enabled: false }, readOnly: true }}
-                  />
-                </div>
-              )}
             </div>
+
+            {selectedRamlFile && (
+              <div className="mt-4">
+                <h3 className="text-md font-medium mb-2">Selected File:</h3>
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+                  <div className="flex items-center mb-2">
+                    <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                    <span className="font-medium">{selectedRamlFile.name}</span>
+                  </div>
+                  <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
+                  {selectedRamlFile.content && (
+                    <div className="mt-2 border rounded-md overflow-hidden">
+                      <MonacoEditor
+                        value={selectedRamlFile.content}
+                        language="yaml"
+                        height="200px"
+                        options={{ minimap: { enabled: false }, readOnly: true }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -935,9 +900,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
               />
             </div>
 
-            {/* RAML Section - Only show if no RAML file is selected from file browser */}
-            {(selectedOption === 'noRepository' || 
-              !selectedRamlFile) && (
+            {(selectedOption === 'noRepository' || selectedOption === 'withRepository' ||  selectedOption === 'uploadComputer') && (
               <div>
                 <label className="block font-medium mb-2">
                   RAML
@@ -978,7 +941,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                   </div>
                 </div>
 
-                {ramlOption === 'input' && !selectedRamlFile && (
+                {ramlOption === 'input' && (
                   <div className="mt-4">
                     <label htmlFor="raml-content" className="block text-sm font-medium mb-2">
                       RAML Content:
@@ -994,7 +957,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                   </div>
                 )}
 
-                {ramlOption === 'workspace' && !selectedRamlFile && (
+                {ramlOption === 'workspace' && (
                   <div className="mt-4">
                     <div className="mb-4">
                       <Input
