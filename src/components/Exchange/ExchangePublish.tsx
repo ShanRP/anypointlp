@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 
 interface ExchangePublishProps {}
@@ -65,7 +66,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
     setPublishing(true);
     try {
       const username = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonymous';
-      const workspaceId = localStorage.getItem('currentWorkspaceId') || '';
+      const workspaceId = localStorage.getItem('currentWorkspaceId') || null;
       
       const exchangeItem = {
         title: title.trim(),
@@ -74,9 +75,12 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
         type: item.type,
         user_id: user.id,
         username: username,
-        visibility: visibility, // Add visibility field
-        workspace_id: visibility === 'private' ? workspaceId : null // Store workspace_id for private items only
+        visibility: visibility,
+        workspace_id: visibility === 'private' && workspaceId ? workspaceId : null
       };
+
+      // For debugging
+      console.log('Publishing item:', exchangeItem);
 
       const { data, error } = await supabase
         .from('apl_exchange_items')
@@ -89,7 +93,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
       navigate(`/dashboard/exchange/item/${data[0].id}`);
     } catch (error: any) {
       console.error('Error publishing to Exchange:', error);
-      toast.error('Failed to publish to Exchange');
+      toast.error(`Failed to publish to Exchange: ${error.message}`);
     } finally {
       setPublishing(false);
     }
@@ -100,6 +104,9 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Publish to Exchange</DialogTitle>
+          <DialogDescription>
+            Share your {contentTypeDisplay} with the community
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
