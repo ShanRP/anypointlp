@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -35,6 +36,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
   const [visibility, setVisibility] = useState('public'); // Default to public
   const [publishing, setPublishing] = useState(false);
   const [showDialog, setShowDialog] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     console.log('Current selected workspace:', selectedWorkspace);
@@ -59,7 +61,26 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
                             contentType === 'dataweave' ? 'DataWeave Script' :
                             contentType.toUpperCase();
 
+  const getValidWorkspaceId = (): string => {
+    // First priority: use selected workspace if available
+    if (selectedWorkspace && selectedWorkspace.id) {
+      return selectedWorkspace.id;
+    }
+    
+    // Second priority: use first workspace from list if available
+    if (workspaces && workspaces.length > 0) {
+      console.log('Using first available workspace:', workspaces[0].id);
+      return workspaces[0].id;
+    }
+    
+    // Last resort: use user id
+    console.log('No workspaces available, using user ID as fallback');
+    return user.id;
+  };
+
   const handlePublish = async () => {
+    setError(null);
+    
     if (!user) {
       toast.error('You must be signed in to publish to Exchange');
       return;
@@ -70,35 +91,12 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
       return;
     }
 
-    if (visibility === 'private') {
-      if (!selectedWorkspace) {
-        if (workspaces && workspaces.length > 0) {
-          console.log('No workspace selected, using first workspace:', workspaces[0]);
-        } else {
-          toast.error('You must have a workspace for private items');
-          return;
-        }
-      }
-    }
-
     setPublishing(true);
     try {
       const username = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonymous';
       
-      let workspaceId = null;
-      
-      if (visibility === 'private') {
-        if (selectedWorkspace && selectedWorkspace.id) {
-          workspaceId = selectedWorkspace.id;
-        } 
-        else if (workspaces && workspaces.length > 0) {
-          workspaceId = workspaces[0].id;
-        }
-        
-        if (!workspaceId) {
-          workspaceId = user.id;
-        }
-      }
+      // Set workspace_id to null for public items, or get a valid ID for private items
+      const workspaceId = visibility === 'private' ? getValidWorkspaceId() : null;
       
       console.log('Using workspace ID:', workspaceId);
       
@@ -110,7 +108,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
         user_id: user.id,
         username: username,
         visibility: visibility,
-        workspace_id: visibility === 'private' ? workspaceId : null
+        workspace_id: workspaceId
       };
 
       console.log('Publishing item:', exchangeItem);
@@ -126,6 +124,7 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
       navigate(`/dashboard/exchange/item/${data[0].id}`);
     } catch (error: any) {
       console.error('Error publishing to Exchange:', error);
+      setError(error.message);
       toast.error(`Failed to publish to Exchange: ${error.message}`);
     } finally {
       setPublishing(false);
@@ -195,6 +194,24 @@ const ExchangePublish: React.FC<ExchangePublishProps> = () => {
               </div>
             </RadioGroup>
           </div>
+          
+          {visibility === 'private' && (
+            <div className="p-3 bg-blue-50 rounded-md">
+              <p className="text-sm text-blue-700">
+                {selectedWorkspace 
+                  ? `This item will be private to the "${selectedWorkspace.name}" workspace` 
+                  : workspaces && workspaces.length > 0 
+                    ? `This item will be private to the "${workspaces[0].name}" workspace`
+                    : "This item will be private to your personal workspace"}
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 bg-red-50 rounded-md">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button 
