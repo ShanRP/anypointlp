@@ -1,7 +1,11 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 
 const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') || 'EbjQ32KdE7j8qv1wTZWEZZyq0XQPqtiX';
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,7 +36,8 @@ serve(async (req) => {
       types = [],
       endpoints = [], 
       mediaTypes = ["application/json"],
-      protocols = ["HTTPS"]
+      protocols = ["HTTPS"],
+      workspaceId
     } = requestData;
     
     // Log the received data
@@ -42,8 +47,34 @@ serve(async (req) => {
       baseUri,
       apiDescription, 
       types: types.length,
-      endpoints: endpoints.length 
+      endpoints: endpoints.length,
+      workspaceId
     });
+    
+    // Set up Supabase client if we have workspace ID
+    let selectedWorkspaceId = null;
+    if (workspaceId && supabaseUrl && supabaseServiceKey) {
+      try {
+        console.log('Connecting to Supabase to verify workspace');
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        
+        // Verify the workspace exists
+        const { data: workspace, error: workspaceError } = await supabase
+          .from('apl_workspaces')
+          .select('id')
+          .eq('id', workspaceId)
+          .single();
+        
+        if (workspace && !workspaceError) {
+          console.log('Valid workspace found:', workspace.id);
+          selectedWorkspaceId = workspace.id;
+        } else {
+          console.log('Workspace not found or error:', workspaceError);
+        }
+      } catch (supabaseError) {
+        console.error('Error connecting to Supabase:', supabaseError);
+      }
+    }
     
     // Generate RAML specification using Mistral
     let ramlSpec;
@@ -72,10 +103,14 @@ serve(async (req) => {
       );
     }
     
+    // Clean up the RAML output by removing any explanatory text
+    ramlSpec = cleanRamlOutput(ramlSpec);
+    
     // Return the generated RAML
     return new Response(
       JSON.stringify({ 
-        raml: ramlSpec 
+        raml: ramlSpec,
+        workspaceId: selectedWorkspaceId 
       }),
       { 
         headers: { 
@@ -100,6 +135,38 @@ serve(async (req) => {
     );
   }
 });
+
+function cleanRamlOutput(raml) {
+  // Remove any text before the #%RAML header
+  const ramlHeaderIndex = raml.indexOf('#%RAML 1.0');
+  if (ramlHeaderIndex > 0) {
+    raml = raml.substring(ramlHeaderIndex);
+  }
+  
+  // Remove any trailing explanation text (anything after the RAML content)
+  // This is harder to detect, but we can try to find common markers indicating end of RAML
+  const explanationMarkers = [
+    "This completes the RAML specification",
+    "The RAML specification is now complete",
+    "That's the complete RAML specification",
+    "Hope this helps",
+    "Let me know if you need",
+    "Please let me know",
+    "Note: "
+  ];
+  
+  for (const marker of explanationMarkers) {
+    const markerIndex = raml.indexOf(marker);
+    if (markerIndex > 0) {
+      raml = raml.substring(0, markerIndex).trim();
+    }
+  }
+  
+  // Further cleanup to remove code block markers
+  raml = raml.replace(/```ya?ml/g, '').replace(/```/g, '').trim();
+  
+  return raml;
+}
 
 async function generateWithMistral(
   apiName: string, 
@@ -185,7 +252,10 @@ async function generateWithMistral(
     console.log('Mistral response received');
     
     // Extract the generated RAML from the response
-    const generatedRaml = data.choices[0].message.content.trim();
+    let generatedRaml = data.choices[0].message.content.trim();
+    
+    // Clean up the output to ensure it's properly formatted RAML
+    generatedRaml = cleanRamlOutput(generatedRaml);
     
     // Validate basic RAML structure
     if (!generatedRaml.startsWith('#%RAML 1.0')) {
