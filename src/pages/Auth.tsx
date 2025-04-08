@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { CustomButton } from '@/components/ui/CustomButton';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from "@/components/ui/use-toast";
 import { Github, Mail, User, Lock, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Logo } from '@/components/assets/Logo';
@@ -18,7 +17,6 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signIn, signUp, signInWithProvider, session } = useAuth();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (session) {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, Save, RefreshCw, Copy } from 'lucide-react';
@@ -8,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from '@/components/ui/separator';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { useMUnitRepositoryData } from '@/hooks/useMUnitRepositoryData';
 import MonacoEditor from './MonacoEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -80,18 +79,14 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const handleGenerate = async () => {
     if (!description) {
       toast({
-        title: "Missing information",
-        description: "Please provide a description for the test.",
-        variant: "destructive"
+        description: "Please provide a description for the test."
       });
       return;
     }
 
     if (!flowImplementation) {
       toast({
-        title: "Missing flow implementation",
-        description: "Please provide the flow implementation to generate tests for.",
-        variant: "destructive"
+        description: "Please provide the flow implementation to generate tests for."
       });
       return;
     }
@@ -143,8 +138,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         });
 
         toast({
-          title: "Success!",
-          description: "MUnit tests generated successfully.",
+          description: "MUnit tests generated successfully."
         });
       }
       
@@ -152,7 +146,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     } catch (error) {
       console.error('Error generating MUnit tests:', error);
       toast({
-        title: "Generation failed",
         description: error instanceof Error ? error.message : "Failed to generate MUnit tests. Please try again.",
         variant: "destructive"
       });
@@ -181,7 +174,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const handleSaveTask = async () => {
     if (!taskName.trim()) {
       toast({
-        title: "Task name required",
         description: "Please provide a name for this task",
         variant: "destructive"
       });
@@ -190,7 +182,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
 
     if (!selectedWorkspaceId || !user) {
       toast({
-        title: "Missing information",
         description: "Workspace or user information is missing",
         variant: "destructive"
       });
@@ -214,7 +205,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
       await saveMUnitTask(task);
       
       toast({
-        title: "Task saved",
         description: "MUnit task has been saved successfully"
       });
 
@@ -226,7 +216,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     } catch (error) {
       console.error('Error saving MUnit task:', error);
       toast({
-        title: "Save failed",
         description: "Failed to save the MUnit task",
         variant: "destructive"
       });
@@ -510,8 +499,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                   <Button onClick={() => {
                     navigator.clipboard.writeText(generatedTests);
                     toast({
-                      title: "Copied!",
-                      description: "MUnit tests copied to clipboard",
+                      description: "MUnit tests copied to clipboard"
                     });
                   }}>
                     <Copy className="h-4 w-4 mr-2" />

@@ -1,12 +1,10 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from '@/components/ui/use-toast';
 
 export const useProfile = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [isUpdating, setIsUpdating] = useState(false);
 
   const updateUsername = async (newUsername: string) => {

@@ -1,922 +1,872 @@
-
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Code, Copy, ExternalLink, FileCode, RotateCw, Save, Terminal } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
+import React, { useState, useRef, useEffect } from 'react';
+import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { useAuth } from '@/hooks/useAuth';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MonacoEditor from './MonacoEditor';
-import { v4 as uuidv4 } from 'uuid';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/useAuth';
+import { useGithubApi } from '@/hooks/useGithubApi';
+import type { FileNode, Repository } from '@/utils/githubUtils';
+import { BackButton } from './ui/BackButton';
 
-interface RAMLGeneratorProps {
+export interface IntegrationGeneratorProps {
   onTaskCreated?: (task: any) => void;
   selectedWorkspaceId?: string;
   onBack?: () => void;
-  onSaveTask?: (id: string) => void;
+  onSaveTask?: (taskId: string) => void;
 }
 
-const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
+interface RamlItem {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  type: string;
+}
+
+interface Branch {
+  name: string;
+  commit: {
+    sha: string;
+  };
+}
+
+interface RamlFile {
+  name: string;
+  path: string;
+  sha: string;
+  content?: string;
+}
+
+interface CustomInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  webkitdirectory?: string;
+  directory?: string;
+}
+
+const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
   onTaskCreated,
   selectedWorkspaceId,
   onBack,
-  onSaveTask,
+  onSaveTask
 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { saveRamlTask } = useWorkspaceTasks(selectedWorkspaceId || '');
-  
-  const [apiName, setApiName] = useState('');
-  const [apiVersion, setApiVersion] = useState('v1');
-  const [baseUri, setBaseUri] = useState('https://api.example.com/{version}');
   const [description, setDescription] = useState('');
-  const [activeTab, setActiveTab] = useState('editor');
-  const [endpoints, setEndpoints] = useState<Array<{
-    id: string;
-    path: string;
-    description: string;
-    methods: Array<{
-      id: string;
-      type: 'get' | 'post' | 'put' | 'delete';
-      description: string;
-      queryParams: Array<{
-        id: string;
-        name: string;
-        required: boolean;
-        type: string;
-      }>;
-      responses: Array<{
-        id: string;
-        code: string;
-        description: string;
-      }>;
-    }>;
-  }>>([
-    {
-      id: uuidv4(),
-      path: 'resource',
-      description: 'A sample resource',
-      methods: [
-        {
-          id: uuidv4(),
-          type: 'get',
-          description: 'Get a list of resources',
-          queryParams: [
-            {
-              id: uuidv4(),
-              name: 'limit',
-              required: false,
-              type: 'number'
-            }
-          ],
-          responses: [
-            {
-              id: uuidv4(),
-              code: '200',
-              description: 'Successful response'
-            }
-          ]
-        }
-      ]
-    }
-  ]);
+  const [diagrams, setDiagrams] = useState<File[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedOption, setSelectedOption] = useState('noRepository');
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [javaVersion, setJavaVersion] = useState('8.0');
+  const [mavenVersion, setMavenVersion] = useState('3.8');
+  const [showVersionsPopup, setShowVersionsPopup] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'editor' | 'result'>('editor');
+  const [parsedSections, setParsedSections] = useState<{
+    flowSummary: string;
+    flowImplementation: string;
+    flowConstants: string;
+    pomDependencies: string;
+    compilationCheck: string;
+  } | null>(null);
+  const [taskId, setTaskId] = useState<string>(`IG-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [generatedTimestamp, setGeneratedTimestamp] = useState<string>('');
+
+  const [ramlContent, setRamlContent] = useState<string>('');
+  const [ramlOption, setRamlOption] = useState<'none' | 'input' | 'workspace'>('none');
+  const [workspaceRamls, setWorkspaceRamls] = useState<RamlItem[]>([]);
+  const [selectedRaml, setSelectedRaml] = useState<RamlItem | null>(null);
+  const [loadingRamls, setLoadingRamls] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const { 
+    repositories, 
+    loadingRepositories, 
+    fetchRepositories, 
+    fileStructure, 
+    loadingFileStructure, 
+    fetchFileContent 
+  } = useGithubApi();
   
-  const [ramlOutput, setRamlOutput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [taskName, setTaskName] = useState('');
-  const [taskId, setTaskId] = useState('');
-  const [showDocumentation, setShowDocumentation] = useState(false);
-  const [documentation, setDocumentation] = useState('');
+  const [selectedRepository, setSelectedRepository] = useState<Repository | null>(null);
+  const [ramlFiles, setRamlFiles] = useState<RamlFile[]>([]);
+  const [selectedRamlFile, setSelectedRamlFile] = useState<RamlFile | null>(null);
+  const [loadingRamlFile, setLoadingRamlFile] = useState(false);
+  const [currentDirectory, setCurrentDirectory] = useState<string>('/');
+  const [localProjectFiles, setLocalProjectFiles] = useState<FileNode[]>([]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectFolderRef = useRef<HTMLInputElement>(null);
+  const { selectedWorkspace } = useWorkspaces();
   
   useEffect(() => {
-    // Generate a unique task ID when component loads
-    setTaskId(`R-${crypto.randomUUID().substring(0, 8).toUpperCase()}`);
-  }, []);
-  
-  const addEndpoint = () => {
-    setEndpoints([
-      ...endpoints,
-      {
-        id: uuidv4(),
-        path: '',
-        description: '',
-        methods: []
+    const storedRepo = localStorage.getItem('APL_selectedGithubRepo');
+    if (storedRepo && selectedOption === 'withRepository') {
+      try {
+        const repoData = JSON.parse(storedRepo);
+        setSelectedRepository(repoData);
+        fetchFileStructure(repoData);
+      } catch (error) {
+        console.error('Error parsing stored GitHub repo:', error);
       }
-    ]);
-  };
-  
-  const updateEndpoint = (id: string, data: Partial<typeof endpoints[0]>) => {
-    setEndpoints(endpoints.map(endpoint => 
-      endpoint.id === id ? { ...endpoint, ...data } : endpoint
-    ));
-  };
-  
-  const removeEndpoint = (id: string) => {
-    setEndpoints(endpoints.filter(endpoint => endpoint.id !== id));
-  };
-  
-  const addMethod = (endpointId: string) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: [
-            ...endpoint.methods,
-            {
-              id: uuidv4(),
-              type: 'get',
-              description: '',
-              queryParams: [],
-              responses: [
-                {
-                  id: uuidv4(),
-                  code: '200',
-                  description: 'Successful response'
+    }
+  }, [selectedOption, fetchFileStructure]);
+
+  useEffect(() => {
+    const storedRaml = sessionStorage.getItem('selectedRamlForIntegration');
+    if (storedRaml) {
+      try {
+        const ramlData = JSON.parse(storedRaml) as RamlItem;
+        setSelectedRaml(ramlData);
+        setRamlContent(ramlData.content);
+        setRamlOption('input');
+        setDescription(ramlData.description || description);
+
+        sessionStorage.removeItem('selectedRamlForIntegration');
+        toast.success(`RAML "${ramlData.title}" loaded from Exchange`);
+      } catch (error) {
+        console.error('Error parsing stored RAML:', error);
+      }
+    }
+  }, [description]);
+
+  useEffect(() => {
+    if (selectedOption === 'withRepository') {
+      fetchRepositories();
+    }
+  }, [selectedOption, fetchRepositories]);
+
+  useEffect(() => {
+    if (selectedRepository) {
+      fetchFileStructure(selectedRepository);
+    }
+  }, [selectedRepository, fetchFileStructure]);
+
+  const handleFileSelect = async (file: FileNode) => {
+    if (file.type === 'file' && file.isRaml) {
+      setLoadingRamlFile(true);
+      try {
+        const existingRamlFile = ramlFiles.find(r => r.path === file.path);
+
+        if (existingRamlFile && existingRamlFile.content) {
+          setSelectedRamlFile(existingRamlFile);
+          setRamlContent(existingRamlFile.content);
+          setRamlOption('input');
+          toast.success(`RAML file "${existingRamlFile.name}" selected`);
+        } else {
+          if (selectedRepository) {
+            try {
+              const content = await fetchFileContent(selectedRepository, file.path);
+              
+              if (content) {
+                const ramlFile: RamlFile = {
+                  name: file.name,
+                  path: file.path,
+                  sha: file.path,
+                  content: content
+                };
+                
+                const updatedRamlFiles = [...ramlFiles];
+                const fileIndex = updatedRamlFiles.findIndex(r => r.path === file.path);
+                
+                if (fileIndex !== -1) {
+                  updatedRamlFiles[fileIndex] = ramlFile;
+                } else {
+                  updatedRamlFiles.push(ramlFile);
                 }
-              ]
+                
+                setRamlFiles(updatedRamlFiles);
+                setSelectedRamlFile(ramlFile);
+                setRamlContent(content);
+                setRamlOption('input');
+                toast.success(`RAML file "${file.name}" loaded successfully`);
+              } else {
+                throw new Error(`Could not load content from "${file.name}"`);
+              }
+            } catch (error) {
+              console.error("Error fetching file content:", error);
+              toast.error(`Failed to fetch RAML content: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+          } else if (selectedOption === 'uploadComputer') {
+            try {
+              const localFile = Array.from(projectFolderRef.current?.files || [])
+                .find(f => f.webkitRelativePath === file.path);
+                
+              if (localFile) {
+                const content = await new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (e) => resolve(e.target?.result as string);
+                  reader.onerror = reject;
+                  reader.readAsText(localFile);
+                });
+                
+                const ramlFile: RamlFile = {
+                  name: file.name,
+                  path: file.path,
+                  sha: file.path,
+                  content: content
+                };
+                
+                const updatedRamlFiles = [...ramlFiles];
+                const fileIndex = updatedRamlFiles.findIndex(r => r.path === file.path);
+                
+                if (fileIndex !== -1) {
+                  updatedRamlFiles[fileIndex] = ramlFile;
+                } else {
+                  updatedRamlFiles.push(ramlFile);
+                }
+                
+                setRamlFiles(updatedRamlFiles);
+                setSelectedRamlFile(ramlFile);
+                setRamlContent(content);
+                setRamlOption('input');
+                toast.success(`RAML file "${file.name}" loaded successfully`);
+              } else {
+                throw new Error(`Could not find local file "${file.path}"`);
+              }
+            } catch (error) {
+              console.error("Error reading local file:", error);
+              toast.error(`Failed to read RAML file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error selecting RAML file:", error);
+        toast.error(`Error selecting RAML file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setLoadingRamlFile(false);
+      }
+    }
+  };
+
+  const navigateDirectory = (dir: FileNode) => {
+    if (dir.type === 'directory') {
+      setCurrentDirectory(dir.path);
+      toast.success(`Navigated to ${dir.name}`);
+    }
+  };
+
+  const getCurrentDirectoryContents = () => {
+    if (currentDirectory === '/') {
+      return selectedOption === 'withRepository' ? fileStructure : localProjectFiles;
+    }
+
+    const findDirectory = (nodes: FileNode[], path: string): FileNode[] | null => {
+      for (const node of nodes) {
+        if (node.path === path && node.type === 'directory') {
+          return node.children || [];
+        }
+        if (node.children) {
+          const result = findDirectory(nodes.children, path);
+          if (result) return result;
+        }
+      }
+      return null;
+    };
+
+    const dirContents = findDirectory(
+      selectedOption === 'withRepository' ? fileStructure : localProjectFiles,
+      currentDirectory
+    );
+
+    return dirContents || [];
+  };
+
+  const goUpDirectory = () => {
+    if (currentDirectory === '/') return;
+
+    const pathParts = currentDirectory.split('/');
+    pathParts.pop();
+    const parentPath = pathParts.length === 1 ? '/' : pathParts.join('/');
+
+    setCurrentDirectory(parentPath);
+  };
+
+  const handleRepositorySelect = (repo: Repository) => {
+    setSelectedRepository(repo);
+    setRamlFiles([]);
+    setSelectedRamlFile(null);
+    setCurrentDirectory('/');
+
+    localStorage.setItem('APL_selectedGithubRepo', JSON.stringify(repo));
+
+    toast.success(`Repository "${repo.name}" selected`);
+  };
+
+  const fetchWorkspaceRamls = async () => {
+    if (!selectedWorkspaceId && !selectedWorkspace?.id) return;
+
+    setLoadingRamls(true);
+    try {
+      const { data, error } = await supabase
+        .from('apl_exchange_items')
+        .select('*')
+        .eq('type', 'raml')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedRamls = data.map(item => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        content: typeof item.content === 'object' && item.content !== null && 'raml' in item.content
+          ? String(item.content.raml)
+          : '',
+        type: 'raml'
+      }));
+
+      setWorkspaceRamls(formattedRamls);
+    } catch (error) {
+      console.error('Error fetching RAMLs:', error);
+      toast.error('Failed to load RAMLs from workspace');
+    } finally {
+      setLoadingRamls(false);
+    }
+  };
+
+  useEffect(() => {
+    if (ramlOption === 'workspace') {
+      fetchWorkspaceRamls();
+    }
+  }, [ramlOption, selectedWorkspaceId, selectedWorkspace?.id]);
+
+  const handleRamlSelect = (raml: RamlItem) => {
+    setSelectedRaml(raml);
+    setRamlContent(raml.content);
+    toast.success(`RAML "${raml.title}" selected`);
+  };
+
+  const handleOptionChange = (option: string) => {
+    setSelectedOption(option);
+    setCurrentDirectory('/');
+
+    if (option === 'uploadComputer') {
+      setRamlOption('none');
+      setSelectedRaml(null);
+      setRamlContent('');
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setDiagrams(Array.from(e.target.files));
+    }
+  };
+
+  const handleProjectFolderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+
+      const fileStructure: FileNode[] = [];
+      const directories: Record<string, FileNode> = {};
+
+      files.forEach(file => {
+        const path = file.webkitRelativePath;
+        const pathParts = path.split('/');
+
+        if (pathParts.length <= 1) return;
+
+        let currentPath = '';
+        let parentNode: FileNode | null = null;
+
+        for (let i = 0; i < pathParts.length - 1; i++) {
+          const part = pathParts[i];
+          const newPath = currentPath ? `${currentPath}/${part}` : part;
+          currentPath = newPath;
+
+          if (!directories[newPath]) {
+            const newNode: FileNode = {
+              name: part,
+              path: newPath,
+              type: 'directory',
+              children: []
+            };
+
+            directories[newPath] = newNode;
+
+            if (i === 0) {
+              fileStructure.push(newNode);
+            } else if (parentNode) {
+              parentNode.children?.push(newNode);
+            }
+          }
+
+          parentNode = directories[newPath];
+        }
+
+        if (parentNode) {
+          const fileName = pathParts[pathParts.length - 1];
+          const isRaml = fileName.endsWith('.raml');
+
+          const fileNode: FileNode = {
+            name: fileName,
+            path: path,
+            type: 'file',
+            isRaml
+          };
+
+          parentNode.children?.push(fileNode);
+
+          if (isRaml) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              if (event.target && typeof event.target.result === 'string') {
+                const ramlFile: RamlFile = {
+                  name: fileName,
+                  path: path,
+                  sha: path,
+                  content: event.target.result
+                };
+
+                setRamlFiles(prev => [...prev, ramlFile]);
+              }
+            };
+            reader.readAsText(file);
+          }
+        }
+      });
+
+      setLocalProjectFiles(fileStructure);
+      toast.success('Project folder loaded successfully');
+    }
+  };
+
+  const handleUploadClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleProjectFolderClick = () => {
+    if (projectFolderRef.current) {
+      projectFolderRef.current.click();
+    }
+  };
+
+  const handleRuntimeSettingsClick = () => {
+    setShowVersionsPopup(!showVersionsPopup);
+  };
+
+  const handleJavaVersionSelect = (version: string) => {
+    setJavaVersion(version);
+    setShowVersionsPopup(false);
+  };
+
+  const handleMavenVersionSelect = (version: string) => {
+    setMavenVersion(version);
+    setShowVersionsPopup(false);
+  };
+
+  const handleBackNavigation = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const parseGeneratedCode = (code: string) => {
+    const flowSummaryPattern = /(?:^|\n)(?:#{1,3}\s*)?Flow Summary\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=\n(?:#{1,3}\s*)?Flow Implementation|$)/i;
+    const flowSummaryMatch = code.match(flowSummaryPattern);
+    
+    const flowImplementationPattern = /(?:^|\n)(?:#{1,3}\s*)?Flow Implementation\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=\n(?:#{1,3}\s*)?Flow Constants|$)/i;
+    const flowImplementationMatch = code.match(flowImplementationPattern);
+    
+    const flowConstantsPattern = /(?:^|\n)(?:#{1,3}\s*)?Flow Constants\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=\n(?:#{1,3}\s*)?POM Dependencies|$)/i;
+    const flowConstantsMatch = code.match(flowConstantsPattern);
+    
+    const pomDependenciesPattern = /(?:^|\n)(?:#{1,3}\s*)?POM Dependencies\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=\n(?:#{1,3}\s*)?Compilation Check|$)/i;
+    const pomDependenciesMatch = code.match(pomDependenciesPattern);
+    
+    const compilationCheckPattern = /(?:^|\n)(?:#{1,3}\s*)?Compilation Check\s*(?:#{1,3}\s*)?\n([\s\S]*?)(?=$)/i;
+    const compilationCheckMatch = code.match(compilationCheckPattern);
+
+    return {
+      flowSummary: flowSummaryMatch ? flowSummaryMatch[1].trim() : '',
+      flowImplementation: flowImplementationMatch ? flowImplementationMatch[1].trim() : code,
+      flowConstants: flowConstantsMatch ? flowConstantsMatch[1].trim() : '',
+      pomDependencies: pomDependenciesMatch ? pomDependenciesMatch[1].trim() : '',
+      compilationCheck: compilationCheckMatch ? compilationCheckMatch[1].trim() : ''
+    };
+  };
+
+  const handleSubmit = async () => {
+    if (!description.trim()) {
+      toast.error('Please provide a description for the integration');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    const toastId = toast.loading('Generating integration code...');
+
+    try {
+      const diagramsBase64 = await Promise.all(
+        diagrams.map(async (file) => {
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64 = reader.result as string;
+              resolve(base64.split(',')[1]);
+            };
+            reader.readAsDataURL(file);
+          });
+        })
+      );
+
+      const runtime = `Java ${javaVersion}, Maven ${mavenVersion}`;
+      
+      const requestBody: any = {
+        description,
+        runtime,
+        diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null,
+      };
+      
+      if (selectedRamlFile && selectedRamlFile.content) {
+        requestBody.raml = { content: selectedRamlFile.content };
+      } else if (ramlOption !== 'none' && ramlContent) {
+        requestBody.raml = { content: ramlContent };
+      }
+      
+      if (selectedRamlFile) {
+        requestBody.selectedFile = {
+          name: selectedRamlFile.name,
+          path: selectedRamlFile.path
+        };
+      }
+
+      console.log('Sending integration request with:', {
+        description,
+        runtime,
+        diagrams: diagramsBase64.length > 0,
+        raml: (selectedRamlFile && selectedRamlFile.content) || (ramlOption !== 'none' && ramlContent) 
+          ? { content: 'RAML content present (not shown for brevity)' } 
+          : undefined,
+        selectedFile: selectedRamlFile 
+          ? { name: selectedRamlFile.name, path: selectedRamlFile.path }
+          : undefined
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-integration', {
+        body: requestBody,
+      });
+
+      toast.dismiss(toastId);
+
+      if (error) {
+        console.error('Supabase function error:', error);
+        setError(`Error calling the integration generator: ${error.message || 'Unknown error'}`);
+        toast.error(`Failed to generate integration: ${error.message || 'Unknown error'}`);
+        return;
+      }
+
+      console.log('Integration generation response:', data);
+
+      if (!data || !data.success) {
+        const errorMessage = data?.error || 'Failed to generate integration code';
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      const generatedCodeResult = data.code;
+      setGeneratedCode(generatedCodeResult);
+
+      const parsedResult = parseGeneratedCode(generatedCodeResult);
+      setParsedSections(parsedResult);
+      setCurrentView('result');
+      
+      const now = new Date();
+      setGeneratedTimestamp(now.toLocaleString());
+
+      const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
+      console.log('Using workspace ID for saving:', workspaceId);
+
+      if (user) {
+        try {
+          const { data: rpcData, error: rpcError } = await supabase
+            .from('apl_integration_tasks')
+            .insert([{
+              task_id: taskId,
+              task_name: 'Integration Flow',
+              description: description,
+              user_id: user.id,
+              workspace_id: workspaceId,
+              category: 'integration',
+              runtime: `Java ${javaVersion}, Maven ${mavenVersion}`,
+              raml_content: selectedRamlFile?.content || ramlContent || '',
+              generated_code: generatedCodeResult,
+              flow_summary: parsedResult.flowSummary || '',
+              flow_implementation: parsedResult.flowImplementation || '',
+              flow_constants: parsedResult.flowConstants || '',
+              pom_dependencies: parsedResult.pomDependencies || '',
+              compilation_check: parsedResult.compilationCheck || '',
+              diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null
+            }])
+            .select();
+
+          if (rpcError) {
+            console.error('Error saving integration task:', rpcError);
+          } else {
+            console.log('Successfully saved integration task:', rpcData);
+            if (rpcData && rpcData.length > 0 && onSaveTask) {
+              onSaveTask(taskId);
+            }
+          }
+        } catch (error) {
+          console.error("Error saving integration task:", error);
+        }
+      }
+
+      if (onTaskCreated) {
+        const newTask = {
+          id: taskId,
+          label: 'Integration Flow',
+          category: 'integration',
+          task_id: taskId,
+          task_name: 'Integration Flow',
+          icon: 'CodeIcon',
+          workspace_id: workspaceId,
+          created_at: new Date().toISOString(),
+          input_format: 'Flow Specification',
+          notes: description,
+          generated_scripts: [
+            {
+              id: `script-${Date.now()}`,
+              code: generatedCodeResult
             }
           ]
         };
+
+        onTaskCreated(newTask);
       }
-      return endpoint;
-    }));
-  };
-  
-  const updateMethod = (endpointId: string, methodId: string, data: Partial<typeof endpoints[0]['methods'][0]>) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: endpoint.methods.map(method => 
-            method.id === methodId ? { ...method, ...data } : method
-          )
-        };
-      }
-      return endpoint;
-    }));
-  };
-  
-  const removeMethod = (endpointId: string, methodId: string) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: endpoint.methods.filter(method => method.id !== methodId)
-        };
-      }
-      return endpoint;
-    }));
-  };
-  
-  const addQueryParam = (endpointId: string, methodId: string) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: endpoint.methods.map(method => {
-            if (method.id === methodId) {
-              return {
-                ...method,
-                queryParams: [
-                  ...method.queryParams,
-                  {
-                    id: uuidv4(),
-                    name: '',
-                    required: false,
-                    type: 'string'
-                  }
-                ]
-              };
-            }
-            return method;
-          })
-        };
-      }
-      return endpoint;
-    }));
-  };
-  
-  const updateQueryParam = (
-    endpointId: string, 
-    methodId: string, 
-    paramId: string, 
-    data: Partial<typeof endpoints[0]['methods'][0]['queryParams'][0]>
-  ) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: endpoint.methods.map(method => {
-            if (method.id === methodId) {
-              return {
-                ...method,
-                queryParams: method.queryParams.map(param => 
-                  param.id === paramId ? { ...param, ...data } : param
-                )
-              };
-            }
-            return method;
-          })
-        };
-      }
-      return endpoint;
-    }));
-  };
-  
-  const removeQueryParam = (endpointId: string, methodId: string, paramId: string) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: endpoint.methods.map(method => {
-            if (method.id === methodId) {
-              return {
-                ...method,
-                queryParams: method.queryParams.filter(param => param.id !== paramId)
-              };
-            }
-            return method;
-          })
-        };
-      }
-      return endpoint;
-    }));
-  };
-  
-  const addResponse = (endpointId: string, methodId: string) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: endpoint.methods.map(method => {
-            if (method.id === methodId) {
-              return {
-                ...method,
-                responses: [
-                  ...method.responses,
-                  {
-                    id: uuidv4(),
-                    code: '',
-                    description: ''
-                  }
-                ]
-              };
-            }
-            return method;
-          })
-        };
-      }
-      return endpoint;
-    }));
-  };
-  
-  const updateResponse = (
-    endpointId: string, 
-    methodId: string, 
-    responseId: string, 
-    data: Partial<typeof endpoints[0]['methods'][0]['responses'][0]>
-  ) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: endpoint.methods.map(method => {
-            if (method.id === methodId) {
-              return {
-                ...method,
-                responses: method.responses.map(response => 
-                  response.id === responseId ? { ...response, ...data } : response
-                )
-              };
-            }
-            return method;
-          })
-        };
-      }
-      return endpoint;
-    }));
-  };
-  
-  const removeResponse = (endpointId: string, methodId: string, responseId: string) => {
-    setEndpoints(endpoints.map(endpoint => {
-      if (endpoint.id === endpointId) {
-        return {
-          ...endpoint,
-          methods: endpoint.methods.map(method => {
-            if (method.id === methodId) {
-              return {
-                ...method,
-                responses: method.responses.filter(response => response.id !== responseId)
-              };
-            }
-            return method;
-          })
-        };
-      }
-      return endpoint;
-    }));
+
+      toast.success('Integration code generated successfully!');
+    } catch (error: any) {
+      console.error('Error generating integration:', error);
+      setError(`Failed to generate integration code: ${error.message || 'Unknown error'}`);
+      toast.error(`Failed to generate integration code: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleGenerate = async () => {
-    try {
-      setIsGenerating(true);
-      
-      if (!apiName) {
-        toast.error("API name is required");
-        setIsGenerating(false);
-        return;
-      }
-      
-      // Basic validation for important fields
-      if (endpoints.some(endpoint => !endpoint.path)) {
-        toast.error("All endpoints must have a path");
-        setIsGenerating(false);
-        return;
-      }
-      
-      console.log("Generating RAML with data:", {
-        apiName,
-        apiVersion,
-        baseUri,
-        description,
-        endpoints,
-        documentation: showDocumentation ? documentation : undefined
-      });
-      
-      // Call Supabase function to generate RAML
-      const { data, error } = await supabase.functions.invoke('APL_generate-raml', {
-        body: {
-          apiName,
-          apiVersion,
-          baseUri,
-          description,
-          endpoints,
-          documentation: showDocumentation ? documentation : undefined
-        }
-      });
-      
-      if (error) {
-        console.error("Error generating RAML:", error);
-        toast.error("Error generating RAML: " + error.message);
-        setIsGenerating(false);
-        return;
-      }
-      
-      console.log("Generated RAML:", data);
-      setRamlOutput(data.raml || "# Failed to generate RAML");
-      
-      if (data.raml) {
-        toast.success("RAML specification generated successfully!");
-        setActiveTab('result');
-        
-        if (onTaskCreated && selectedWorkspaceId) {
-          onTaskCreated({
-            id: taskId,
-            label: apiName,
-            category: 'raml',
-            icon: "FileCode2",
-            workspace_id: selectedWorkspaceId,
-            content: {
-              apiName,
-              apiVersion,
-              baseUri,
-              description,
-              endpoints,
-              raml: data.raml,
-              documentation: showDocumentation ? documentation : undefined
-            }
-          });
-        }
-      } else {
-        toast.error("Failed to generate RAML");
-      }
-    } catch (error) {
-      console.error("Error in handleGenerate:", error);
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsGenerating(false);
-    }
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard!');
   };
-  
-  const handleSaveTask = async () => {
-    if (!taskName.trim()) {
-      toast.error("Task name is required");
-      return;
-    }
-    
-    if (!selectedWorkspaceId || !user) {
-      toast.error("Workspace or user information is missing");
-      return;
-    }
-    
-    try {
-      if (!ramlOutput) {
-        toast.error("Generate RAML first before saving");
-        return;
-      }
-      
-      const task = {
-        workspace_id: selectedWorkspaceId,
-        task_id: taskId,
-        task_name: taskName,
-        user_id: user.id,
-        description: description,
-        raml_content: ramlOutput,
-        api_name: apiName,
-        api_version: apiVersion,
-        base_uri: baseUri,
-        endpoints: endpoints,
-        documentation: showDocumentation ? documentation : ''
-      };
-      
-      const result = await saveRamlTask(task);
-      
-      setSaveDialogOpen(false);
-      toast.success("RAML task saved successfully!");
-      
-      if (onSaveTask) {
-        onSaveTask(taskId);
-      }
-    } catch (error) {
-      console.error("Error saving RAML task:", error);
-      toast.error("Failed to save RAML task");
-    }
-  };
-  
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(ramlOutput);
-    toast.success("RAML copied to clipboard!");
-  };
-  
-  return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex items-center p-4 border-b">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onBack || (() => navigate('/dashboard'))}
-          className="mr-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold">RAML API Specification Generator</h1>
-          <p className="text-muted-foreground">Generate RAML specifications for your APIs</p>
-        </div>
-      </div>
-      
-      <div className="flex-1 p-6 overflow-auto">
-        <motion.div 
-          className="mb-6 h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
-          initial={{ width: '0%' }}
-          animate={{ width: '100%' }}
-          transition={{ duration: 0.5 }}
-        />
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col">
-          <TabsList className="mb-4">
-            <TabsTrigger value="editor" className="flex items-center">
-              <Code className="h-4 w-4 mr-2" />
-              Editor
-            </TabsTrigger>
-            <TabsTrigger value="result" className="flex items-center">
-              <FileCode className="h-4 w-4 mr-2" />
-              Generated RAML
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="editor" className="space-y-6 flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="apiName" className="font-medium">API Name<span className="text-red-500">*</span></Label>
-                <Input 
-                  id="apiName"
-                  placeholder="e.g. Sample API"
-                  value={apiName}
-                  onChange={(e) => setApiName(e.target.value)}
-                  className="mb-2"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="apiVersion" className="font-medium">API Version</Label>
-                <Input 
-                  id="apiVersion"
-                  placeholder="e.g. v1"
-                  value={apiVersion}
-                  onChange={(e) => setApiVersion(e.target.value)}
-                  className="mb-2"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label htmlFor="baseUri" className="font-medium">Base URI</Label>
-              <Input 
-                id="baseUri"
-                placeholder="e.g. https://api.example.com/{version}"
-                value={baseUri}
-                onChange={(e) => setBaseUri(e.target.value)}
-                className="mb-2"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="description" className="font-medium">Description</Label>
-              <Textarea 
-                id="description"
-                placeholder="Describe your API..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="mb-4"
-              />
-            </div>
-            
-            <div className="flex items-center space-x-2 mb-4">
-              <Switch
-                id="documentation"
-                checked={showDocumentation}
-                onCheckedChange={setShowDocumentation}
-              />
-              <Label htmlFor="documentation">Include Additional Documentation</Label>
-            </div>
-            
-            {showDocumentation && (
-              <div className="mb-4">
-                <Label htmlFor="documentation-content" className="font-medium">Documentation</Label>
-                <Textarea
-                  id="documentation-content"
-                  placeholder="Add detailed documentation here..."
-                  value={documentation}
-                  onChange={(e) => setDocumentation(e.target.value)}
-                  rows={5}
-                  className="mb-4"
-                />
-              </div>
-            )}
-            
-            <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-semibold">Endpoints</h3>
-                <Button variant="outline" size="sm" onClick={addEndpoint}>
-                  Add Endpoint
-                </Button>
-              </div>
-              
-              <div className="space-y-4">
-                {endpoints.map((endpoint, index) => (
-                  <Card key={endpoint.id} className="border-gray-200">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-center">
-                        <CardTitle className="text-md">Endpoint {index + 1}</CardTitle>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => removeEndpoint(endpoint.id)}
-                          className="text-red-500 h-8 px-2"
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4 pb-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="font-medium">Path<span className="text-red-500">*</span></Label>
-                          <Input 
-                            placeholder="e.g. users"
-                            value={endpoint.path}
-                            onChange={(e) => updateEndpoint(endpoint.id, { path: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label className="font-medium">Description</Label>
-                          <Input 
-                            placeholder="Description for this endpoint"
-                            value={endpoint.description}
-                            onChange={(e) => updateEndpoint(endpoint.id, { description: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      
-                      <Collapsible className="w-full">
-                        <div className="flex justify-between items-center py-2">
-                          <h4 className="text-sm font-medium">Methods ({endpoint.methods.length})</h4>
-                          <div className="flex">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => addMethod(endpoint.id)}
-                              className="mr-2"
-                            >
-                              Add Method
-                            </Button>
-                            <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="sm" className="w-9 p-0">
-                                <Terminal className="h-4 w-4" />
-                              </Button>
-                            </CollapsibleTrigger>
-                          </div>
-                        </div>
-                        
-                        <CollapsibleContent className="space-y-3">
-                          {endpoint.methods.map((method, methodIndex) => (
-                            <Card key={method.id} className="border-gray-100">
-                              <CardHeader className="py-2 px-3">
-                                <div className="flex justify-between items-center">
-                                  <div className="flex items-center">
-                                    <select
-                                      value={method.type}
-                                      onChange={(e) => updateMethod(endpoint.id, method.id, { type: e.target.value as any })}
-                                      className="mr-2 text-xs font-medium py-1 px-2 rounded bg-gray-100 border-gray-200"
-                                    >
-                                      <option value="get">GET</option>
-                                      <option value="post">POST</option>
-                                      <option value="put">PUT</option>
-                                      <option value="delete">DELETE</option>
-                                    </select>
-                                    <span className="text-sm font-medium">/{endpoint.path}</span>
-                                  </div>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => removeMethod(endpoint.id, method.id)}
-                                    className="text-red-500 h-6 px-2 text-xs"
-                                  >
-                                    Remove
-                                  </Button>
-                                </div>
-                              </CardHeader>
-                              <CardContent className="py-2 px-3">
-                                <div className="mb-3">
-                                  <Label className="text-xs font-medium">Description</Label>
-                                  <Input 
-                                    size="sm"
-                                    placeholder="Method description"
-                                    value={method.description}
-                                    onChange={(e) => updateMethod(endpoint.id, method.id, { description: e.target.value })}
-                                    className="text-sm"
-                                  />
-                                </div>
-                                
-                                <Collapsible className="w-full">
-                                  <div className="flex justify-between items-center py-1">
-                                    <h5 className="text-xs font-medium">Query Parameters ({method.queryParams.length})</h5>
-                                    <div className="flex">
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        onClick={() => addQueryParam(endpoint.id, method.id)}
-                                        className="mr-1 h-6 text-xs"
-                                      >
-                                        Add Param
-                                      </Button>
-                                      <CollapsibleTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="w-6 h-6 p-0">
-                                          <Terminal className="h-3 w-3" />
-                                        </Button>
-                                      </CollapsibleTrigger>
-                                    </div>
-                                  </div>
-                                  
-                                  <CollapsibleContent className="space-y-2 mt-2">
-                                    {method.queryParams.length > 0 ? (
-                                      method.queryParams.map((param) => (
-                                        <div key={param.id} className="grid grid-cols-4 gap-2 items-center">
-                                          <Input 
-                                            placeholder="Name"
-                                            value={param.name}
-                                            onChange={(e) => updateQueryParam(endpoint.id, method.id, param.id, { name: e.target.value })}
-                                            className="text-xs col-span-1"
-                                          />
-                                          <select
-                                            value={param.type}
-                                            onChange={(e) => updateQueryParam(endpoint.id, method.id, param.id, { type: e.target.value })}
-                                            className="text-xs py-1 px-2 rounded bg-white border border-gray-200 col-span-1"
-                                          >
-                                            <option value="string">string</option>
-                                            <option value="number">number</option>
-                                            <option value="boolean">boolean</option>
-                                            <option value="date">date</option>
-                                          </select>
-                                          <div className="flex items-center col-span-1">
-                                            <input
-                                              type="checkbox"
-                                              id={`required-${param.id}`}
-                                              checked={param.required}
-                                              onChange={(e) => updateQueryParam(endpoint.id, method.id, param.id, { required: e.target.checked })}
-                                              className="mr-1"
-                                            />
-                                            <label htmlFor={`required-${param.id}`} className="text-xs">Required</label>
-                                          </div>
-                                          <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            onClick={() => removeQueryParam(endpoint.id, method.id, param.id)}
-                                            className="text-red-500 h-6 col-span-1"
-                                          >
-                                            Remove
-                                          </Button>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <div className="text-xs text-gray-500 italic">No query parameters defined</div>
-                                    )}
-                                  </CollapsibleContent>
-                                </Collapsible>
-                                
-                                <Collapsible className="w-full mt-3">
-                                  <div className="flex justify-between items-center py-1">
-                                    <h5 className="text-xs font-medium">Responses ({method.responses.length})</h5>
-                                    <div className="flex">
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        onClick={() => addResponse(endpoint.id, method.id)}
-                                        className="mr-1 h-6 text-xs"
-                                      >
-                                        Add Response
-                                      </Button>
-                                      <CollapsibleTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="w-6 h-6 p-0">
-                                          <Terminal className="h-3 w-3" />
-                                        </Button>
-                                      </CollapsibleTrigger>
-                                    </div>
-                                  </div>
-                                  
-                                  <CollapsibleContent className="space-y-2 mt-2">
-                                    {method.responses.length > 0 ? (
-                                      method.responses.map((response) => (
-                                        <div key={response.id} className="grid grid-cols-7 gap-2 items-center">
-                                          <Input 
-                                            placeholder="Code"
-                                            value={response.code}
-                                            onChange={(e) => updateResponse(endpoint.id, method.id, response.id, { code: e.target.value })}
-                                            className="text-xs col-span-1"
-                                          />
-                                          <Input 
-                                            placeholder="Description"
-                                            value={response.description}
-                                            onChange={(e) => updateResponse(endpoint.id, method.id, response.id, { description: e.target.value })}
-                                            className="text-xs col-span-5"
-                                          />
-                                          <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            onClick={() => removeResponse(endpoint.id, method.id, response.id)}
-                                            className="text-red-500 h-6 col-span-1"
-                                          >
-                                            Remove
-                                          </Button>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <div className="text-xs text-gray-500 italic">No responses defined</div>
-                                    )}
-                                  </CollapsibleContent>
-                                </Collapsible>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-            
-            <div className="flex justify-end mt-6">
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isGenerating ? (
-                  <>
-                    <RotateCw className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>Generate RAML</>
-                )}
-              </Button>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="result" className="space-y-6 flex-1">
-            {ramlOutput ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">{apiName} API Specification</h3>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" onClick={copyToClipboard}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy
-                    </Button>
-                    <Button onClick={() => setSaveDialogOpen(true)}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="border rounded-md h-[calc(100vh-300px)]">
-                  <MonacoEditor
-                    language="yaml"
-                    value={ramlOutput}
-                    readOnly={true}
-                    height="100%"
-                    options={{
-                      minimap: { enabled: true },
-                      scrollBeyondLastLine: false,
-                    }}
-                  />
-                </div>
-                
-                <div className="flex justify-end space-x-2 mt-4">
-                  <Button variant="outline" onClick={() => setActiveTab('editor')}>
-                    Back to Editor
-                  </Button>
-                  <Button onClick={() => setSaveDialogOpen(true)}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save
-                  </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => {
-                    window.open('https://editor.mulesoft.com', '_blank');
-                  }}>
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open in MuleSoft Anypoint
-                  </Button>
-                </div>
+
+  const filteredRamls = workspaceRamls.filter(raml =>
+    raml.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    raml.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderRepositorySelection = () => {
+    if (selectedOption !== 'withRepository') return null;
+
+    return (
+      <div className="space-y-4 mt-4">
+        <label className="block font-medium mb-2">
+          Repository:
+        </label>
+
+        {loadingRepositories ? (
+          <div className="flex justify-center py-4">
+            <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <>
+            {!selectedRepository ? (
+              <div className="text-center py-6 bg-gray-50 rounded-md">
+                <p className="text-gray-500">No repository selected</p>
+                <p className="text-gray-400 text-sm mt-1">Select a repository in Repository Settings</p>
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No RAML specification generated yet. Go to Editor tab and click Generate.</p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setActiveTab('editor')}
-                  className="mt-4"
-                >
-                  Go to Editor
-                </Button>
+              <div className="space-y-4">
+                <div className="bg-purple-50 border border-purple-200 p-4 rounded-md">
+                  <div className="flex items-center">
+                    <FileCode className="h-5 w-5 mr-2 text-purple-600" />
+                    <div>
+                      <div className="font-medium">{selectedRepository.name}</div>
+                      <div className="text-sm text-gray-600">{selectedRepository.full_name}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium mb-2">
+                    Repository Files:
+                  </label>
+
+                  {loadingRamlFile ? (
+                    <div className="flex justify-center py-4">
+                      <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="bg-gray-100 p-2 flex items-center border-b">
+                        <button
+                          onClick={goUpDirectory}
+                          disabled={currentDirectory === '/'}
+                          className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                        >
+                          <ArrowLeft size={16} />
+                        </button>
+                        <span className="text-sm font-medium truncate">
+                          {currentDirectory === '/' ? 'Root' : currentDirectory}
+                        </span>
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto">
+                        {getCurrentDirectoryContents().length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            No files found in this directory
+                          </div>
+                        ) : (
+                          <div className="divide-y">
+                            {getCurrentDirectoryContents().map((item, index) => (
+                              <div
+                                key={index}
+                                onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                                className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                                  selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path
+                                    ? 'bg-purple-50'
+                                    : ''
+                                }`}
+                              >
+                                {item.type === 'directory' ? (
+                                  <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                                ) : item.isRaml ? (
+                                  <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                                ) : (
+                                  <File className="h-4 w-4 mr-2 text-gray-500" />
+                                )}
+                                <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
+                                  {item.name}
+                                </span>
+                                {selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path && (
+                                  <Check className="h-4 w-4 ml-auto text-purple-600" />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {selectedRamlFile && (
+                  <div className="mt-4">
+                    <h3 className="text-md font-medium mb-2">Selected File:</h3>
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+                      <div className="flex items-center mb-2">
+                        <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                        <span className="font-medium">{selectedRamlFile.name}</span>
+                      </div>
+                      <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
+                      {selectedRamlFile.content && (
+                        <div className="mt-2 border rounded-md overflow-hidden">
+                          <MonacoEditor
+                            value={selectedRamlFile.content}
+                            language="yaml"
+                            height="200px"
+                            options={{ minimap: { enabled: false }, readOnly: true }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+          </>
+        )}
       </div>
-      
-      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Save RAML Specification</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="task-name">Task Name</Label>
-              <Input
-                id="task-name"
-                value={taskName}
-                onChange={(e) => setTaskName(e.target.value)}
-                placeholder={apiName ? `${apiName} API Specification` : "RAML Specification"}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="task-id">Task ID</Label>
-              <Input
-                id="task-id"
-                value={taskId}
-                readOnly
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveTask}>
-              <Save className="mr-2 h-4 w-4" />
-              Save RAML
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
+    );
+  };
 
-export default RAMLGenerator;
+  const renderProjectFolderUpload = () => {
+    if (selectedOption !== 'uploadComputer') return null;
+
+    return (
+      <div className="mt-4">
+        <input
+          type="file"
+          ref={projectFolderRef}
+          style={{ display: 'none' }}
+          onChange={handleProjectFolderUpload}
+          webkitdirectory=""
+          directory=""
+          multiple
+        />
+        <div
+          className="border-2 border-dashed rounded-lg p-12 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
+          onClick={handleProjectFolderClick}
+        >
+          <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4">
+            <Folder className="w-8 h-8 text-purple-600" />
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-medium text-gray-900 mb-1">Drag and drop or select your Mule project folder</p>
+            <p className="text-sm text-gray-500">
+              The code is used only for the purpose of the task and will be deleted once task is done
+            </p>
+          </div>
+        </div>
+
+        {localProjectFiles.length > 0 && (
+          <div className="mt-6">
+            <label className="block text-sm font-medium mb-2">
+              Project Files:
+            </label>
+
+            <div className="border rounded-md overflow-hidden">
+              <div className="bg-gray-100 p-2 flex items-center border-b">
+                <button
+                  onClick={goUpDirectory}
+                  disabled={currentDirectory === '/'}
+                  className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <span className="text-sm font-medium truncate">
+                  {currentDirectory === '/' ? 'Root' : currentDirectory}
+                </span>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto">
+                {getCurrentDirectoryContents().length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    No files found in this directory
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {getCurrentDirectoryContents().map((item, index) => (
+                      <div
+                        key={index}
+                        onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                        className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                          selectedRamlFile && item.type === 'file' && item.path === selectedRamlFile.path
+                            ? 'bg-purple-50'
+                            : ''
+                        }`}
+                      >
+                        {item.type === 'directory' ? (
+                          <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                        ) : item.isRaml ? (
+                          <FileCode className="h-4 w-4 mr-2 text-purple-600" />
+                        ) : (
+                          <File className="h-4 w-4 mr-2 text-gray-500" />
+                        )}
+                        <span className={`${item.isRaml ? 'font-medium text-purple-700' : ''}`}>
+                          {item.name}
+                        </span>

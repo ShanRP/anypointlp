@@ -1,4 +1,3 @@
-
 import { Database as OriginalDatabase } from './types';
 
 // Extend the original Database type to include our new tables
@@ -531,3 +530,11 @@ export interface ExtendedDatabase extends OriginalDatabase {
     };
   };
 }
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]

@@ -1,5 +1,9 @@
 
-import { toast } from "sonner";
+// This file re-exports the toast functionality and hooks
 
-// Re-export toast for use in components
-export { toast };
+import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+
+// Re-export for use in components
+export { toast, useToast };
+
