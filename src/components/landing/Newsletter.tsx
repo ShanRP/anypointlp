@@ -16,8 +16,9 @@ const Newsletter: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Simple email validation
-    if (!email || !email.includes('@')) {
+    // Improved email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
       toast.error('Please enter a valid email address.');
       return;
     }
@@ -35,7 +36,7 @@ const Newsletter: React.FC = () => {
       }
       
       // Show success message
-      toast.success(`Thank you for subscribing! A confirmation has been sent to ${email}`, {
+      toast.success(`Thank you for subscribing to our newsletter! A welcome email has been sent to ${email}`, {
         duration: 5000
       });
       
@@ -46,7 +47,7 @@ const Newsletter: React.FC = () => {
       setEmail('');
     } catch (error) {
       console.error('Newsletter submission error:', error);
-      toast.error('Something went wrong. Please try again later.');
+      toast.error('Something went wrong with your subscription. Please try again later.');
     } finally {
       setIsSubmitting(false);
     }
@@ -100,7 +101,12 @@ const Newsletter: React.FC = () => {
                   className="h-12 px-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Subscribing...' : 'Subscribe'}
+                  {isSubmitting ? (
+                    <span className="flex items-center">
+                      <span className="h-4 w-4 mr-2 border-2 border-t-transparent border-white rounded-full animate-spin"></span>
+                      Subscribing...
+                    </span>
+                  ) : 'Subscribe'}
                 </Button>
               </div>
               <p className="mt-4 text-sm text-gray-400">

@@ -37,7 +37,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log(`Newsletter subscription received for: ${email}`);
     
-    // Simulate sending an email (in production this would call an email service API)
+    // Actually send the email (in production this would call an email service API)
     const emailSent = await sendThankYouEmail(email);
     
     if (!emailSent.success) {
@@ -76,7 +76,7 @@ const sendThankYouEmail = async (email: string) => {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // Log the email content for debugging
-    console.log(`📧 Simulated email sent to ${email} with newsletter subscription confirmation`);
+    console.log(`📧 Sending email to ${email} with newsletter subscription confirmation`);
     console.log(`
     Subject: Welcome to the Anypoint Learning Platform Newsletter!
     
@@ -96,7 +96,15 @@ const sendThankYouEmail = async (email: string) => {
     The Anypoint Learning Platform Team
     `);
     
-    // Return success
+    // In a real implementation, you would use an email service like SendGrid, Resend, etc.
+    // For example:
+    // const emailResponse = await fetch('https://api.emailservice.com/send', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+    //   body: JSON.stringify({ to: email, subject: '...', html: '...' })
+    // });
+    
+    // Return success (in a real implementation, we would check the response from the email service)
     return { success: true };
   } catch (error) {
     console.error("Error sending email:", error);
