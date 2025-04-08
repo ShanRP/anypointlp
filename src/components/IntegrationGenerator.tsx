@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
+import { BackButton } from './ui/BackButton';
 
 export interface IntegrationGeneratorProps {
   onTaskCreated?: (task: any) => void;
@@ -75,6 +76,8 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
     pomDependencies: string;
     compilationCheck: string;
   } | null>(null);
+  const [taskId, setTaskId] = useState<string>(`IG-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [generatedTimestamp, setGeneratedTimestamp] = useState<string>('');
 
   const [ramlContent, setRamlContent] = useState<string>('');
   const [ramlOption, setRamlOption] = useState<'none' | 'input' | 'workspace'>('none');
@@ -581,33 +584,109 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
       const parsedResult = parseGeneratedCode(generatedCodeResult);
       setParsedSections(parsedResult);
       setCurrentView('result');
+      
+      const now = new Date();
+      setGeneratedTimestamp(now.toLocaleString());
 
-      const taskId = `IG-${Math.floor(1000 + Math.random() * 9000)}`;
-      const newTask = {
-        id: `task-${Date.now()}`,
-        label: `Integration Generator`,
-        category: 'coding',
-        task_id: taskId,
-        task_name: 'Integration Flow',
-        icon: 'CodeIcon',
-        workspace_id: selectedWorkspaceId || selectedWorkspace?.id || '',
-        created_at: new Date().toISOString(),
-        input_format: 'Flow Specification',
-        notes: description,
-        generated_scripts: [
-          {
-            id: `script-${Date.now()}`,
-            code: generatedCodeResult
+      const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
+      console.log('Using workspace ID for saving:', workspaceId);
+
+      if (user) {
+        try {
+          const integrationTaskData = {
+            task_id: taskId,
+            task_name: 'Integration Flow',
+            description: description,
+            user_id: user.id,
+            workspace_id: workspaceId,
+            category: 'integration',
+            runtime: `Java ${javaVersion}, Maven ${mavenVersion}`,
+            raml_content: selectedRamlFile?.content || ramlContent || '',
+            generated_code: generatedCodeResult,
+            flow_summary: parsedResult.flowSummary || '',
+            flow_implementation: parsedResult.flowImplementation || '',
+            flow_constants: parsedResult.flowConstants || '',
+            pom_dependencies: parsedResult.pomDependencies || '',
+            compilation_check: parsedResult.compilationCheck || '',
+            diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null
+          };
+
+          console.log('Saving integration task to dedicated table:', integrationTaskData.task_id);
+          const { data: taskData, error: taskError } = await supabase
+            .from('apl_integration_tasks')
+            .insert([integrationTaskData])
+            .select();
+
+          if (taskError) {
+            console.error('Error saving integration task:', taskError);
+          } else {
+            console.log('Successfully saved integration task:', taskData);
+            if (taskData && taskData.length > 0 && onSaveTask) {
+              onSaveTask(taskData[0].id);
+            }
           }
-        ]
-      };
-
-      if (onTaskCreated) {
-        onTaskCreated(newTask);
+        } catch (error) {
+          console.error("Error saving integration task:", error);
+        }
       }
 
-      if (onSaveTask) {
-        onSaveTask(taskId);
+      if (user) {
+        try {
+          const taskData = {
+            user_id: user.id,
+            workspace_id: workspaceId,
+            task_id: taskId,
+            task_name: 'Integration Flow',
+            input_format: 'Flow Specification',
+            input_samples: JSON.parse(JSON.stringify([{ id: 'input1', value: description, isValid: true }])),
+            output_samples: JSON.parse(JSON.stringify([])),
+            notes: description,
+            generated_scripts: JSON.parse(JSON.stringify([{
+              id: `script-${Date.now()}`,
+              code: generatedCodeResult,
+              pairId: 'input1'
+            }])),
+            category: 'integration',
+            username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
+            description: description.substring(0, 255)
+          };
+
+          console.log('Saving integration task to general tasks table:', taskData.task_id);
+          const { data, error } = await supabase
+            .from('apl_dataweave_tasks')
+            .insert([taskData]);
+            
+          if (error) {
+            console.error('Error saving to general tasks table:', error);
+          } else {
+            console.log('Successfully saved to general tasks table');
+          }
+        } catch (error) {
+          console.error("Error saving to general tasks table:", error);
+        }
+      }
+
+      if (onTaskCreated) {
+        const newTask = {
+          id: `task-${Date.now()}`,
+          label: `Integration Generator`,
+          category: 'integration',
+          task_id: taskId,
+          task_name: 'Integration Flow',
+          icon: 'CodeIcon',
+          workspace_id: workspaceId,
+          created_at: new Date().toISOString(),
+          input_format: 'Flow Specification',
+          notes: description,
+          generated_scripts: [
+            {
+              id: `script-${Date.now()}`,
+              code: generatedCodeResult
+            }
+          ]
+        };
+
+        onTaskCreated(newTask);
       }
 
       toast.success('Integration code generated successfully!');
@@ -877,13 +956,28 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
       transition={{ duration: 0.3 }}
     >
       <div className="flex items-center mb-4">
-        <button onClick={handleBackNavigation} className="mr-4 text-gray-600 hover:text-gray-900 transition-colors">
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold mb-1">Integration Generator</h1>
-          <p className="text-gray-600">Create flow code from flow specifications and flow diagrams</p>
-        </div>
+        {currentView === 'editor' ? (
+          <>
+            <button onClick={handleBackNavigation} className="mr-4 text-gray-600 hover:text-gray-900 transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold mb-1">Integration Generator</h1>
+              <p className="text-gray-600">Create flow code from flow specifications and flow diagrams</p>
+            </div>
+          </>
+        ) : (
+          <BackButton 
+            onBack={handleBackNavigation}
+            label={`Task: ${taskId}`}
+            description={
+              <div className="flex items-center text-sm text-gray-500">
+                <Calendar size={14} className="mr-2" />
+                <span>{generatedTimestamp}</span>
+              </div>
+            }
+          />
+        )}
       </div>
 
       <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-purple-50 dark:from-purple-900/20 dark:via-blue-900/20 dark:to-purple-900/20 h-2 w-full rounded-full mb-8">

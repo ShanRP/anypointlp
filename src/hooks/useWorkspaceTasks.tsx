@@ -44,6 +44,41 @@ export const useWorkspaceTasks = (workspaceId: string) => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
+  // Function to fetch integration tasks
+  const fetchIntegrationTasks = useCallback(async () => {
+    if (!workspaceId) return [];
+    
+    try {
+      console.log('Fetching integration tasks for workspace:', workspaceId);
+      
+      const { data, error } = await supabase.rpc('apl_get_integration_tasks', { 
+        workspace_id_param: workspaceId 
+      });
+      
+      if (error) {
+        console.error('Error fetching integration tasks:', error);
+        throw error;
+      }
+      
+      // Format integration tasks to match the WorkspaceTask interface
+      const integrationTasks = (data || []).map((task: any) => ({
+        id: task.id,
+        task_id: task.task_id,
+        task_name: task.task_name,
+        created_at: task.created_at,
+        workspace_id: workspaceId,
+        category: 'integration',
+        description: task.description || ''
+      }));
+      
+      console.log('Fetched integration tasks:', integrationTasks.length);
+      return integrationTasks;
+    } catch (err: any) {
+      console.error('Error in fetchIntegrationTasks:', err);
+      return [];
+    }
+  }, [workspaceId]);
+
   const fetchWorkspaceTasks = useCallback(async () => {
     if (!workspaceId) return;
     
@@ -51,6 +86,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     setError(null);
     
     try {
+      // Fetch regular tasks
       const { data, error } = await supabase.rpc('apl_get_workspace_tasks', { 
         workspace_id_param: workspaceId 
       });
@@ -73,7 +109,16 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}` // Ensure a proper task_id is set
       }));
       
-      setTasks(workspaceTasks);
+      // Fetch integration tasks
+      const integrationTasks = await fetchIntegrationTasks();
+      
+      // Combine both types of tasks and sort by creation date (newest first)
+      const allTasks = [...workspaceTasks, ...integrationTasks].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      setTasks(allTasks);
+      console.log('Total tasks loaded:', allTasks.length);
     } catch (err: any) {
       console.error('Error fetching workspace tasks:', err);
       setError(err.message);
@@ -81,13 +126,72 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [workspaceId, fetchIntegrationTasks]);
+
+  // Function to fetch integration task details
+  const fetchIntegrationTaskDetails = async (taskId: string) => {
+    try {
+      console.log('Fetching integration task details for:', taskId);
+      
+      const { data, error } = await supabase.rpc('apl_get_integration_task_details', { 
+        task_id_param: taskId 
+      });
+      
+      if (error) {
+        console.error('Error fetching integration task details:', error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        const integrationTask = data[0];
+        
+        // Convert to TaskDetails format
+        const taskDetails: TaskDetails = {
+          id: integrationTask.id,
+          task_id: integrationTask.task_id,
+          task_name: integrationTask.task_name,
+          input_format: 'Flow Specification',
+          input_samples: [{ id: 'input1', value: integrationTask.description, isValid: true }],
+          output_samples: [],
+          notes: integrationTask.description || '',
+          generated_scripts: [{
+            id: `script-${Date.now()}`,
+            code: integrationTask.generated_code,
+          }],
+          created_at: integrationTask.created_at,
+          workspace_id: workspaceId,
+          category: 'integration',
+          description: integrationTask.description || ''
+        };
+        
+        setSelectedTask(taskDetails);
+        return taskDetails;
+      }
+      
+      return null;
+    } catch (err: any) {
+      console.error('Error in fetchIntegrationTaskDetails:', err);
+      return null;
+    }
+  };
 
   const fetchTaskDetails = async (taskId: string) => {
     setLoading(true);
     setError(null);
     
     try {
+      // First try to get integration task details
+      const integrationTaskDetails = await fetchIntegrationTaskDetails(taskId);
+      
+      if (integrationTaskDetails) {
+        // Task found in integration tasks
+        console.log('Found task in integration tasks table');
+        return;
+      }
+      
+      console.log('Task not found in integration tasks, checking regular tasks');
+      
+      // If not found, try regular task details
       const { data, error } = await supabase.rpc('apl_get_task_details', { 
         task_id_param: taskId 
       });
@@ -121,6 +225,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         } as TaskDetails;
         
         setSelectedTask(taskWithWorkspace);
+        console.log('Found task in regular tasks table');
       } else {
         setSelectedTask(null);
         toast.warning('Task not found');

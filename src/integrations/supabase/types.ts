@@ -217,6 +217,69 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_integration_tasks: {
+        Row: {
+          category: string | null
+          compilation_check: string | null
+          created_at: string | null
+          description: string | null
+          diagrams: Json | null
+          flow_constants: string | null
+          flow_implementation: string | null
+          flow_summary: string | null
+          generated_code: string | null
+          id: string
+          pom_dependencies: string | null
+          raml_content: string | null
+          runtime: string | null
+          task_id: string
+          task_name: string
+          updated_at: string | null
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          category?: string | null
+          compilation_check?: string | null
+          created_at?: string | null
+          description?: string | null
+          diagrams?: Json | null
+          flow_constants?: string | null
+          flow_implementation?: string | null
+          flow_summary?: string | null
+          generated_code?: string | null
+          id?: string
+          pom_dependencies?: string | null
+          raml_content?: string | null
+          runtime?: string | null
+          task_id: string
+          task_name: string
+          updated_at?: string | null
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          category?: string | null
+          compilation_check?: string | null
+          created_at?: string | null
+          description?: string | null
+          diagrams?: Json | null
+          flow_constants?: string | null
+          flow_implementation?: string | null
+          flow_summary?: string | null
+          generated_code?: string | null
+          id?: string
+          pom_dependencies?: string | null
+          raml_content?: string | null
+          runtime?: string | null
+          task_id?: string
+          task_name?: string
+          updated_at?: string | null
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       apl_job_comments: {
         Row: {
           comment: string
@@ -407,6 +470,52 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apl_get_integration_task_details: {
+        Args: { task_id_param: string }
+        Returns: {
+          category: string | null
+          compilation_check: string | null
+          created_at: string | null
+          description: string | null
+          diagrams: Json | null
+          flow_constants: string | null
+          flow_implementation: string | null
+          flow_summary: string | null
+          generated_code: string | null
+          id: string
+          pom_dependencies: string | null
+          raml_content: string | null
+          runtime: string | null
+          task_id: string
+          task_name: string
+          updated_at: string | null
+          user_id: string | null
+          workspace_id: string
+        }[]
+      }
+      apl_get_integration_tasks: {
+        Args: { workspace_id_param: string }
+        Returns: {
+          category: string | null
+          compilation_check: string | null
+          created_at: string | null
+          description: string | null
+          diagrams: Json | null
+          flow_constants: string | null
+          flow_implementation: string | null
+          flow_summary: string | null
+          generated_code: string | null
+          id: string
+          pom_dependencies: string | null
+          raml_content: string | null
+          runtime: string | null
+          task_id: string
+          task_name: string
+          updated_at: string | null
+          user_id: string | null
+          workspace_id: string
+        }[]
+      }
       apl_get_task_details: {
         Args: { task_id_param: string }
         Returns: {
