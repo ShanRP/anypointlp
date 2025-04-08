@@ -182,6 +182,8 @@ export type Database = {
           updated_at: string
           user_id: string
           username: string | null
+          visibility: string
+          workspace_id: string | null
         }
         Insert: {
           content: Json
@@ -195,6 +197,8 @@ export type Database = {
           updated_at?: string
           user_id: string
           username?: string | null
+          visibility?: string
+          workspace_id?: string | null
         }
         Update: {
           content?: Json
@@ -208,6 +212,8 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string | null
+          visibility?: string
+          workspace_id?: string | null
         }
         Relationships: []
       }
