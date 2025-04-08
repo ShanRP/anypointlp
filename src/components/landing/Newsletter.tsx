@@ -53,7 +53,7 @@ const Newsletter: React.FC = () => {
           throw new Error('Error saving your subscription');
         }
         
-        toast.success(`Thank you for subscribing to our newsletter! ${email} has been added to our mailing list.`, {
+        toast.success(`Thank you for subscribing to our newsletter! We've added ${email} to our mailing list.`, {
           duration: 5000
         });
       }
