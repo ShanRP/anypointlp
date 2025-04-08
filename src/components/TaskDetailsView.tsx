@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Calendar, Tag, Code, Copy } from 'lucide-react';
 import { TaskDetails } from '@/hooks/useWorkspaceTasks';
@@ -223,7 +224,8 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
     );
   };
 
-  const isIntegrationTask = task.task_name?.includes('Integration Flow');
+  // Check if this is an integration task by checking category or task name
+  const isIntegrationTask = task.category === 'integration' || task.task_name?.includes('Integration Flow');
 
   return (
     <motion.div 
