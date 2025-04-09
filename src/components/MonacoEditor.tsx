@@ -21,7 +21,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   readOnly = false,
   options = {},
   style,
-  theme = 'vs-dark'
+  theme = 'vs'
 }) => {
   return (
     <div style={{ width: '100%', height, ...style }}>
