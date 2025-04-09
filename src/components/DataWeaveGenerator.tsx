@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Loader2, ArrowLeft, FileCode, Check, Folder, File } from 'lucide-react';
@@ -894,4 +895,98 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
 
             <div className="space-y-6">
               <div>
-                <label htmlFor="inputFormat" className="block text-sm font-medium text-gray-7
+                <label htmlFor="inputFormat" className="block text-sm font-medium text-gray-700 mb-2">Input Format</label>
+                <Select
+                  value={inputFormat}
+                  onValueChange={setInputFormat}
+                >
+                  <SelectTrigger className="w-full md:w-60">
+                    <SelectValue placeholder="Select input format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="JSON">JSON</SelectItem>
+                    <SelectItem value="XML">XML</SelectItem>
+                    <SelectItem value="CSV">CSV</SelectItem>
+                    <SelectItem value="YAML">YAML</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-6">
+                {pairs.map((pair, index) => (
+                  <DataWeaveInputOutputPair
+                    key={pair.id}
+                    id={pair.id}
+                    inputFormat={inputFormat}
+                    inputSample={pair.inputSample}
+                    outputSample={pair.outputSample}
+                    onInputChange={updateInputSample}
+                    onOutputChange={updateOutputSample}
+                    onDelete={() => removeInputOutputPair(pair.id)}
+                  />
+                ))}
+
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    onClick={addInputOutputPair}
+                    variant="outline"
+                    className="flex items-center"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Another Input/Output Pair
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">Additional Notes (Optional)</label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add any additional context or requirements for the DataWeave transformation..."
+                  className="h-24"
+                />
+              </div>
+
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                  {formError}
+                </div>
+              )}
+
+              <div className="flex justify-center pt-4">
+                <Button
+                  onClick={handleGenerateDataWeave}
+                  disabled={isGenerating}
+                  className="w-full md:w-auto min-w-[200px]"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate DataWeave Script'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <div className="max-w-5xl mx-auto">
+            <DataWeaveScripts 
+              scripts={generatedScripts} 
+              onNewTask={handleReset}
+              pairs={pairs}
+              notes={notes}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default DataWeaveGenerator;
