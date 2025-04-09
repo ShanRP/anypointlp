@@ -147,6 +147,65 @@ export interface ExtendedDatabase extends OriginalDatabase {
         };
         Relationships: [];
       };
+      apl_munit_tasks: {
+        Row: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          munit_content: string | null;
+          flow_implementation: string | null;
+          flow_description: string | null;
+          runtime: string | null;
+          number_of_scenarios: number | null;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          category?: string;
+          munit_content?: string | null;
+          flow_implementation?: string | null;
+          flow_description?: string | null;
+          runtime?: string | null;
+          number_of_scenarios?: number | null;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          task_name?: string;
+          user_id?: string;
+          workspace_id?: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          category?: string;
+          munit_content?: string | null;
+          flow_implementation?: string | null;
+          flow_description?: string | null;
+          runtime?: string | null;
+          number_of_scenarios?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "apl_munit_tasks_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Functions: OriginalDatabase['public']['Functions'] & {
       apl_get_raml_tasks: {
@@ -187,6 +246,44 @@ export interface ExtendedDatabase extends OriginalDatabase {
           base_uri: string;
           endpoints: Json;
           documentation: string;
+        }[];
+      };
+      apl_get_munit_tasks: {
+        Args: { workspace_id_param: string };
+        Returns: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          munit_content: string | null;
+          flow_implementation: string | null;
+          flow_description: string | null;
+          runtime: string | null;
+          number_of_scenarios: number | null;
+        }[];
+      };
+      apl_get_munit_task_details: {
+        Args: { task_id_param: string };
+        Returns: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          munit_content: string | null;
+          flow_implementation: string | null;
+          flow_description: string | null;
+          runtime: string | null;
+          number_of_scenarios: number | null;
         }[];
       };
     };

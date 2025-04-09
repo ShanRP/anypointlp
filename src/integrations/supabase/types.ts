@@ -351,6 +351,57 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_munit_tasks: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          flow_description: string | null
+          flow_implementation: string | null
+          id: string
+          munit_content: string | null
+          number_of_scenarios: number | null
+          runtime: string | null
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          flow_description?: string | null
+          flow_implementation?: string | null
+          id?: string
+          munit_content?: string | null
+          number_of_scenarios?: number | null
+          runtime?: string | null
+          task_id: string
+          task_name: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          flow_description?: string | null
+          flow_implementation?: string | null
+          id?: string
+          munit_content?: string | null
+          number_of_scenarios?: number | null
+          runtime?: string | null
+          task_id?: string
+          task_name?: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       apl_newsletter_subscribers: {
         Row: {
           created_at: string
@@ -594,6 +645,44 @@ export type Database = {
           workspace_id: string
         }[]
       }
+      apl_get_munit_task_details: {
+        Args: { task_id_param: string }
+        Returns: {
+          category: string
+          created_at: string
+          description: string | null
+          flow_description: string | null
+          flow_implementation: string | null
+          id: string
+          munit_content: string | null
+          number_of_scenarios: number | null
+          runtime: string | null
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }[]
+      }
+      apl_get_munit_tasks: {
+        Args: { workspace_id_param: string }
+        Returns: {
+          category: string
+          created_at: string
+          description: string | null
+          flow_description: string | null
+          flow_implementation: string | null
+          id: string
+          munit_content: string | null
+          number_of_scenarios: number | null
+          runtime: string | null
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }[]
+      }
       apl_get_raml_task_details: {
         Args: { task_id_param: string }
         Returns: {
@@ -670,7 +759,9 @@ export type Database = {
           id: string
           task_id: string
           task_name: string
+          category: string
           created_at: string
+          description: string
         }[]
       }
       apl_increment_exchange_counter: {
