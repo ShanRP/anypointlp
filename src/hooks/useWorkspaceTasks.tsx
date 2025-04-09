@@ -173,17 +173,19 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching Sample Data tasks for workspace:', workspaceId);
       
+      // Using direct query instead of RPC function to avoid type issues
       const { data, error } = await supabase
-        .rpc('apl_get_sample_data_tasks', { 
-          workspace_id_param: workspaceId 
-        });
+        .from('apl_sample_data_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching Sample Data tasks:', error);
         throw error;
       }
       
-      const sampleDataTasks = Array.isArray(data) ? data.map((task: any) => ({
+      const sampleDataTasks = (data || []).map((task: any) => ({
         id: task.id,
         task_id: task.task_id,
         task_name: task.task_name,
@@ -191,7 +193,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         workspace_id: workspaceId,
         category: 'sampledata',
         description: task.description || ''
-      })) : [];
+      }));
       
       console.log('Fetched Sample Data tasks:', sampleDataTasks.length);
       return sampleDataTasks;
@@ -467,9 +469,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       } else {
         console.log('Using task_id for Sample Data task lookup:', taskId);
         const result = await supabase
-          .rpc('apl_get_sample_data_task_details', { 
-            task_id_param: taskId 
-          });
+          .from('apl_sample_data_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .limit(1);
           
         data = result.data;
         error = result.error;
@@ -749,29 +752,31 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       console.log('Saving sample data task with ID:', taskId);
       
-      const taskData = {
-        workspace_id: task.workspace_id,
-        task_id: taskId,
-        task_name: task.task_name,
-        user_id: task.user_id,
-        description: task.description || '',
-        source_format: task.source_format || 'JSON',
-        schema_content: task.schema_content || '',
-        result_content: task.result_content || '',
-        notes: task.notes || '',
-        category: 'sampledata'
-      };
-
+      // Direct insert instead of using RPC to avoid type issues
       const { data, error } = await supabase
-        .rpc('apl_insert_sample_data_task', taskData);
+        .from('apl_sample_data_tasks')
+        .insert([{
+          workspace_id: task.workspace_id,
+          task_id: taskId,
+          task_name: task.task_name,
+          user_id: task.user_id,
+          description: task.description || '',
+          source_format: task.source_format || 'JSON',
+          schema_content: task.schema_content || '',
+          result_content: task.result_content || '',
+          notes: task.notes || '',
+          category: 'sampledata'
+        }])
+        .select();
       
       if (error) {
-        console.error('Error from RPC call:', error);
+        console.error('Error saving Sample Data task:', error);
         throw error;
       }
       
       console.log('Sample data task saved successfully:', data);
       
+      // Fetch tasks immediately after saving to update the list
       await fetchWorkspaceTasks();
       
       toast.success('Sample Data task saved successfully!');
