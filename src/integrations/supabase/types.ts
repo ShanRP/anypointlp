@@ -779,22 +779,6 @@ export type Database = {
         }
         Returns: string
       }
-      apl_insert_munit_task: {
-        Args: {
-          workspace_id: string
-          task_id: string
-          task_name: string
-          user_id: string
-          description?: string
-          flow_implementation?: string
-          flow_description?: string
-          munit_content?: string
-          runtime?: string
-          number_of_scenarios?: number
-          category?: string
-        }
-        Returns: string
-      }
       apl_upsert_peer_connection: {
         Args: {
           p_user_id: string

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Calendar, Tag, Code, Copy } from 'lucide-react';
 import { TaskDetails } from '@/hooks/useWorkspaceTasks';
@@ -437,7 +436,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => copyToClipboard(task.raml_content || '')}
+                  onClick={() => copyToClipboard(task.raml_content)}
                   className="text-xs"
                 >
                   <Copy size={14} className="mr-1" /> Copy
@@ -445,7 +444,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
               </div>
               <div className="relative">
                 <MonacoEditor
-                  value={task.raml_content || ''}
+                  value={task.raml_content}
                   language="yaml"
                   height="400px"
                   readOnly={true}
@@ -462,7 +461,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
               </Button>
               <Button 
                 onClick={() => {
-                  navigator.clipboard.writeText(task.raml_content || '');
+                  navigator.clipboard.writeText(task.raml_content);
                   toast.success('All content copied to clipboard!');
                 }}
                 className="bg-black hover:bg-gray-800 text-white"
@@ -589,7 +588,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <span>{new Date(task.created_at).toLocaleString()}</span>
             <span className="mx-2">•</span>
             <Tag size={14} className="mr-2" />
-            <span>{task.category.toUpperCase()}</span>
+            <span>{task.input_format}</span>
           </div>
         }
       />
