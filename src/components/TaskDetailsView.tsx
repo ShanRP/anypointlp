@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ArrowLeft, Copy, Download, Code, Database } from 'lucide-react';
 import { Button } from './ui/button';

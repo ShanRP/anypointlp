@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -746,6 +747,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       const taskId = task.task_id || `S-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
+      console.log('Saving sample data task with ID:', taskId);
+      
       const taskData = {
         workspace_id: task.workspace_id,
         task_id: taskId,
@@ -762,7 +765,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       const { data, error } = await supabase
         .rpc('apl_insert_sample_data_task', taskData);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error from RPC call:', error);
+        throw error;
+      }
+      
+      console.log('Sample data task saved successfully:', data);
       
       await fetchWorkspaceTasks();
       

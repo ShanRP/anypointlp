@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, AlertCircle } from 'lucide-react';
@@ -132,6 +133,16 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
     try {
       setIsSaving(true);
       
+      console.log('Saving sample data task:', {
+        workspace_id: selectedWorkspaceId,
+        task_id: taskId,
+        task_name: taskName,
+        description: notes || `Sample data in ${generationType} format`,
+        source_format: generationType,
+        schema_content: schema,
+        result_content: result
+      });
+      
       const taskData = {
         workspace_id: selectedWorkspaceId,
         task_id: taskId,
@@ -144,7 +155,7 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
         notes: notes
       };
       
-      const savedTask = await saveSampleDataTask(taskData);
+      await saveSampleDataTask(taskData);
       
       if (onSaveTask) {
         onSaveTask(taskId);
