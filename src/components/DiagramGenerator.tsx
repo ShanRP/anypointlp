@@ -249,8 +249,8 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
               result_content: content
             });
             
-            if (savedTask && onSaveTask) {
-              onSaveTask(savedTask[0].task_id);
+            if (savedTask && savedTask.length > 0 && onSaveTask) {
+              onSaveTask(savedTask[0].id);
             }
             
             toast.success('Diagram saved to workspace!');

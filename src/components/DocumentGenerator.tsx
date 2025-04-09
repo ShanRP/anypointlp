@@ -222,8 +222,8 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               result_content: generatedResult
             });
             
-            if (savedTask && onSaveTask) {
-              onSaveTask(savedTask[0].task_id);
+            if (savedTask && savedTask.length > 0 && onSaveTask) {
+              onSaveTask(savedTask[0].id);
             }
             
             toast.success('Document saved to workspace!');
