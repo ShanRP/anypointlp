@@ -22,15 +22,19 @@ export function UserCreditsDisplay() {
   const [isLow, setIsLow] = useState(false);
   const [isPro, setIsPro] = useState(false);
 
+  // Combined all state updates in a single effect to prevent cascading updates
   useEffect(() => {
     if (credits) {
+      // Calculate values once from credits data
       const limit = credits.is_pro ? 100 : 3;
       const remaining = limit - credits.credits_used;
+      
+      // Update all states at once to prevent re-renders
       setCreditsRemaining(remaining);
       setIsLow(remaining <= 1 && !credits.is_pro);
       setIsPro(credits.is_pro);
     }
-  }, [credits]);
+  }, [credits]); // Only depend on credits object, not on derived states
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);

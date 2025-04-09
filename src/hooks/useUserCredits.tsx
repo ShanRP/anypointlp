@@ -177,7 +177,7 @@ export const useUserCredits = () => {
     }
   }, [user, credits]);
 
-  // Initialize or reset credits on mount
+  // Initialize or reset credits on mount and when the user changes
   useEffect(() => {
     fetchUserCredits();
   }, [fetchUserCredits]);
