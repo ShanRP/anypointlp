@@ -1,4 +1,5 @@
 
+
 -- Create user credits table
 CREATE TABLE IF NOT EXISTS public.apl_user_credits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -65,3 +66,4 @@ CREATE TRIGGER update_user_credits_timestamp
 BEFORE UPDATE ON public.apl_user_credits
 FOR EACH ROW
 EXECUTE FUNCTION public.update_user_credits_timestamp();
+

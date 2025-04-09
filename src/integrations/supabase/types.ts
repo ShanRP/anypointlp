@@ -675,6 +675,39 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_user_credits: {
+        Row: {
+          created_at: string
+          credits_limit: number
+          credits_used: number
+          id: string
+          is_pro: boolean
+          reset_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_limit?: number
+          credits_used?: number
+          id?: string
+          is_pro?: boolean
+          reset_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_limit?: number
+          credits_used?: number
+          id?: string
+          is_pro?: boolean
+          reset_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       apl_user_sessions: {
         Row: {
           created_at: string

@@ -8,19 +8,20 @@ import { toast } from 'sonner';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
-import { IntegrationGeneratorProps } from '@/hooks/useWorkspaceTasks';
 import { useUserCredits } from '@/hooks/useUserCredits';
 
 interface DiagramGeneratorProps {
   onBack: () => void;
   selectedWorkspaceId?: string;
   onSaveTask?: (taskId: string) => void;
+  onTaskCreated?: (task: any) => void;
 }
 
 const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({ 
   onBack, 
   selectedWorkspaceId = 'default',
-  onSaveTask 
+  onSaveTask,
+  onTaskCreated
 }) => {
   const [taskName, setTaskName] = useState('');
   const [ramlContent, setRamlContent] = useState('');
@@ -72,7 +73,7 @@ const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({
       if (savedTask && Array.isArray(savedTask) && savedTask.length > 0) {
         const taskId = savedTask[0].task_id;
         toast.success(`Diagram task saved successfully with ID: ${taskId}`);
-        onSaveTask && onSaveTask(taskId);
+        if (onSaveTask) onSaveTask(taskId);
       } else {
         toast.error('Failed to save diagram task.');
       }

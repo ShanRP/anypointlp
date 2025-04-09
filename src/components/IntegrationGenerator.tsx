@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -108,6 +108,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectFolderRef = useRef<HTMLInputElement>(null);
   const { selectedWorkspace } = useWorkspaces();
+  const [isGenerating, setIsGenerating] = useState(false);
   
   useEffect(() => {
     const storedRepo = localStorage.getItem('APL_selectedGithubRepo');
@@ -372,7 +373,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
       const directories: Record<string, FileNode> = {};
 
       files.forEach(file => {
-        const path = file.webkitRelativePath;
+        const path = (file as any).webkitRelativePath;
         const pathParts = path.split('/');
 
         if (pathParts.length <= 1) return;
@@ -432,7 +433,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                 setRamlFiles(prev => [...prev, ramlFile]);
               }
             };
-            reader.readAsText(file);
+            reader.readAsText(file as Blob);
           }
         }
       });

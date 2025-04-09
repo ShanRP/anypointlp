@@ -62,7 +62,7 @@ export const useUserCredits = () => {
           .single();
 
         if (insertError) throw insertError;
-        setCredits(newData);
+        setCredits(newData as UserCredits);
       } else {
         // Check if we need to reset credits (reset_date has passed)
         const resetDate = new Date(data.reset_date);
@@ -85,9 +85,9 @@ export const useUserCredits = () => {
             .single();
 
           if (updateError) throw updateError;
-          setCredits(updatedData);
+          setCredits(updatedData as UserCredits);
         } else {
-          setCredits(data);
+          setCredits(data as UserCredits);
         }
       }
     } catch (err: any) {
@@ -129,7 +129,7 @@ export const useUserCredits = () => {
 
       if (error) throw error;
 
-      setCredits(data);
+      setCredits(data as UserCredits);
       
       // If this is their last credit, show a warning
       if (newCreditsUsed === proLimit) {
@@ -167,7 +167,7 @@ export const useUserCredits = () => {
 
       if (error) throw error;
 
-      setCredits(data);
+      setCredits(data as UserCredits);
       toast.success('Successfully upgraded to Pro Plan! You now have 100 credits per month.');
       return true;
     } catch (err: any) {
