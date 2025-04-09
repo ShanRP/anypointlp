@@ -10,6 +10,7 @@ interface MonacoEditorProps {
   readOnly?: boolean;
   options?: Record<string, any>;
   style?: React.CSSProperties;
+  theme?: string; // Added theme property
 }
 
 const MonacoEditor: React.FC<MonacoEditorProps> = ({
@@ -19,7 +20,8 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   height = '100%',
   readOnly = false,
   options = {},
-  style
+  style,
+  theme = 'vs-dark' // Added default theme
 }) => {
   return (
     <div style={{ width: '100%', height, ...style }}>
@@ -28,6 +30,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
         language={language}
         value={value}
         onChange={onChange}
+        theme={theme} // Pass theme to Editor
         options={{
           minimap: { enabled: false },
           lineNumbers: 'on',

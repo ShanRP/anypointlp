@@ -1,3 +1,4 @@
+
 import { Database as OriginalDatabase } from './types';
 
 // Extend the original Database type to include our new tables
@@ -204,6 +205,62 @@ export interface ExtendedDatabase extends OriginalDatabase {
             referencedColumns: ["id"]
           }
         ]
+      },
+      apl_sample_data_tasks: {
+        Row: {
+          id: string
+          task_id: string
+          task_name: string
+          user_id: string
+          workspace_id: string
+          description: string
+          created_at: string
+          updated_at: string
+          category: string
+          source_format: string
+          schema_content: string
+          result_content: string
+          notes: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          task_name: string
+          user_id: string
+          workspace_id: string
+          description?: string
+          created_at?: string
+          updated_at?: string
+          category?: string
+          source_format: string
+          schema_content?: string
+          result_content?: string
+          notes?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          task_name?: string
+          user_id?: string
+          workspace_id?: string
+          description?: string
+          created_at?: string
+          updated_at?: string
+          category?: string
+          source_format?: string
+          schema_content?: string
+          result_content?: string
+          notes?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apl_sample_data_tasks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     };
     Functions: OriginalDatabase['public']['Functions'] & {
@@ -265,7 +322,7 @@ export interface ExtendedDatabase extends OriginalDatabase {
           runtime: string
           number_of_scenarios: number
         }[]
-      }
+      },
       apl_get_munit_task_details: {
         Args: { task_id_param: string }
         Returns: {
@@ -284,6 +341,73 @@ export interface ExtendedDatabase extends OriginalDatabase {
           runtime: string
           number_of_scenarios: number
         }[]
+      },
+      apl_get_sample_data_tasks: {
+        Args: { workspace_id_param: string }
+        Returns: {
+          id: string
+          task_id: string
+          task_name: string
+          user_id: string
+          workspace_id: string
+          description: string
+          created_at: string
+          updated_at: string
+          category: string
+          source_format: string
+          schema_content: string
+          result_content: string
+          notes: string
+        }[]
+      },
+      apl_get_sample_data_task_details: {
+        Args: { task_id_param: string }
+        Returns: {
+          id: string
+          task_id: string
+          task_name: string
+          user_id: string
+          workspace_id: string
+          description: string
+          created_at: string
+          updated_at: string
+          category: string
+          source_format: string
+          schema_content: string
+          result_content: string
+          notes: string
+        }[]
+      },
+      apl_insert_munit_task: {
+        Args: {
+          workspace_id: string
+          task_id: string
+          task_name: string
+          user_id: string
+          description?: string
+          flow_implementation?: string
+          flow_description?: string
+          munit_content?: string
+          runtime?: string
+          number_of_scenarios?: number
+          category?: string
+        },
+        Returns: string
+      },
+      apl_insert_sample_data_task: {
+        Args: {
+          workspace_id: string
+          task_id: string
+          task_name: string
+          user_id: string
+          description?: string
+          source_format?: string
+          schema_content?: string
+          result_content?: string
+          notes?: string
+          category?: string
+        },
+        Returns: string
       }
     };
   };
