@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, AlertCircle } from 'lucide-react';
@@ -14,11 +15,19 @@ import { toast } from 'sonner';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { FileNode, isFileOfType, pathExistsInFileStructure, getNodeByPath } from '@/utils/githubUtils';
+import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 
 type GenerationType = 'JSON' | 'XML' | 'CSV' | 'YAML';
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 
-function SampleDataGenerator({ onBack }: { onBack: () => void }) {
+interface SampleDataGeneratorProps {
+  onBack: () => void;
+  selectedWorkspaceId?: string;
+  onSaveTask?: (taskId: string) => void;
+}
+
+function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: SampleDataGeneratorProps) {
   const [generationType, setGenerationType] = useState<GenerationType>('JSON');
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
   const [schema, setSchema] = useState('');
@@ -27,11 +36,16 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState('input');
   const [isLoadingFile, setIsLoadingFile] = useState(false);
+  const [taskName, setTaskName] = useState(`Sample Data - ${new Date().toLocaleDateString()}`);
+  const [taskId, setTaskId] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   const { repositories, loadingRepositories, fetchRepositories, 
           fileStructure, loadingFileStructure, fetchFileStructure,
           fetchFileContent } = useGithubApi();
   const { selectedRepository, setSelectedRepository } = useRepositoryData();
+  const { user } = useAuth();
+  const { saveSampleDataTask } = useWorkspaceTasks(selectedWorkspaceId || '');
   
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [fileContent, setFileContent] = useState<string>('');
@@ -40,6 +54,10 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   
   const projectFolderRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTaskId(`S-${crypto.randomUUID().substring(0, 8).toUpperCase()}`);
+  }, []);
 
   const isValidFileForFormat = (fileName: string): boolean => {
     // Only accept XML files regardless of the selected generation type
@@ -102,6 +120,58 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const handleSaveTask = async () => {
+    if (!selectedWorkspaceId || !user) {
+      toast.error('You need to be logged in and have a workspace selected to save a task');
+      return;
+    }
+
+    if (!result) {
+      toast.error('You need to generate sample data before saving');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      console.log('Saving sample data task:', {
+        workspace_id: selectedWorkspaceId,
+        task_id: taskId,
+        task_name: taskName,
+        description: notes || `Sample data in ${generationType} format`,
+        source_format: generationType,
+        schema_content: schema,
+        result_content: result
+      });
+      
+      const taskData = {
+        workspace_id: selectedWorkspaceId,
+        task_id: taskId,
+        task_name: taskName,
+        user_id: user.id,
+        description: notes || `Sample data in ${generationType} format`,
+        source_format: generationType,
+        schema_content: schema,
+        result_content: result,
+        notes: notes
+      };
+      
+      await saveSampleDataTask(taskData);
+      
+      if (onSaveTask) {
+        onSaveTask(taskId);
+      }
+      
+      toast.success('Sample data task saved successfully!');
+      setActiveTab('result');
+    } catch (error) {
+      console.error('Error saving task:', error);
+      toast.error('Failed to save task');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleReset = () => {
     setSchema('');
     setNotes('');
@@ -112,6 +182,8 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
     setUploadedFiles([]);
     setFileContent('');
     setSelectedFile(null);
+    setTaskName(`Sample Data - ${new Date().toLocaleDateString()}`);
+    setTaskId(`S-${crypto.randomUUID().substring(0, 8).toUpperCase()}`);
   };
 
   const handleCopyToClipboard = () => {
@@ -290,6 +362,18 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
             </TabsList>
             
             <TabsContent value="input" className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="task-name">Task Name</Label>
+                <input
+                  id="task-name"
+                  type="text"
+                  value={taskName}
+                  onChange={(e) => setTaskName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter a name for this task"
+                />
+              </div>
+
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">Source Type</label>
                 <div className="flex flex-wrap gap-3">
@@ -522,7 +606,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-medium text-gray-700">
-                    Dataweave <span className="text-red-500">*</span>
+                    Schema <span className="text-red-500">*</span>
                   </label>
                   {selectedFile && (
                     <div className="flex items-center text-sm text-purple-700 font-medium">
@@ -555,7 +639,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                 </div>
                 
                 <div className="text-sm text-gray-500">
-                  Provide the Dataweave for which you want to generate sample data
+                  Provide the schema for which you want to generate sample data
                 </div>
               </div>
 
@@ -600,6 +684,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                 <div className="space-y-4">
                   <Card className="p-4">
                     <h3 className="font-semibold text-lg mb-2">Generated Sample Data</h3>
+                    <div className="text-sm text-gray-500 mb-2">Task ID: {taskId}</div>
                     <Separator className="my-2" />
                     <div className="border rounded-md" style={{ minHeight: '400px' }}>
                       <MonacoEditor
@@ -615,20 +700,39 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                       />
                     </div>
                   </Card>
-                  <div className="flex justify-end space-x-2">
+                  <div className="flex justify-between space-x-2">
                     <Button 
                       variant="outline" 
                       onClick={() => setActiveTab('input')}
                     >
                       Back to Input
                     </Button>
-                    <Button 
-                      onClick={handleCopyToClipboard}
-                      className="flex items-center gap-2"
-                    >
-                      <Copy size={16} />
-                      Copy to Clipboard
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={handleCopyToClipboard}
+                        variant="outline"
+                        className="flex items-center gap-2"
+                      >
+                        <Copy size={16} />
+                        Copy to Clipboard
+                      </Button>
+                      {selectedWorkspaceId && (
+                        <Button 
+                          onClick={handleSaveTask}
+                          disabled={isSaving}
+                          className="flex items-center gap-2"
+                        >
+                          {isSaving ? (
+                            <>
+                              <RefreshCw size={16} className="animate-spin mr-2" />
+                              Saving...
+                            </>
+                          ) : (
+                            'Save to Workspace'
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (

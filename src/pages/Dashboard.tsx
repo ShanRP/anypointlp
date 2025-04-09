@@ -251,7 +251,7 @@ const Dashboard = () => {
     fetchTaskDetails,
     selectedTask,
     tasks: workspaceTasks,
-    fetchWorkspaceTasks: fetchTasks // Rename to avoid naming conflict
+    fetchWorkspaceTasks: fetchTasks
   } = useWorkspaceTasks(selectedWorkspace?.id || '');
 
   useEffect(() => {
@@ -304,7 +304,7 @@ const Dashboard = () => {
   };
   const refreshWorkspaceTasks = () => {
     if (selectedWorkspace?.id) {
-      fetchTasks(); // Use the function from the hook
+      fetchTasks();
     }
   };
   const handleTaskCreated = (task: SidebarTask) => {
@@ -315,7 +315,7 @@ const Dashboard = () => {
     setTasks(prevTasks => [...prevTasks, taskWithWorkspace]);
     
     if (selectedWorkspace?.id) {
-      refreshWorkspaceTasks(); // Use the wrapper function
+      refreshWorkspaceTasks();
     }
     
     toast.success(`Task ${task.id} created successfully!`);
@@ -413,37 +413,36 @@ const Dashboard = () => {
         </div>
 
         <header className="relative z-10 h-16 flex items-center px-8 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
-  <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
-    <div className="relative w-[400px]"> {/* Added relative positioning container */}
-      <input
-        type="text"
-        placeholder="Search or type a command..."
-        value={searchQuery}
-        onChange={(e) => handleSearch(e.target.value)}
-        className="w-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 pr-8 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
-      />
-      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-        <Search className="h-4 w-4" />
-      </div>
-      {searchQuery.length > 0 && (
-        <div 
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer" 
-          onClick={() => {
-            setSearchQuery('');
-            setFilteredAgents([]);
-          }}
-        >
-          <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-        </div>
-      )}
-    </div>
-  </div>
-  <div className="ml-auto flex items-center gap-3">
-    {/* Other header content */}
-  </div>
-</header>
+          <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
+            <div className="relative w-[400px]">
+              <input
+                type="text"
+                placeholder="Search or type a command..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 pr-8 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+              />
+              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <Search className="h-4 w-4" />
+              </div>
+              {searchQuery.length > 0 && (
+                <div 
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer" 
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilteredAgents([]);
+                  }}
+                >
+                  <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            {/* Other header content */}
+          </div>
+        </header>
 
-        
         <div className="relative z-10 flex-1 overflow-auto">
           {currentPage === 'dashboard' && (
             <motion.div 
@@ -557,7 +556,15 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }} className="p-0">
-              <MUnitTestGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onBack={handleBackToDashboard} onSaveTask={() => {}} />
+              <MUnitTestGenerator 
+                onTaskCreated={handleTaskCreated} 
+                selectedWorkspaceId={selectedWorkspace?.id} 
+                onBack={handleBackToDashboard} 
+                onSaveTask={(id) => {
+                  refreshWorkspaceTasks();
+                  toast.success(`MUnit test saved with ID: ${id}`);
+                }} 
+              />
             </motion.div>}
 
           {currentPage === 'sampleData' && <motion.div initial={{
@@ -567,7 +574,14 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }} className="p-0">
-              <SampleDataGenerator onBack={handleBackToDashboard} />
+              <SampleDataGenerator 
+                onBack={handleBackToDashboard} 
+                selectedWorkspaceId={selectedWorkspace?.id}
+                onSaveTask={(id) => {
+                  refreshWorkspaceTasks();
+                  toast.success(`Sample data saved with ID: ${id}`);
+                }}
+              />
             </motion.div>}
 
           {currentPage === 'document' && <motion.div initial={{
