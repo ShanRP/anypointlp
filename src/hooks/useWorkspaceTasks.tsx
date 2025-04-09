@@ -189,16 +189,42 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}`
       }));
       
-      const integrationTasks = await fetchIntegrationTasks();
-      const ramlTasks = await fetchRamlTasks();
-      const munitTasks = await fetchMunitTasks();
+      const shouldFetchIntegration = !workspaceTasks.some(task => task.category === 'integration');
+      const shouldFetchRaml = !workspaceTasks.some(task => task.category === 'raml');
+      const shouldFetchMunit = !workspaceTasks.some(task => task.category === 'munit');
       
-      const allTasks = [...workspaceTasks, ...integrationTasks, ...ramlTasks, ...munitTasks].sort((a, b) => 
+      let integrationTasks: WorkspaceTask[] = [];
+      let ramlTasks: WorkspaceTask[] = [];
+      let munitTasks: WorkspaceTask[] = [];
+      
+      if (shouldFetchIntegration) {
+        integrationTasks = await fetchIntegrationTasks();
+      }
+      
+      if (shouldFetchRaml) {
+        ramlTasks = await fetchRamlTasks();
+      }
+      
+      if (shouldFetchMunit) {
+        munitTasks = await fetchMunitTasks();
+      }
+      
+      const allTasksWithDuplicates = [...workspaceTasks, ...integrationTasks, ...ramlTasks, ...munitTasks];
+      
+      const taskMap = new Map<string, WorkspaceTask>();
+      allTasksWithDuplicates.forEach(task => {
+        const existingTask = taskMap.get(task.task_id);
+        if (!existingTask || new Date(task.created_at) > new Date(existingTask.created_at)) {
+          taskMap.set(task.task_id, task);
+        }
+      });
+      
+      const allTasks = Array.from(taskMap.values()).sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       
       setTasks(allTasks);
-      console.log('Total tasks loaded:', allTasks.length);
+      console.log('Total tasks loaded (after deduplication):', allTasks.length);
     } catch (err: any) {
       console.error('Error fetching workspace tasks:', err);
       setError(err.message);
@@ -346,20 +372,18 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       if (isUuid) {
         console.log('Using UUID for MUnit task lookup:', taskId);
         const result = await supabase
-          .from('apl_munit_tasks')
-          .select('*')
-          .eq('id', taskId)
-          .limit(1);
+          .rpc('apl_get_munit_task_details', { 
+            task_id_param: taskId 
+          });
           
         data = result.data;
         error = result.error;
       } else {
         console.log('Using task_id for MUnit task lookup:', taskId);
         const result = await supabase
-          .from('apl_munit_tasks')
-          .select('*')
-          .eq('task_id', taskId)
-          .limit(1);
+          .rpc('apl_get_munit_task_details', { 
+            task_id_param: taskId 
+          });
           
         data = result.data;
         error = result.error;
@@ -602,9 +626,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       };
 
       const result = await supabase
-        .from('apl_munit_tasks')
-        .insert([taskData])
-        .select();
+        .rpc('apl_insert_munit_task', taskData);
       
       const { data, error } = result;
       
