@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Loader2, ArrowLeft, FileCode, Check, Folder, File } from 'lucide-react';
@@ -301,14 +302,14 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
           fileContent = await fetchGithubFileContent(selectedRepository, file.path);
         } else if (mode === 'uploadFromComputer') {
           const localFile = Array.from(projectFolderRef.current?.files || [])
-            .find(f => f.webkitRelativePath === file.path);
+            .find(f => (f as any).webkitRelativePath === file.path);
             
           if (localFile) {
             fileContent = await new Promise<string>((resolve, reject) => {
               const reader = new FileReader();
               reader.onload = (e) => resolve(e.target?.result as string);
               reader.onerror = reject;
-              reader.readAsText(localFile);
+              reader.readAsText(localFile as Blob);
             });
           }
         }
@@ -895,4 +896,121 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
 
             <div className="space-y-6">
               <div>
-                <label htmlFor="input
+                <label htmlFor="inputFormat" className="block text-sm font-medium text-gray-700 mb-1">
+                  Input Format
+                </label>
+                <Select
+                  value={inputFormat}
+                  onValueChange={setInputFormat}
+                >
+                  <SelectTrigger id="inputFormat" className="w-full max-w-xs">
+                    <SelectValue placeholder="Select input format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="JSON">JSON</SelectItem>
+                    <SelectItem value="XML">XML</SelectItem>
+                    <SelectItem value="CSV">CSV</SelectItem>
+                    <SelectItem value="YAML">YAML</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">Input/Output Pairs</h3>
+                  <Button 
+                    onClick={addInputOutputPair}
+                    size="sm" 
+                    className="text-white bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Pair
+                  </Button>
+                </div>
+
+                {pairs.map((pair) => (
+                  <DataWeaveInputOutputPair
+                    key={pair.id}
+                    id={pair.id}
+                    inputFormat={inputFormat}
+                    inputSample={pair.inputSample}
+                    outputSample={pair.outputSample}
+                    onInputChange={updateInputSample}
+                    onOutputChange={updateOutputSample}
+                    onDelete={() => removeInputOutputPair(pair.id)}
+                  />
+                ))}
+              </div>
+
+              <div className="mb-6">
+                <Label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                  Additional Notes (Optional)
+                </Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Add any additional notes or requirements..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="h-24"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Include any specific requirements or context that might help generate better DataWeave code.
+                </p>
+              </div>
+
+              {formError && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
+                  {formError}
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={handleReset}>
+                  Reset
+                </Button>
+                <Button 
+                  onClick={handleGenerateDataWeave}
+                  disabled={isGenerating}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate DataWeave'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Generated DataWeave Scripts
+              </h2>
+              <Button 
+                variant="outline" 
+                onClick={handleReset}
+                className="text-gray-700"
+              >
+                Create New Task
+              </Button>
+            </div>
+            
+            <DataWeaveScripts 
+              scripts={generatedScripts} 
+              onNewTask={handleReset}
+              pairs={pairs}
+              notes={notes}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default DataWeaveGenerator;
