@@ -9,11 +9,12 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BackButton } from './ui/BackButton';
 import MonacoEditor from './MonacoEditor';
+import { Card, CopyIcon } from '@/components/ui';
 
-interface TaskDetailsViewProps {
+type TaskDetailsViewProps = {
   task: TaskDetails;
-  onBack: () => void;
-}
+  onBack?: () => void;
+};
 
 const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
   const navigate = useNavigate();
@@ -343,6 +344,231 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         </div>
       </div>
     );
+  };
+
+  const renderTaskContent = () => {
+    switch (task.category) {
+      case 'integration':
+        return renderIntegrationFlow(task.generated_scripts[0].code);
+      
+      case 'raml':
+        return (
+          <div className="space-y-8">
+            {task.api_name && (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">API Information</h2>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => copyToClipboard(task.api_name || '')}
+                    className="text-xs"
+                  >
+                    <Copy size={14} className="mr-1" /> Copy
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">API Name</p>
+                    <p>{task.api_name}</p>
+                  </div>
+                  {task.api_version && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">API Version</p>
+                      <p>{task.api_version}</p>
+                    </div>
+                  )}
+                  {task.base_uri && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Base URI</p>
+                      <p>{task.base_uri}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {task.description && (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">Description</h2>
+                </div>
+                <p className="whitespace-pre-wrap">{task.description}</p>
+              </div>
+            )}
+
+            {task.endpoints && task.endpoints.length > 0 && (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">Endpoints</h2>
+                </div>
+                <div className="space-y-4">
+                  {task.endpoints.map((endpoint: any, index: number) => (
+                    <div key={index} className="border border-gray-200 rounded-md p-3">
+                      <p className="font-mono text-blue-600 font-medium">/{endpoint.path}</p>
+                      {endpoint.description && <p className="text-sm text-gray-600 mt-1">{endpoint.description}</p>}
+                      
+                      {endpoint.methods && endpoint.methods.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {endpoint.methods.map((method: any, methodIndex: number) => (
+                            <div key={methodIndex} className="pl-4 border-l-2 border-gray-200">
+                              <p className={`uppercase font-mono font-medium ${
+                                method.type === 'get' ? 'text-green-600' :
+                                method.type === 'post' ? 'text-blue-600' :
+                                method.type === 'put' ? 'text-orange-600' :
+                                method.type === 'delete' ? 'text-red-600' : 'text-gray-600'
+                              }`}>{method.type}</p>
+                              {method.description && <p className="text-sm text-gray-600">{method.description}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">RAML Specification</h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => copyToClipboard(task.raml_content)}
+                  className="text-xs"
+                >
+                  <Copy size={14} className="mr-1" /> Copy
+                </Button>
+              </div>
+              <div className="relative">
+                <MonacoEditor
+                  value={task.raml_content}
+                  language="yaml"
+                  height="400px"
+                  readOnly={true}
+                  options={{
+                    minimap: { enabled: true }
+                  }}
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-4">
+              <Button variant="outline" onClick={handleBackButton}>
+                Back to Dashboard
+              </Button>
+              <Button 
+                onClick={() => {
+                  navigator.clipboard.writeText(task.raml_content);
+                  toast.success('All content copied to clipboard!');
+                }}
+                className="bg-black hover:bg-gray-800 text-white"
+              >
+                Copy All
+              </Button>
+            </div>
+          </div>
+        );
+      
+      case 'munit':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="p-4">
+                <h3 className="text-lg font-semibold mb-2">Test Description</h3>
+                <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
+                {task.flow_description && (
+                  <div className="mt-4">
+                    <h3 className="text-lg font-semibold mb-2">Additional Notes</h3>
+                    <p className="text-gray-700 dark:text-gray-300">{task.flow_description}</p>
+                  </div>
+                )}
+              </Card>
+              <Card className="p-4">
+                <h3 className="text-lg font-semibold mb-2">Test Information</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Runtime:</span>
+                    <span className="font-medium">{task.runtime || 'Not specified'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Number of Scenarios:</span>
+                    <span className="font-medium">{task.number_of_scenarios || 1}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Created:</span>
+                    <span className="font-medium">{new Date(task.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Task ID:</span>
+                    <span className="font-mono text-sm">{task.task_id}</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+            
+            <Card className="p-4">
+              <h3 className="text-lg font-semibold mb-2">Flow Implementation</h3>
+              <div className="border rounded-md overflow-hidden">
+                <MonacoEditor
+                  language="xml"
+                  value={task.flow_implementation || '<!-- No flow implementation provided -->'}
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
+                  height="300px"
+                />
+              </div>
+            </Card>
+            
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold">Generated MUnit Tests</h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(task.munit_content || '');
+                    toast({
+                      title: "Copied to clipboard",
+                      description: "MUnit test content has been copied to clipboard"
+                    });
+                  }}
+                >
+                  <CopyIcon className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
+              </div>
+              <div className="border rounded-md overflow-hidden">
+                <MonacoEditor
+                  language="xml"
+                  value={task.munit_content || '<!-- No MUnit tests generated -->'}
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
+                  height="400px"
+                />
+              </div>
+            </Card>
+          </div>
+        );
+      
+      default:
+        return (
+          <div className="text-center p-10">
+            <div className="text-gray-500 dark:text-gray-400">Unknown task type</div>
+          </div>
+        );
+    }
   };
 
   const isIntegrationTask = task.category === 'integration' || task.task_name?.includes('Integration Flow');
