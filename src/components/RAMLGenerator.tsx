@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock, Code } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -19,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import MonacoEditor from '@/components/MonacoEditor';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+import { useUserCredits } from '@/hooks/useUserCredits';
 
 interface Parameter {
   name: string;
@@ -74,15 +74,14 @@ interface RAMLGeneratorProps {
 
 const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ 
   selectedWorkspaceId, 
-  onBack,
-  onTaskCreated,
-  onSaveTask
+  onBack
 }) => {
   const navigate = useNavigate();
   const { selectedWorkspace } = useWorkspaces();
   const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
   const { user } = useAuth();
   const { saveRamlTask } = useWorkspaceTasks(workspaceId);
+  const { useCredit } = useUserCredits();
   
   const [apiName, setApiName] = useState('');
   const [apiVersion, setApiVersion] = useState('v1');
@@ -332,12 +331,17 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
     setProtocols(updatedProtocols);
   };
 
-  const generateRAML = async () => {
+  const handleGenerateRAML = async () => {
     if (!apiName.trim()) {
-      toast.error('API name is required');
+      toast.error('Please provide API specifications');
       return;
     }
-
+    
+    const canUseCredit = await useCredit();
+    if (!canUseCredit) {
+      return;
+    }
+    
     setIsGenerating(true);
     
     try {
@@ -733,7 +737,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 View Generated RAML
               </Button>
               <Button 
-                onClick={generateRAML}
+                onClick={handleGenerateRAML}
                 disabled={isGenerating || !apiName.trim()}
               >
                 {isGenerating ? (

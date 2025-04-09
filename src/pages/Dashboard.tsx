@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, RefreshCw, FileCode2, Code, Share2, TestTube2, Database, Users, FileText, FileQuestion, MessageSquare, X } from 'lucide-react';
@@ -27,6 +27,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import GeneratorCard from '@/components/GeneratorCard';
 import CodingAssistantDialog from '@/components/ai/CodingAssistantDialog';
+import { UserCreditsDisplay } from '@/components/UserCreditsDisplay';
 
 interface SidebarTask {
   id: string;
@@ -441,7 +442,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            {/* Other header content */}
+            <UserCreditsDisplay />
           </div>
         </header>
 

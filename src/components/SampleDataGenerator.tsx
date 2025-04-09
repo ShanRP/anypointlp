@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
@@ -17,6 +16,7 @@ import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { FileNode, isFileOfType, pathExistsInFileStructure, getNodeByPath } from '@/utils/githubUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+import { useUserCredits } from '@/hooks/useUserCredits';
 
 type GenerationType = 'JSON' | 'XML' | 'CSV' | 'YAML';
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
@@ -27,10 +27,14 @@ interface SampleDataGeneratorProps {
   onSaveTask?: (taskId: string) => void;
 }
 
-function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: SampleDataGeneratorProps) {
+const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({ 
+  onBack, 
+  selectedWorkspaceId = 'default',
+  onSaveTask 
+}) => {
   const [generationType, setGenerationType] = useState<GenerationType>('JSON');
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
-  const [schema, setSchema] = useState('');
+  const [schemaContent, setSchemaContent] = useState('');
   const [notes, setNotes] = useState('');
   const [result, setResult] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -46,6 +50,7 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
   const { selectedRepository, setSelectedRepository } = useRepositoryData();
   const { user } = useAuth();
   const { saveSampleDataTask } = useWorkspaceTasks(selectedWorkspaceId || '');
+  const { useCredit } = useUserCredits();
   
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [fileContent, setFileContent] = useState<string>('');
@@ -60,16 +65,20 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
   }, []);
 
   const isValidFileForFormat = (fileName: string): boolean => {
-    // Only accept XML files regardless of the selected generation type
     return fileName.toLowerCase().endsWith('.dwl');
   };
 
-  const handleGenerate = async () => {
-    if (!schema.trim()) {
+  const handleGenerateSampleData = async () => {
+    if (!schemaContent.trim()) {
       toast.error('Please provide a schema');
       return;
     }
-
+    
+    const canUseCredit = await useCredit();
+    if (!canUseCredit) {
+      return;
+    }
+    
     setIsGenerating(true);
     try {
       const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -88,7 +97,7 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
             },
             {
               role: 'user',
-              content: `Generate sample data in ${generationType} format based on this schema:\n${schema}\n${notes ? `Additional notes: ${notes}` : ''}`
+              content: `Generate sample data in ${generationType} format based on this schema:\n${schemaContent}\n${notes ? `Additional notes: ${notes}` : ''}`
             }
           ],
           temperature: 0.7,
@@ -140,7 +149,7 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
         task_name: taskName,
         description: notes || `Sample data in ${generationType} format`,
         source_format: generationType,
-        schema_content: schema,
+        schema_content: schemaContent,
         result_content: result
       });
       
@@ -151,7 +160,7 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
         user_id: user.id,
         description: notes || `Sample data in ${generationType} format`,
         source_format: generationType,
-        schema_content: schema,
+        schema_content: schemaContent,
         result_content: result,
         notes: notes
       };
@@ -173,7 +182,7 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
   };
 
   const handleReset = () => {
-    setSchema('');
+    setSchemaContent('');
     setNotes('');
     setResult('');
     setGenerationType('JSON');
@@ -267,7 +276,7 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
           
           if (content) {
             setFileContent(content);
-            setSchema(content);
+            setSchemaContent(content);
             toast.success(`File "${file.name}" loaded successfully`);
             setActiveTab('input');
           } else {
@@ -304,7 +313,7 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
       if (e.target?.result) {
         const fileContent = e.target.result as string;
         setFileContent(fileContent);
-        setSchema(fileContent);
+        setSchemaContent(fileContent);
         setActiveTab('input');
         toast.success(`File "${file.name}" loaded successfully`);
       }
@@ -625,8 +634,8 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
                     </div>
                   ) : (
                     <MonacoEditor
-                      value={schema}
-                      onChange={(value) => setSchema(value || '')}
+                      value={schemaContent}
+                      onChange={(value) => setSchemaContent(value || '')}
                       language={generationType.toLowerCase() === 'yaml' ? 'yaml' : generationType.toLowerCase()}
                       height="300px"
                       options={{
@@ -663,8 +672,8 @@ function SampleDataGenerator({ onBack, selectedWorkspaceId, onSaveTask }: Sample
                   Reset
                 </Button>
                 <Button 
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !schema.trim() || isLoadingFile}
+                  onClick={handleGenerateSampleData}
+                  disabled={isGenerating || !schemaContent.trim() || isLoadingFile}
                   className="flex items-center gap-2"
                 >
                   {isGenerating ? (

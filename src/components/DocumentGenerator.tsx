@@ -15,6 +15,7 @@ import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserCredits } from '@/hooks/useUserCredits';
 
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 type DocumentType = 'flow-implementation' | 'flow-endpoints';
@@ -27,7 +28,7 @@ interface DocumentGeneratorProps {
 
 const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ 
   onBack, 
-  selectedWorkspaceId,
+  selectedWorkspaceId = 'default',
   onSaveTask 
 }) => {
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
@@ -38,20 +39,19 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('input');
   
-  // Repository-related hooks
   const { repositories, loadingRepositories, fetchRepositories, 
           fileStructure, loadingFileStructure, fetchFileStructure,
           fetchFileContent } = useGithubApi();
   const { selectedRepository, repositoryFileStructure, toggleFileSelection } = useRepositoryData();
   const { user } = useAuth();
   const { saveDocumentTask } = useWorkspaceTasks(selectedWorkspaceId || '');
+  const { useCredit } = useUserCredits();
   
-  // State for file upload
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [fileContent, setFileContent] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [currentDirectory, setCurrentDirectory] = useState<string>('/');
-
+  
   const handleReset = () => {
     setSourceType('no-repository');
     setDocumentType('flow-implementation');
@@ -69,7 +69,6 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       const files = Array.from(event.target.files);
       setUploadedFiles(files);
       
-      // Read the first file's content
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target?.result) {
@@ -146,20 +145,19 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     }
   };
 
-  const handleGenerate = async () => {
-    if (!documentType) {
-      toast.error('Please select a document type');
-      return;
-    }
-
+  const handleGenerateDocument = async () => {
     if (!code.trim()) {
-      toast.error('Please provide code for documentation');
+      toast.error('Please provide source code or description');
       return;
     }
-
+    
+    const canUseCredit = await useCredit();
+    if (!canUseCredit) {
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      // Prepare the prompt based on sourceType and documentType
       let prompt = `Generate a detailed document for a ${documentType === 'flow-implementation' ? 'Flow Implementation' : 'Flow Endpoints'}.`;
       
       if (description) {
@@ -174,7 +172,6 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         prompt += ` Based on the uploaded file.`;
       }
       
-      // Using Mistral API key
       const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -204,7 +201,6 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         setResult(generatedResult);
         setActiveTab('result');
         
-        // Save task if workspace ID is provided
         if (selectedWorkspaceId && user) {
           const taskName = documentType === 'flow-implementation' 
             ? 'Flow Implementation Document' 
@@ -337,7 +333,6 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     </div>
                   )}
                   
-                  {/* Repository file structure */}
                   {selectedRepository && (
                     <div className="mt-4">
                       <h4 className="font-medium mb-2">Files</h4>
@@ -482,7 +477,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Reset
                 </Button>
                 <Button 
-                  onClick={handleGenerate}
+                  onClick={handleGenerateDocument}
                   disabled={isLoading || !documentType || !code.trim()}
                   className="flex items-center gap-2"
                 >

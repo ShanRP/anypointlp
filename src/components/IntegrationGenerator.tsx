@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Upload, Plus, Check, Loader2, Copy, FileCode, Users, Calendar, Edit, Trash2, ArrowRight, FileArchive, GitBranch, Folder, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
 import { BackButton } from './ui/BackButton';
+import { useUserCredits } from '@/hooks/useUserCredits';
 
 export interface IntegrationGeneratorProps {
   onTaskCreated?: (task: any) => void;
@@ -51,14 +52,25 @@ interface CustomInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   directory?: string;
 }
 
-const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
-  onTaskCreated,
-  selectedWorkspaceId,
+const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ 
+  onTaskCreated, 
+  selectedWorkspaceId = 'default',
   onBack,
-  onSaveTask
+  onSaveTask 
 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { useCredit } = useUserCredits();
+  const { 
+    repositories, 
+    loadingRepositories, 
+    fetchRepositories, 
+    fileStructure, 
+    loadingFileStructure, 
+    fetchFileStructure,
+    fetchFileContent 
+  } = useGithubApi();
+  
   const [description, setDescription] = useState('');
   const [diagrams, setDiagrams] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,16 +98,6 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
   const [loadingRamls, setLoadingRamls] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { 
-    repositories, 
-    loadingRepositories, 
-    fetchRepositories, 
-    fileStructure, 
-    loadingFileStructure, 
-    fetchFileStructure,
-    fetchFileContent 
-  } = useGithubApi();
-  
   const [selectedRepository, setSelectedRepository] = useState<Repository | null>(null);
   const [ramlFiles, setRamlFiles] = useState<RamlFile[]>([]);
   const [selectedRamlFile, setSelectedRamlFile] = useState<RamlFile | null>(null);
@@ -886,6 +888,161 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
     );
   };
 
+  const handleGenerateIntegration = async () => {
+    if (!description.trim()) {
+      toast.error('Please provide a flow specification');
+      return;
+    }
+    
+    const canUseCredit = await useCredit();
+    if (!canUseCredit) {
+      return;
+    }
+    
+    setIsGenerating(true);
+    setError(null);
+    
+    const diagramsBase64 = await Promise.all(
+      diagrams.map(async (file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result as string;
+            resolve(base64.split(',')[1]);
+          };
+          reader.readAsDataURL(file);
+        });
+      })
+    );
+
+    const runtime = `Java ${javaVersion}, Maven ${mavenVersion}`;
+    
+    const requestBody: any = {
+      description,
+      runtime,
+      diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null,
+    };
+    
+    if (selectedRamlFile && selectedRamlFile.content) {
+      requestBody.raml = { content: selectedRamlFile.content };
+    } else if (ramlOption !== 'none' && ramlContent) {
+      requestBody.raml = { content: ramlContent };
+    }
+    
+    if (selectedRamlFile) {
+      requestBody.selectedFile = {
+        name: selectedRamlFile.name,
+        path: selectedRamlFile.path
+      };
+    }
+
+    console.log('Sending integration request with:', {
+      description,
+      runtime,
+      diagrams: diagramsBase64.length > 0,
+      raml: (selectedRamlFile && selectedRamlFile.content) || (ramlOption !== 'none' && ramlContent) 
+        ? { content: 'RAML content present (not shown for brevity)' } 
+        : undefined,
+      selectedFile: selectedRamlFile 
+        ? { name: selectedRamlFile.name, path: selectedRamlFile.path }
+        : undefined
+    });
+
+    const { data, error } = await supabase.functions.invoke('generate-integration', {
+      body: requestBody,
+    });
+
+    if (error) {
+      console.error('Supabase function error:', error);
+      setError(`Error calling the integration generator: ${error.message || 'Unknown error'}`);
+      toast.error(`Failed to generate integration: ${error.message || 'Unknown error'}`);
+      return;
+    }
+
+    console.log('Integration generation response:', data);
+
+    if (!data || !data.success) {
+      const errorMessage = data?.error || 'Failed to generate integration code';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return;
+    }
+
+    const generatedCodeResult = data.code;
+    setGeneratedCode(generatedCodeResult);
+
+    const parsedResult = parseGeneratedCode(generatedCodeResult);
+    setParsedSections(parsedResult);
+    setCurrentView('result');
+    
+    const now = new Date();
+    setGeneratedTimestamp(now.toLocaleString());
+
+    const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
+    console.log('Using workspace ID for saving:', workspaceId);
+
+    if (user) {
+      try {
+        const { data: rpcData, error: rpcError } = await supabase
+          .from('apl_integration_tasks')
+          .insert([{
+            task_id: taskId,
+            task_name: 'Integration Flow',
+            description: description,
+            user_id: user.id,
+            workspace_id: workspaceId,
+            category: 'integration',
+            runtime: `Java ${javaVersion}, Maven ${mavenVersion}`,
+            raml_content: selectedRamlFile?.content || ramlContent || '',
+            generated_code: generatedCodeResult,
+            flow_summary: parsedResult.flowSummary || '',
+            flow_implementation: parsedResult.flowImplementation || '',
+            flow_constants: parsedResult.flowConstants || '',
+            pom_dependencies: parsedResult.pomDependencies || '',
+            compilation_check: parsedResult.compilationCheck || '',
+            diagrams: diagramsBase64.length > 0 ? diagramsBase64 : null
+          }])
+          .select();
+
+        if (rpcError) {
+          console.error('Error saving integration task:', rpcError);
+        } else {
+          console.log('Successfully saved integration task:', rpcData);
+          if (rpcData && rpcData.length > 0 && onSaveTask) {
+            onSaveTask(taskId);
+          }
+        }
+      } catch (error) {
+        console.error("Error saving integration task:", error);
+      }
+    }
+
+    if (onTaskCreated) {
+      const newTask = {
+        id: taskId,
+        label: 'Integration Flow',
+        category: 'integration',
+        task_id: taskId,
+        task_name: 'Integration Flow',
+        icon: 'CodeIcon',
+        workspace_id: workspaceId,
+        created_at: new Date().toISOString(),
+        input_format: 'Flow Specification',
+        notes: description,
+        generated_scripts: [
+          {
+            id: `script-${Date.now()}`,
+            code: generatedCodeResult
+          }
+        ]
+      };
+
+      onTaskCreated(newTask);
+    }
+
+    toast.success('Integration code generated successfully!');
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <BackButton onBack={handleBackNavigation} label="Back to Dashboard" />
@@ -1103,7 +1260,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                   
                   <div className="pt-2">
                     <Button
-                      onClick={handleSubmit}
+                      onClick={handleGenerateIntegration}
                       disabled={isLoading || !description.trim()}
                       className="w-full"
                     >

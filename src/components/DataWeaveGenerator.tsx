@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Loader2, ArrowLeft, FileCode, Check, Folder, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { buildFileTree, fetchFileContent, findDataWeaveFiles, isFileOfType } from '@/utils/githubUtils';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
+import { useUserCredits } from '@/hooks/useUserCredits';
 
 type GeneratorMode = 'noRepository' | 'withRepository' | 'uploadFromComputer';
 
@@ -54,7 +54,7 @@ interface DataWeaveFile {
   content?: string;
 }
 
-interface DataWeaveGeneratorProps {
+interface IntegrationGeneratorProps {
   onTaskCreated?: (task: { id: string; label: string; category: string; icon: React.ReactNode }) => void;
   selectedWorkspaceId?: string;
   onSaveTask?: (taskId: string) => void;
@@ -68,11 +68,11 @@ const Header = () => (
   </div>
 );
 
-const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({ 
+const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({ 
   onTaskCreated,
-  selectedWorkspaceId,
-  onSaveTask,
-  onBack
+  selectedWorkspaceId = 'default',
+  onBack,
+  onSaveTask
 }) => {
   const [inputFormat, setInputFormat] = useState<string>('JSON');
   const [pairs, setPairs] = useState<InputOutputPair[]>([
@@ -717,10 +717,17 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
     return true;
   };
   
-  const handleSubmit = async () => {
+  const handleGenerateDataWeave = async () => {
     if (!validateForm()) return;
     
     setIsGenerating(true);
+    setError(null);
+
+    const canUseCredit = await useCredit();
+    if (!canUseCredit) {
+      return;
+    }
+
     const scripts: GeneratedScript[] = [];
     
     try {
@@ -812,7 +819,7 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
       setIsGenerating(false);
     }
   };
-  
+
   const handleReset = () => {
     setPairs([
       {
@@ -953,7 +960,7 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
 
               <div className="flex gap-4 pt-4">
                 <Button 
-                  onClick={handleSubmit} 
+                  onClick={handleGenerateDataWeave} 
                   disabled={isGenerating}
                   className="bg-black hover:bg-gray-800 text-white"
                 >
