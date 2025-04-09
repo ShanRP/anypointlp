@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useUserCredits } from '@/hooks/useUserCredits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,31 @@ import {
 
 export function UserCreditsDisplay() {
   const { credits, loading, upgradeToProPlan } = useUserCredits();
-  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = React.useState(false);
-  const [isUpgrading, setIsUpgrading] = React.useState(false);
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [creditsRemaining, setCreditsRemaining] = useState(0);
+  const [isLow, setIsLow] = useState(false);
+  const [isPro, setIsPro] = useState(false);
+
+  useEffect(() => {
+    if (credits) {
+      const limit = credits.is_pro ? 100 : 3;
+      const remaining = limit - credits.credits_used;
+      setCreditsRemaining(remaining);
+      setIsLow(remaining <= 1 && !credits.is_pro);
+      setIsPro(credits.is_pro);
+    }
+  }, [credits]);
+
+  const handleUpgrade = async () => {
+    setIsUpgrading(true);
+    try {
+      await upgradeToProPlan();
+    } finally {
+      setIsUpgradeDialogOpen(false);
+      setIsUpgrading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -30,17 +53,6 @@ export function UserCreditsDisplay() {
 
   if (!credits) return null;
 
-  const limit = credits.is_pro ? 100 : 3;
-  const remaining = limit - credits.credits_used;
-  const isLow = remaining <= 1 && !credits.is_pro;
-
-  const handleUpgrade = async () => {
-    setIsUpgrading(true);
-    await upgradeToProPlan();
-    setIsUpgradeDialogOpen(false);
-    setIsUpgrading(false);
-  };
-
   return (
     <div className="flex items-center gap-2">
       <Badge 
@@ -48,10 +60,10 @@ export function UserCreditsDisplay() {
         className="flex items-center gap-1 px-2 py-1"
       >
         <Coins className="h-3.5 w-3.5" />
-        <span>{remaining} credit{remaining !== 1 ? 's' : ''} left</span>
+        <span>{creditsRemaining} credit{creditsRemaining !== 1 ? 's' : ''} left</span>
       </Badge>
 
-      {!credits.is_pro && (
+      {!isPro && (
         <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="text-xs">

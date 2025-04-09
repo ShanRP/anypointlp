@@ -32,14 +32,14 @@ export const useUserCredits = () => {
 
     try {
       // First check if the user already has a credits record
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('apl_user_credits')
         .select('*')
         .eq('user_id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-        throw error;
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+        throw fetchError;
       }
 
       // If no record exists, create one
