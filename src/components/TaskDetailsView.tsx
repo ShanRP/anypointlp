@@ -534,10 +534,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
                   variant="outline"
                   onClick={() => {
                     navigator.clipboard.writeText(task.munit_content || '');
-                    toast({
-                      title: "Copied to clipboard",
-                      description: "MUnit test content has been copied to clipboard"
-                    });
+                    toast.success("MUnit test content has been copied to clipboard");
                   }}
                 >
                   <CopyIcon className="h-4 w-4 mr-2" />
