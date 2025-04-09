@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -175,12 +174,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching Sample Data tasks for workspace:', workspaceId);
       
-      // Using direct query instead of RPC function to avoid type issues
       const { data, error } = await supabase
         .from('apl_sample_data_tasks')
         .select('*')
-        .eq('workspace_id', workspaceId)
-        .order('created_at', { ascending: false });
+        .eq('workspace_id', workspaceId);
       
       if (error) {
         console.error('Error fetching Sample Data tasks:', error);
@@ -709,7 +706,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       const taskId = task.task_id || `M-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
-      // Direct insert instead of using RPC to avoid type issues
       const { data, error } = await supabase
         .from('apl_munit_tasks')
         .insert([{
@@ -752,11 +748,20 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     notes?: string;
   }) => {
     try {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
       const taskId = task.task_id || `S-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
       console.log('Saving sample data task with ID:', taskId);
+      console.log('Task details:', {
+        workspace_id: task.workspace_id,
+        task_name: task.task_name,
+        user_id: task.user_id,
+        source_format: task.source_format
+      });
       
-      // Direct insert instead of using RPC to avoid type issues
       const { data, error } = await supabase
         .from('apl_sample_data_tasks')
         .insert([{
@@ -780,7 +785,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       console.log('Sample data task saved successfully:', data);
       
-      // Fetch tasks immediately after saving to update the list
       await fetchWorkspaceTasks();
       
       toast.success('Sample Data task saved successfully!');
@@ -790,7 +794,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       toast.error('Failed to save Sample Data task');
       throw err;
     }
-  }, [fetchWorkspaceTasks]);
+  }, [fetchWorkspaceTasks, user]);
 
   useEffect(() => {
     if (workspaceId) {
