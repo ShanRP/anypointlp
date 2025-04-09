@@ -42,6 +42,11 @@ export interface TaskDetails {
   munit_content?: string;
   runtime?: string;
   number_of_scenarios?: number;
+  
+  // Sample Data specific properties
+  source_format?: string;
+  schema_content?: string;
+  result_content?: string;
 }
 
 export interface IntegrationGeneratorProps {
@@ -161,6 +166,40 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   }, [workspaceId]);
 
+  const fetchSampleDataTasks = useCallback(async () => {
+    if (!workspaceId) return [];
+    
+    try {
+      console.log('Fetching Sample Data tasks for workspace:', workspaceId);
+      
+      const { data, error } = await supabase
+        .rpc('apl_get_sample_data_tasks', { 
+          workspace_id_param: workspaceId 
+        });
+      
+      if (error) {
+        console.error('Error fetching Sample Data tasks:', error);
+        throw error;
+      }
+      
+      const sampleDataTasks = Array.isArray(data) ? data.map((task: any) => ({
+        id: task.id,
+        task_id: task.task_id,
+        task_name: task.task_name,
+        created_at: task.created_at,
+        workspace_id: workspaceId,
+        category: 'sampledata',
+        description: task.description || ''
+      })) : [];
+      
+      console.log('Fetched Sample Data tasks:', sampleDataTasks.length);
+      return sampleDataTasks;
+    } catch (err: any) {
+      console.error('Error in fetchSampleDataTasks:', err);
+      return [];
+    }
+  }, [workspaceId]);
+
   const fetchWorkspaceTasks = useCallback(async () => {
     if (!workspaceId) return;
     
@@ -192,8 +231,9 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       const integrationTasks = await fetchIntegrationTasks();
       const ramlTasks = await fetchRamlTasks();
       const munitTasks = await fetchMunitTasks();
+      const sampleDataTasks = await fetchSampleDataTasks();
       
-      const allTasks = [...workspaceTasks, ...integrationTasks, ...ramlTasks, ...munitTasks].sort((a, b) => 
+      const allTasks = [...workspaceTasks, ...integrationTasks, ...ramlTasks, ...munitTasks, ...sampleDataTasks].sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       
@@ -206,7 +246,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, fetchIntegrationTasks, fetchRamlTasks, fetchMunitTasks]);
+  }, [workspaceId, fetchIntegrationTasks, fetchRamlTasks, fetchMunitTasks, fetchSampleDataTasks]);
 
   const fetchIntegrationTaskDetails = useCallback(async (taskId: string) => {
     try {
@@ -404,6 +444,74 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   }, [workspaceId]);
 
+  const fetchSampleDataTaskDetails = useCallback(async (taskId: string) => {
+    try {
+      console.log('Fetching Sample Data task details for:', taskId);
+      
+      let data;
+      let error;
+      
+      const isUuid = taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      
+      if (isUuid) {
+        console.log('Using UUID for Sample Data task lookup:', taskId);
+        const result = await supabase
+          .from('apl_sample_data_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .limit(1);
+          
+        data = result.data;
+        error = result.error;
+      } else {
+        console.log('Using task_id for Sample Data task lookup:', taskId);
+        const result = await supabase
+          .rpc('apl_get_sample_data_task_details', { 
+            task_id_param: taskId 
+          });
+          
+        data = result.data;
+        error = result.error;
+      }
+      
+      if (error) {
+        console.error('Error fetching Sample Data task details:', error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        const sampleDataTask = data[0];
+        console.log('Found task in Sample Data tasks table');
+        
+        const taskDetails: TaskDetails = {
+          id: sampleDataTask.id,
+          task_id: sampleDataTask.task_id,
+          task_name: sampleDataTask.task_name || 'Sample Data',
+          created_at: sampleDataTask.created_at,
+          workspace_id: workspaceId,
+          category: 'sampledata',
+          description: sampleDataTask.description || '',
+          source_format: sampleDataTask.source_format || 'JSON',
+          schema_content: sampleDataTask.schema_content || '',
+          result_content: sampleDataTask.result_content || '',
+          notes: sampleDataTask.notes || '',
+          generated_scripts: [{
+            id: `script-${Date.now()}`,
+            code: sampleDataTask.result_content || '',
+          }]
+        };
+        
+        setSelectedTask(taskDetails);
+        return taskDetails;
+      }
+      
+      return null;
+    } catch (err: any) {
+      console.error('Error in fetchSampleDataTaskDetails:', err);
+      return null;
+    }
+  }, [workspaceId]);
+
   const fetchTaskDetails = useCallback(async (taskId: string) => {
     setLoading(true);
     setError(null);
@@ -430,7 +538,14 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         return;
       }
       
-      console.log('Task not found in integration, RAML, or MUnit tasks, checking regular tasks');
+      const sampleDataTaskDetails = await fetchSampleDataTaskDetails(taskId);
+      
+      if (sampleDataTaskDetails) {
+        console.log('Found task in Sample Data tasks table');
+        return;
+      }
+      
+      console.log('Task not found in integration, RAML, MUnit, or Sample Data tasks, checking regular tasks');
       
       const { data, error } = await supabase.rpc('apl_get_task_details', { 
         task_id_param: taskId 
@@ -474,7 +589,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, fetchIntegrationTaskDetails, fetchRamlTaskDetails, fetchMunitTaskDetails]);
+  }, [workspaceId, fetchIntegrationTaskDetails, fetchRamlTaskDetails, fetchMunitTaskDetails, fetchSampleDataTaskDetails]);
 
   const saveTask = useCallback(async (task: {
     workspace_id: string;
@@ -601,12 +716,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         category: 'munit'
       };
 
-      const result = await supabase
-        .from('apl_munit_tasks')
-        .insert([taskData])
-        .select();
-      
-      const { data, error } = result;
+      const { data, error } = await supabase
+        .rpc('apl_insert_munit_task', taskData);
       
       if (error) throw error;
       
@@ -617,6 +728,49 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } catch (err: any) {
       console.error('Error saving MUnit task:', err);
       toast.error('Failed to save MUnit task');
+      throw err;
+    }
+  }, [fetchWorkspaceTasks]);
+
+  const saveSampleDataTask = useCallback(async (task: {
+    workspace_id: string;
+    task_id?: string;
+    task_name: string;
+    user_id: string;
+    description?: string;
+    source_format?: string;
+    schema_content?: string;
+    result_content?: string;
+    notes?: string;
+  }) => {
+    try {
+      const taskId = task.task_id || `S-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
+      
+      const taskData = {
+        workspace_id: task.workspace_id,
+        task_id: taskId,
+        task_name: task.task_name,
+        user_id: task.user_id,
+        description: task.description || '',
+        source_format: task.source_format || 'JSON',
+        schema_content: task.schema_content || '',
+        result_content: task.result_content || '',
+        notes: task.notes || '',
+        category: 'sampledata'
+      };
+
+      const { data, error } = await supabase
+        .rpc('apl_insert_sample_data_task', taskData);
+      
+      if (error) throw error;
+      
+      await fetchWorkspaceTasks();
+      
+      toast.success('Sample Data task saved successfully!');
+      return data;
+    } catch (err: any) {
+      console.error('Error saving Sample Data task:', err);
+      toast.error('Failed to save Sample Data task');
       throw err;
     }
   }, [fetchWorkspaceTasks]);
@@ -638,6 +792,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     fetchTaskDetails,
     saveTask,
     saveRamlTask,
-    saveMunitTask
+    saveMunitTask,
+    saveSampleDataTask
   };
 };

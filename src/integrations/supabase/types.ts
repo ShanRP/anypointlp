@@ -531,6 +531,54 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_sample_data_tasks: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          result_content: string | null
+          schema_content: string | null
+          source_format: string
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          result_content?: string | null
+          schema_content?: string | null
+          source_format: string
+          task_id: string
+          task_name: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          result_content?: string | null
+          schema_content?: string | null
+          source_format?: string
+          task_id?: string
+          task_name?: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       apl_user_sessions: {
         Row: {
           created_at: string
@@ -723,6 +771,42 @@ export type Database = {
           workspace_id: string
         }[]
       }
+      apl_get_sample_data_task_details: {
+        Args: { task_id_param: string }
+        Returns: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          result_content: string | null
+          schema_content: string | null
+          source_format: string
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }[]
+      }
+      apl_get_sample_data_tasks: {
+        Args: { workspace_id_param: string }
+        Returns: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          result_content: string | null
+          schema_content: string | null
+          source_format: string
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }[]
+      }
       apl_get_task_details: {
         Args: { task_id_param: string }
         Returns: {
@@ -776,6 +860,37 @@ export type Database = {
           output_samples_input: Json
           notes_input: string
           generated_scripts_input: Json
+        }
+        Returns: string
+      }
+      apl_insert_munit_task: {
+        Args: {
+          workspace_id: string
+          task_id: string
+          task_name: string
+          user_id: string
+          description?: string
+          flow_implementation?: string
+          flow_description?: string
+          munit_content?: string
+          runtime?: string
+          number_of_scenarios?: number
+          category?: string
+        }
+        Returns: string
+      }
+      apl_insert_sample_data_task: {
+        Args: {
+          workspace_id: string
+          task_id: string
+          task_name: string
+          user_id: string
+          description?: string
+          source_format?: string
+          schema_content?: string
+          result_content?: string
+          notes?: string
+          category?: string
         }
         Returns: string
       }

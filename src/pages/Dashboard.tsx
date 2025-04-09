@@ -251,7 +251,7 @@ const Dashboard = () => {
     fetchTaskDetails,
     selectedTask,
     tasks: workspaceTasks,
-    fetchWorkspaceTasks: fetchTasks // Rename to avoid naming conflict
+    fetchWorkspaceTasks: fetchTasks
   } = useWorkspaceTasks(selectedWorkspace?.id || '');
 
   useEffect(() => {
@@ -304,7 +304,7 @@ const Dashboard = () => {
   };
   const refreshWorkspaceTasks = () => {
     if (selectedWorkspace?.id) {
-      fetchTasks(); // Use the function from the hook
+      fetchTasks();
     }
   };
   const handleTaskCreated = (task: SidebarTask) => {
@@ -315,7 +315,7 @@ const Dashboard = () => {
     setTasks(prevTasks => [...prevTasks, taskWithWorkspace]);
     
     if (selectedWorkspace?.id) {
-      refreshWorkspaceTasks(); // Use the wrapper function
+      refreshWorkspaceTasks();
     }
     
     toast.success(`Task ${task.id} created successfully!`);
@@ -574,7 +574,14 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }} className="p-0">
-              <SampleDataGenerator onBack={handleBackToDashboard} />
+              <SampleDataGenerator 
+                onBack={handleBackToDashboard} 
+                selectedWorkspaceId={selectedWorkspace?.id}
+                onSaveTask={(id) => {
+                  refreshWorkspaceTasks();
+                  toast.success(`Sample data saved with ID: ${id}`);
+                }}
+              />
             </motion.div>}
 
           {currentPage === 'document' && <motion.div initial={{
