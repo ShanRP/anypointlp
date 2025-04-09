@@ -1,3 +1,4 @@
+
 import { Database as OriginalDatabase } from './types';
 
 // Extend the original Database type to include our new tables
@@ -265,7 +266,7 @@ export interface ExtendedDatabase extends OriginalDatabase {
           runtime: string
           number_of_scenarios: number
         }[]
-      }
+      };
       apl_get_munit_task_details: {
         Args: { task_id_param: string }
         Returns: {
@@ -284,7 +285,23 @@ export interface ExtendedDatabase extends OriginalDatabase {
           runtime: string
           number_of_scenarios: number
         }[]
-      }
+      };
+      apl_insert_munit_task: {
+        Args: {
+          workspace_id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          description?: string;
+          flow_implementation?: string;
+          flow_description?: string;
+          munit_content?: string;
+          runtime?: string;
+          number_of_scenarios?: number;
+          category?: string;
+        };
+        Returns: string;
+      };
     };
   };
 }
