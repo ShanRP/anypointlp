@@ -102,6 +102,7 @@ export interface MUnitGeneratorPayload {
   runtime: string;
   scenario_count: number;
   generated_tests: string;
+  category: 'munit';
 }
 
 export interface SampleDataPayload {
@@ -115,6 +116,7 @@ export interface SampleDataPayload {
   output_schema?: string;
   generated_data: string;
   sample_count?: number;
+  category: 'sampledata';
 }
 
 export interface DiagramPayload {
@@ -126,6 +128,7 @@ export interface DiagramPayload {
   diagram_type: string;
   diagram_content: string;
   generated_diagram: string;
+  category: 'diagram';
 }
 
 export interface DocumentPayload {
@@ -137,6 +140,7 @@ export interface DocumentPayload {
   document_type: string;
   source_content: string;
   generated_document: string;
+  category: 'document';
 }
 
 export const useWorkspaceTasks = (workspaceId: string) => {
@@ -175,11 +179,13 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      // Use the proper function call pattern without string literals
-      const { data, error } = await supabase.rpc(
-        'apl_get_munit_tasks', 
-        { workspace_id_param: workspaceId }
-      );
+      // Use raw query to bypass TypeScript table checking since the table isn't in types.ts yet
+      const { data, error } = await supabase
+        .from('apl_munit_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching MUnit tasks:', error);
@@ -198,11 +204,13 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      // Use the proper function call pattern without string literals
-      const { data, error } = await supabase.rpc(
-        'apl_get_sample_data_tasks', 
-        { workspace_id_param: workspaceId }
-      );
+      // Use raw query to bypass TypeScript table checking
+      const { data, error } = await supabase
+        .from('apl_sample_data_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching Sample Data tasks:', error);
@@ -221,11 +229,13 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      // Use the proper function call pattern without string literals
-      const { data, error } = await supabase.rpc(
-        'apl_get_diagram_tasks', 
-        { workspace_id_param: workspaceId }
-      );
+      // Use raw query to bypass TypeScript table checking
+      const { data, error } = await supabase
+        .from('apl_diagram_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching Diagram tasks:', error);
@@ -244,11 +254,13 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      // Use the proper function call pattern without string literals
-      const { data, error } = await supabase.rpc(
-        'apl_get_document_tasks', 
-        { workspace_id_param: workspaceId }
-      );
+      // Use raw query to bypass TypeScript table checking
+      const { data, error } = await supabase
+        .from('apl_document_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching Document tasks:', error);
@@ -287,8 +299,24 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         
         if (data && Array.isArray(data) && data.length > 0) {
           const details = data[0];
+          // Convert Json to array if needed
+          const inputSamples = Array.isArray(details.input_samples) 
+            ? details.input_samples 
+            : (details.input_samples ? [details.input_samples] : []);
+          
+          const outputSamples = Array.isArray(details.output_samples) 
+            ? details.output_samples 
+            : (details.output_samples ? [details.output_samples] : []);
+          
+          const generatedScripts = Array.isArray(details.generated_scripts) 
+            ? details.generated_scripts 
+            : (details.generated_scripts ? [details.generated_scripts] : []);
+            
           taskDetails = {
             ...details,
+            input_samples: inputSamples,
+            output_samples: outputSamples,
+            generated_scripts: generatedScripts,
             category: 'dataweave',
             workspace_id: workspaceId // Add missing workspace_id property
           };
@@ -318,64 +346,72 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           taskDetails = data[0] as unknown as TaskDetails;
         }
       } else if (category === 'munit') {
-        // Fetch MUnit task details
-        const { data, error } = await supabase.rpc(
-          'apl_get_munit_task_details', 
-          { task_id_param: taskId }
-        );
+        // Fetch MUnit task details using direct query
+        const { data, error } = await supabase
+          .from('apl_munit_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .eq('user_id', user.id)
+          .single();
           
         if (error) {
           console.error('Error fetching MUnit task details:', error);
           return;
         }
         
-        if (data && Array.isArray(data) && data.length > 0) {
-          taskDetails = data[0] as unknown as TaskDetails;
+        if (data) {
+          taskDetails = data as unknown as TaskDetails;
         }
       } else if (category === 'sampledata') {
         // Fetch Sample Data task details
-        const { data, error } = await supabase.rpc(
-          'apl_get_sample_data_task_details', 
-          { task_id_param: taskId }
-        );
+        const { data, error } = await supabase
+          .from('apl_sample_data_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .eq('user_id', user.id)
+          .single();
           
         if (error) {
           console.error('Error fetching Sample Data task details:', error);
           return;
         }
         
-        if (data && Array.isArray(data) && data.length > 0) {
-          taskDetails = data[0] as unknown as TaskDetails;
+        if (data) {
+          taskDetails = data as unknown as TaskDetails;
         }
       } else if (category === 'diagram') {
         // Fetch Diagram task details
-        const { data, error } = await supabase.rpc(
-          'apl_get_diagram_task_details', 
-          { task_id_param: taskId }
-        );
+        const { data, error } = await supabase
+          .from('apl_diagram_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .eq('user_id', user.id)
+          .single();
           
         if (error) {
           console.error('Error fetching Diagram task details:', error);
           return;
         }
         
-        if (data && Array.isArray(data) && data.length > 0) {
-          taskDetails = data[0] as unknown as TaskDetails;
+        if (data) {
+          taskDetails = data as unknown as TaskDetails;
         }
       } else if (category === 'document') {
         // Fetch Document task details
-        const { data, error } = await supabase.rpc(
-          'apl_get_document_task_details', 
-          { task_id_param: taskId }
-        );
+        const { data, error } = await supabase
+          .from('apl_document_tasks')
+          .select('*')
+          .eq('id', taskId)
+          .eq('user_id', user.id)
+          .single();
           
         if (error) {
           console.error('Error fetching Document task details:', error);
           return;
         }
         
-        if (data && Array.isArray(data) && data.length > 0) {
-          taskDetails = data[0] as unknown as TaskDetails;
+        if (data) {
+          taskDetails = data as unknown as TaskDetails;
         }
       }
       
@@ -394,7 +430,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
     
     try {
-      // Fix the table name by using it as a proper string for PostgrestQueryBuilder
       const { data, error } = await supabase
         .from('apl_munit_tasks')
         .insert({
@@ -402,14 +437,15 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           workspace_id: payload.workspace_id,
           task_id: payload.task_id,
           task_name: payload.task_name,
-          category: 'munit',
+          category: 'munit', 
           description: payload.description,
           notes: payload.notes,
           flow_implementation: payload.flow_implementation,
           runtime: payload.runtime,
           scenario_count: payload.scenario_count,
           generated_tests: payload.generated_tests
-        });
+        })
+        .select();
         
       if (error) {
         throw error;
@@ -446,7 +482,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           output_schema: payload.output_schema,
           generated_data: payload.generated_data,
           sample_count: payload.sample_count || 5
-        });
+        })
+        .select();
         
       if (error) {
         throw error;
@@ -481,7 +518,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           diagram_type: payload.diagram_type,
           diagram_content: payload.diagram_content,
           generated_diagram: payload.generated_diagram
-        });
+        })
+        .select();
         
       if (error) {
         throw error;
@@ -516,7 +554,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           document_type: payload.document_type,
           source_content: payload.source_content,
           generated_document: payload.generated_document
-        });
+        })
+        .select();
         
       if (error) {
         throw error;
@@ -554,7 +593,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           endpoints: payload.endpoints,
           raml_content: payload.raml_content,
           documentation: payload.documentation
-        });
+        })
+        .select();
         
       if (error) {
         throw error;

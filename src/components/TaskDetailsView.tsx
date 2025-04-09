@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Calendar, Tag, Code, Copy } from 'lucide-react';
 import { TaskDetails } from '@/hooks/useWorkspaceTasks';
@@ -346,21 +347,15 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
   };
 
   const isDataWeaveTask = (task: TaskDetails) => task.category === 'dataweave';
-  const isIntegrationTask = task.category === 'integration' || task.task_name?.includes('Integration Flow');
-  const isRAMLTask = task.category === 'raml';
+  const isIntegrationTask = (task: TaskDetails) => task.category === 'integration' || task.task_name?.includes('Integration Flow');
+  const isRAMLTask = (task: TaskDetails) => task.category === 'raml';
   const isMUnitTask = (task: TaskDetails) => task.category === 'munit';
   const isSampleDataTask = (task: TaskDetails) => task.category === 'sampledata';
   const isDiagramTask = (task: TaskDetails) => task.category === 'diagram';
   const isDocumentTask = (task: TaskDetails) => task.category === 'document';
 
-  const isDataWeaveTaskValue = isDataWeaveTask(task);
-  const isMUnitTaskValue = isMUnitTask(task);
-  const isSampleDataTaskValue = isSampleDataTask(task);
-  const isDiagramTaskValue = isDiagramTask(task);
-  const isDocumentTaskValue = isDocumentTask(task);
-
   const renderTaskContent = (task: TaskDetails) => {
-    if (isDataWeaveTaskValue) {
+    if (isDataWeaveTask(task)) {
       return (
         <div className="space-y-6">
           <div>
@@ -434,11 +429,11 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isIntegrationTask) {
+    } else if (isIntegrationTask(task)) {
       return renderIntegrationFlow(task.generated_scripts && task.generated_scripts.length > 0 ? task.generated_scripts[0].code : '');
-    } else if (isRAMLTask) {
+    } else if (isRAMLTask(task)) {
       return renderRamlSpecification(task.raml_content || '');
-    } else if (isMUnitTaskValue) {
+    } else if (isMUnitTask(task)) {
       return (
         <div className="space-y-6">
           <div>
@@ -512,7 +507,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isSampleDataTaskValue) {
+    } else if (isSampleDataTask(task)) {
       return (
         <div className="space-y-6">
           <div>
@@ -573,7 +568,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isDiagramTaskValue) {
+    } else if (isDiagramTask(task)) {
       return (
         <div className="space-y-6">
           <div>
@@ -633,7 +628,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isDocumentTaskValue) {
+    } else if (isDocumentTask(task)) {
       return (
         <div className="space-y-6">
           <div>
@@ -733,7 +728,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      {task.notes && !isIntegrationTask && !isRAMLTask && (
+      {task.notes && !isIntegrationTask(task) && !isRAMLTask(task) && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h3 className="text-sm font-medium mb-2">Notes</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300">{task.notes}</p>

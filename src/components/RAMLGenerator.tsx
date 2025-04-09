@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock, Code } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -367,10 +366,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           try {
             const taskId = `R-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
             
-            const taskData = {
+            const taskData: RAMLGeneratorPayload = {
               task_id: taskId,
               task_name: apiName,
-              user_id: user.id,
               workspace_id: workspaceId,
               description: apiDescription,
               raml_content: data.raml,
@@ -385,7 +383,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
             
             if (savedTask && onTaskCreated) {
               onTaskCreated({
-                id: taskId,
+                id: savedTask[0]?.id,
                 label: apiName,
                 category: 'raml',
                 icon: <Code className="h-4 w-4" />,
@@ -394,7 +392,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
             }
             
             if (onSaveTask && savedTask) {
-              onSaveTask(savedTask[0].id);
+              onSaveTask(savedTask[0]?.id);
             }
             
             setPublishTitle(apiName);
