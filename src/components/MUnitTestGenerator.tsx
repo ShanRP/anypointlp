@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, Save, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [generatedTests, setGeneratedTests] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('input');
   
+  // Use useMemo for taskId to ensure it's stable across renders
   const taskId = React.useMemo(() => uuidv4(), []);
   
   const { 
@@ -65,7 +67,8 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     loading 
   } = useMUnitRepositoryData();
 
-  const handleGenerate = async () => {
+  // Create a memoized handler for generation to avoid recreating it on each render
+  const handleGenerate = useCallback(async () => {
     if (!description) {
       toast({
         title: "Missing information",
@@ -115,12 +118,14 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         throw new Error(data?.error || 'Failed to generate MUnit tests');
       }
       
+      // Store the generated code before changing the tab
       const generatedCode = data.code || "// No tests generated";
       setGeneratedTests(generatedCode);
       
-      setTimeout(() => {
+      // Use requestAnimationFrame for more reliable UI updates
+      requestAnimationFrame(() => {
         setActiveTab('result');
-      }, 0);
+      });
 
       if (onTaskCreated && selectedWorkspaceId) {
         onTaskCreated({
@@ -158,9 +163,9 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [description, notes, flowImplementation, runtime, scenarioCount, selectedWorkspaceId, toast, onTaskCreated, onSaveTask, taskId]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setDescription('');
     setNotes('');
     setFlowImplementation('');
@@ -168,18 +173,18 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     setScenarioCount(1);
     setGeneratedTests('');
     setActiveTab('input');
-  };
+  }, []);
 
-  const handleFileSelect = (filePath: string) => {
+  const handleFileSelect = useCallback((filePath: string) => {
     selectFile(filePath);
     if (fileContent) {
       setFlowImplementation(fileContent);
     }
-  };
+  }, [selectFile, fileContent]);
 
-  const handleTabChange = (value: string) => {
+  const handleTabChange = useCallback((value: string) => {
     setActiveTab(value);
-  };
+  }, []);
 
   return (
     <div className="w-full h-full flex flex-col">
