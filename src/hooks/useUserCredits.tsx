@@ -20,10 +20,14 @@ export const useUserCredits = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  
+  // Track if fetch has been performed to prevent multiple calls
+  const [hasFetched, setHasFetched] = useState(false);
 
   const fetchUserCredits = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
+    // Skip if already fetched or no user
+    if (hasFetched || !user) {
+      if (!user) setLoading(false);
       return;
     }
 
@@ -90,13 +94,16 @@ export const useUserCredits = () => {
           setCredits(data as UserCredits);
         }
       }
+      
+      // Mark as fetched to prevent repeating
+      setHasFetched(true);
     } catch (err: any) {
       console.error('Error fetching user credits:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, hasFetched]); // Only depend on user and hasFetched
 
   const useCredit = useCallback(async () => {
     if (!user || !credits) {
@@ -179,6 +186,16 @@ export const useUserCredits = () => {
 
   // Initialize or reset credits on mount and when the user changes
   useEffect(() => {
+    if (user) {
+      // Reset hasFetched when user changes
+      setHasFetched(false); 
+      fetchUserCredits();
+    }
+  }, [user, fetchUserCredits]);
+
+  // Refresh function that can be called externally
+  const refreshCredits = useCallback(() => {
+    setHasFetched(false);
     fetchUserCredits();
   }, [fetchUserCredits]);
 
@@ -188,6 +205,6 @@ export const useUserCredits = () => {
     error,
     useCredit,
     upgradeToProPlan,
-    refreshCredits: fetchUserCredits
+    refreshCredits
   };
 };

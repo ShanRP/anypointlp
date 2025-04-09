@@ -18,23 +18,24 @@ export function UserCreditsDisplay() {
   const { credits, loading, upgradeToProPlan } = useUserCredits();
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
-  const [creditsRemaining, setCreditsRemaining] = useState(0);
-  const [isLow, setIsLow] = useState(false);
-  const [isPro, setIsPro] = useState(false);
-
-  // Combined all state updates in a single effect to prevent cascading updates
-  useEffect(() => {
-    if (credits) {
-      // Calculate values once from credits data
-      const limit = credits.is_pro ? 100 : 3;
-      const remaining = limit - credits.credits_used;
-      
-      // Update all states at once to prevent re-renders
-      setCreditsRemaining(remaining);
-      setIsLow(remaining <= 1 && !credits.is_pro);
-      setIsPro(credits.is_pro);
-    }
-  }, [credits]); // Only depend on credits object, not on derived states
+  
+  // Calculate these values directly from props instead of storing in state
+  // This prevents unnecessary re-renders
+  const getCreditsRemaining = () => {
+    if (!credits) return 0;
+    const limit = credits.is_pro ? 100 : 3;
+    return limit - credits.credits_used;
+  };
+  
+  const isLow = () => {
+    if (!credits) return false;
+    const remaining = getCreditsRemaining();
+    return remaining <= 1 && !credits.is_pro;
+  };
+  
+  const isPro = () => credits?.is_pro || false;
+  
+  const creditsRemaining = getCreditsRemaining();
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);
@@ -60,14 +61,14 @@ export function UserCreditsDisplay() {
   return (
     <div className="flex items-center gap-2">
       <Badge 
-        variant={isLow ? "destructive" : "secondary"} 
+        variant={isLow() ? "destructive" : "secondary"} 
         className="flex items-center gap-1 px-2 py-1"
       >
         <Coins className="h-3.5 w-3.5" />
         <span>{creditsRemaining} credit{creditsRemaining !== 1 ? 's' : ''} left</span>
       </Badge>
 
-      {!isPro && (
+      {!isPro() && (
         <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="text-xs">
