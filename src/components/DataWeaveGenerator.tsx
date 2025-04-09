@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Loader2, ArrowLeft, FileCode, Check, Folder, File } from 'lucide-react';
@@ -196,18 +195,18 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
         }
         
         const fileName = pathParts[pathParts.length - 1];
-        const isDataWeave = fileName.endsWith('.dwl');
+        const fileIsDataWeave = fileName.endsWith('.dwl');
         
         const fileNode: FileNode = {
           name: fileName,
           path: path,
           type: 'file',
-          isDataWeave
+          isDataWeave: fileIsDataWeave
         };
         
         parentNode?.children?.push(fileNode);
         
-        if (isDataWeave) {
+        if (fileIsDataWeave) {
           const reader = new FileReader();
           reader.onload = (event) => {
             if (event.target && typeof event.target.result === 'string') {
@@ -724,12 +723,11 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
     if (!validateForm()) return;
     
     setIsGenerating(true);
-    setFormError('');  // Fixed: Use formError instead of error
+    setFormError('');
 
-    // Now useCredit is properly in scope
     const canUseCredit = await useCredit();
     if (!canUseCredit) {
-      setIsGenerating(false);  // Make sure to set this back to false
+      setIsGenerating(false);
       return;
     }
 
