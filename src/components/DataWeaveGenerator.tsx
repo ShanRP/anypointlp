@@ -113,6 +113,8 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
   const fadeIn = useFadeIn();
   const { ref, animate } = useAnimate();
   
+  const { useCredit } = useUserCredits();
+  
   useEffect(() => {
     const storedRepoJson = localStorage.getItem('APL_selectedGithubRepo');
     if (storedRepoJson && mode === 'withRepository') {
@@ -286,7 +288,7 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
       const matchesInputFormat = isFileOfType(file.name, inputFormat);
       
       if (!isDataWeaveFile && !matchesInputFormat) {
-        toast.error(`This file format does not match the selected ${isDataWeaveFile ? 'DataWeave' : inputFormat} format`);
+        toast.error(`This file format does not match the selected ${isDataWeave ? 'DataWeave' : inputFormat} format`);
         return;
       }
       
@@ -723,6 +725,7 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
     setIsGenerating(true);
     setFormError('');  // Fixed: Use formError instead of error
 
+    // Now useCredit is properly in scope
     const canUseCredit = await useCredit();
     if (!canUseCredit) {
       setIsGenerating(false);  // Make sure to set this back to false
@@ -892,129 +895,4 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
 
             <div className="space-y-6">
               <div>
-                <label htmlFor="inputFormat" className="block text-sm font-medium mb-2 text-gray-700">
-                  Sample Input Format
-                </label>
-                <Select value={inputFormat} onValueChange={setInputFormat}>
-                  <SelectTrigger className="w-full bg-white border-gray-200 text-gray-800">
-                    <SelectValue placeholder="Select format" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-gray-200">
-                    <SelectItem value="JSON" className="text-gray-800">JSON</SelectItem>
-                    <SelectItem value="XML" className="text-gray-800">XML</SelectItem>
-                    <SelectItem value="YAML" className="text-gray-800">YAML</SelectItem>
-                    <SelectItem value="CSV" className="text-gray-800">CSV</SelectItem>
-                    
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-md font-medium text-gray-800">
-                    Input/Output Pairs ({pairs.length})
-                  </h2>
-                  <Button 
-                    onClick={addInputOutputPair} 
-                    variant="outline" 
-                    size="sm"
-                    className="h-8 bg-black text-white border-black hover:bg-gray-800"
-                  >
-                    <Plus size={14} className="mr-1" /> Add Input/Output Sample
-                  </Button>
-                </div>
-
-                <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
-                  {pairs.map((pair) => (
-                    <DataWeaveInputOutputPair
-                      key={pair.id}
-                      id={pair.id}
-                      inputFormat={inputFormat}
-                      inputSample={pair.inputSample}
-                      outputSample={pair.outputSample}
-                      onInputChange={updateInputSample}
-                      onOutputChange={updateOutputSample}
-                      onDelete={() => removeInputOutputPair(pair.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="notes" className="block text-sm font-medium mb-2 text-gray-700">
-                  Notes (Optional)
-                </label>
-                <Textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add any notes or context for the generator..."
-                  className="min-h-[100px] bg-white border-gray-200 text-gray-800 resize-none"
-                />
-              </div>
-
-              {formError && (
-                <div className="rounded-md bg-red-50 p-4 text-red-600 text-sm">
-                  {formError}
-                </div>
-              )}
-
-              <div className="flex gap-4 pt-4">
-                <Button 
-                  onClick={handleGenerateDataWeave} 
-                  disabled={isGenerating}
-                  className="bg-black hover:bg-gray-800 text-white"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    'Generate DataWeave Script'
-                  )}
-                </Button>
-                <Button 
-                  onClick={handleReset} 
-                  variant="outline" 
-                  disabled={isGenerating}
-                  className="text-gray-700 border-gray-300"
-                >
-                  Reset
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <div>
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Generated DataWeave Scripts</h2>
-              <p className="text-gray-600">
-                Based on your input/output examples, we've generated the following DataWeave transformation scripts.
-              </p>
-            </div>
-            
-            <DataWeaveScripts 
-              scripts={generatedScripts} 
-              onNewTask={handleReset} 
-              pairs={pairs}
-              notes={notes}
-            />
-            
-            <div className="mt-8 flex gap-4">
-              <Button 
-                onClick={handleReset} 
-                variant="outline"
-                className="text-gray-700 border-gray-300"
-              >
-                Create New Task
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default DataWeaveGenerator;
+                <label htmlFor="input
