@@ -49,12 +49,9 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [scenarioCount, setScenarioCount] = useState(1);
   const [generatedTests, setGeneratedTests] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('input');
-  const [taskId, setTaskId] = useState<string>('');
   
-  // Initialize taskId only once when component mounts
-  useEffect(() => {
-    setTaskId(uuidv4());
-  }, []);
+  // Generate a unique task ID when the component mounts
+  const [taskId] = useState<string>(() => uuidv4());
   
   const { 
     repositories, 
@@ -92,7 +89,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     setIsGenerating(true);
     
     try {
-      // Use the pre-generated taskId instead of creating a new one during generation
+      // Use the pre-generated taskId that was created during component mount
       console.log("Sending request with payload:", {
         description,
         notes,
@@ -121,7 +118,11 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         throw new Error(data?.error || 'Failed to generate MUnit tests');
       }
       
+      // Update the generatedTests state after successful response
       setGeneratedTests(data.code || "// No tests generated");
+
+      // Switch to the result tab after successful generation
+      setActiveTab('result');
 
       if (onTaskCreated && selectedWorkspaceId) {
         onTaskCreated({
@@ -149,8 +150,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
           onSaveTask(taskId);
         }
       }
-      
-      setActiveTab('result');
     } catch (error) {
       console.error('Error generating MUnit tests:', error);
       toast({
