@@ -372,14 +372,14 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       if (isUuid) {
         console.log('Using UUID for MUnit task lookup:', taskId);
         ({ data, error } = await supabase
-          .from('apl_munit_tasks')
+          .from('apl_munit_tasks' as any)
           .select('*')
           .eq('id', taskId)
           .limit(1));
       } else {
         console.log('Using task_id for MUnit task lookup:', taskId);
         ({ data, error } = await supabase
-          .from('apl_munit_tasks')
+          .from('apl_munit_tasks' as any)
           .select('*')
           .eq('task_id', taskId)
           .limit(1));
@@ -598,7 +598,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       };
 
       const { data, error } = await supabase
-        .from('apl_munit_tasks')
+        .from('apl_munit_tasks' as any)
         .insert([taskData])
         .select();
       

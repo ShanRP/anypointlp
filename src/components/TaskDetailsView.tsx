@@ -142,9 +142,15 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
               </Button>
             </div>
             <div className="relative">
-              <pre className="bg-black text-green-400 p-4 rounded-md overflow-x-auto text-sm font-mono">
-                {sections.flowImplementation}
-              </pre>
+              <MonacoEditor
+                value={sections.flowImplementation}
+                language="xml"
+                height="400px"
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: true }
+                }}
+              />
             </div>
           </div>
         )}
@@ -162,9 +168,15 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
                 <Copy size={14} className="mr-1" /> Copy
               </Button>
             </div>
-            <pre className="bg-black text-green-400 p-4 rounded-md overflow-x-auto text-sm font-mono">
-              {sections.flowConstants}
-            </pre>
+            <MonacoEditor
+              value={sections.flowConstants}
+              language="properties"
+              height="200px"
+              options={{
+                readOnly: true,
+                minimap: { enabled: false }
+              }}
+            />
           </div>
         )}
 
@@ -181,9 +193,15 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
                 <Copy size={14} className="mr-1" /> Copy
               </Button>
             </div>
-            <pre className="bg-black text-green-400 p-4 rounded-md overflow-x-auto text-sm font-mono">
-              {sections.pomDependencies}
-            </pre>
+            <MonacoEditor
+              value={sections.pomDependencies}
+              language="xml"
+              height="200px"
+              options={{
+                readOnly: true,
+                minimap: { enabled: false }
+              }}
+            />
           </div>
         )}
 
@@ -200,9 +218,15 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
                 <Copy size={14} className="mr-1" /> Copy
               </Button>
             </div>
-            <pre className="bg-black text-green-400 p-4 rounded-md overflow-x-auto text-sm font-mono">
-              {sections.compilationCheck}
-            </pre>
+            <MonacoEditor
+              value={sections.compilationCheck}
+              language="text"
+              height="150px"
+              options={{
+                readOnly: true,
+                minimap: { enabled: false }
+              }}
+            />
           </div>
         )}
         
