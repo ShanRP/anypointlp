@@ -42,7 +42,8 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isValidFileForFormat = (fileName: string): boolean => {
-    return isFileOfType(fileName, generationType);
+    // Only accept XML files regardless of the selected generation type
+    return fileName.toLowerCase().endsWith('.dwl');
   };
 
   const handleGenerate = async () => {
@@ -219,7 +220,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
 
   const handleUploadedFileSelect = (file: File) => {
     if (!isValidFileForFormat(file.name)) {
-      toast.error(`This file format does not match the selected ${generationType} format`);
+      toast.error(`This file format does not match dwl format`);
       return;
     }
     
@@ -408,7 +409,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                                     {item.name}
                                     {item.type === 'file' && !isValidFileForFormat(item.name) && (
                                       <span className="text-xs text-gray-400 ml-2">
-                                        (not {generationType.toLowerCase()})
+                                        (not DWL format)
                                       </span>
                                     )}
                                   </span>
@@ -437,8 +438,8 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                       <Upload size={24} className="mb-2 text-gray-400" />
                       <span className="text-sm text-gray-600">Drag and drop files here, or click to browse</span>
                       <span className="text-xs text-gray-500 mt-1">
-                        Currently accepting {generationType.toLowerCase()} files
-                      </span>
+    Only accepting DWL files
+  </span>
                       <input 
                         id="schema-file-upload" 
                         type="file" 
@@ -474,7 +475,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                                 </span>
                                 {!isValidFile && (
                                   <span className="text-xs text-gray-400 ml-2">
-                                    (not {generationType.toLowerCase()})
+                                    (not DWL format)
                                   </span>
                                 )}
                                 {selectedFile === file.name && (
