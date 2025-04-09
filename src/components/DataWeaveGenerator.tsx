@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Loader2, ArrowLeft, FileCode, Check, Folder, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -159,7 +159,7 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
       const directories: Record<string, FileNode> = {};
       
       files.forEach(file => {
-        const path = file.webkitRelativePath;
+        const path = (file as any).webkitRelativePath;
         const pathParts = path.split('/');
         
         if (pathParts.length <= 1) return;
@@ -217,7 +217,7 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
               setDataWeaveFiles(prev => [...prev, dwFile]);
             }
           };
-          reader.readAsText(file);
+          reader.readAsText(file as Blob);
         }
       });
       
@@ -721,10 +721,11 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
     if (!validateForm()) return;
     
     setIsGenerating(true);
-    setError(null);
+    setFormError('');  // Fixed: Use formError instead of error
 
     const canUseCredit = await useCredit();
     if (!canUseCredit) {
+      setIsGenerating(false);  // Make sure to set this back to false
       return;
     }
 

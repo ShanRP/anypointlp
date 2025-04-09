@@ -66,15 +66,17 @@ const DEFAULT_METHOD: Method = {
 };
 
 interface RAMLGeneratorProps {
+  onBack: () => void;
   selectedWorkspaceId?: string;
-  onBack?: () => void;
-  onTaskCreated?: (task: any) => void;
   onSaveTask?: (taskId: string) => void;
+  onTaskCreated?: (task: any) => void;
 }
 
 const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ 
-  selectedWorkspaceId, 
-  onBack
+  onBack, 
+  selectedWorkspaceId = 'default',
+  onSaveTask,
+  onTaskCreated
 }) => {
   const navigate = useNavigate();
   const { selectedWorkspace } = useWorkspaces();
