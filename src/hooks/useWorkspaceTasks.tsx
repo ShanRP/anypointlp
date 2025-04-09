@@ -175,8 +175,11 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      const { data, error } = await supabase
-        .rpc('apl_get_munit_tasks', { workspace_id_param: workspaceId });
+      // Use the proper function call pattern without string literals
+      const { data, error } = await supabase.rpc(
+        'apl_get_munit_tasks', 
+        { workspace_id_param: workspaceId }
+      );
 
       if (error) {
         console.error('Error fetching MUnit tasks:', error);
@@ -195,8 +198,11 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      const { data, error } = await supabase
-        .rpc('apl_get_sample_data_tasks', { workspace_id_param: workspaceId });
+      // Use the proper function call pattern without string literals
+      const { data, error } = await supabase.rpc(
+        'apl_get_sample_data_tasks', 
+        { workspace_id_param: workspaceId }
+      );
 
       if (error) {
         console.error('Error fetching Sample Data tasks:', error);
@@ -215,8 +221,11 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      const { data, error } = await supabase
-        .rpc('apl_get_diagram_tasks', { workspace_id_param: workspaceId });
+      // Use the proper function call pattern without string literals
+      const { data, error } = await supabase.rpc(
+        'apl_get_diagram_tasks', 
+        { workspace_id_param: workspaceId }
+      );
 
       if (error) {
         console.error('Error fetching Diagram tasks:', error);
@@ -235,8 +244,11 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      const { data, error } = await supabase
-        .rpc('apl_get_document_tasks', { workspace_id_param: workspaceId });
+      // Use the proper function call pattern without string literals
+      const { data, error } = await supabase.rpc(
+        'apl_get_document_tasks', 
+        { workspace_id_param: workspaceId }
+      );
 
       if (error) {
         console.error('Error fetching Document tasks:', error);
@@ -273,11 +285,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           return;
         }
         
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           const details = data[0];
           taskDetails = {
             ...details,
-            category: 'dataweave'
+            category: 'dataweave',
+            workspace_id: workspaceId // Add missing workspace_id property
           };
         }
       } else if (category === 'integration') {
@@ -289,7 +302,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           return;
         }
         
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           taskDetails = data[0] as unknown as TaskDetails;
         }
       } else if (category === 'raml') {
@@ -301,59 +314,67 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           return;
         }
         
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           taskDetails = data[0] as unknown as TaskDetails;
         }
       } else if (category === 'munit') {
         // Fetch MUnit task details
-        const { data, error } = await supabase
-          .rpc('apl_get_munit_task_details', { task_id_param: taskId });
+        const { data, error } = await supabase.rpc(
+          'apl_get_munit_task_details', 
+          { task_id_param: taskId }
+        );
           
         if (error) {
           console.error('Error fetching MUnit task details:', error);
           return;
         }
         
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           taskDetails = data[0] as unknown as TaskDetails;
         }
       } else if (category === 'sampledata') {
         // Fetch Sample Data task details
-        const { data, error } = await supabase
-          .rpc('apl_get_sample_data_task_details', { task_id_param: taskId });
+        const { data, error } = await supabase.rpc(
+          'apl_get_sample_data_task_details', 
+          { task_id_param: taskId }
+        );
           
         if (error) {
           console.error('Error fetching Sample Data task details:', error);
           return;
         }
         
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           taskDetails = data[0] as unknown as TaskDetails;
         }
       } else if (category === 'diagram') {
         // Fetch Diagram task details
-        const { data, error } = await supabase
-          .rpc('apl_get_diagram_task_details', { task_id_param: taskId });
+        const { data, error } = await supabase.rpc(
+          'apl_get_diagram_task_details', 
+          { task_id_param: taskId }
+        );
           
         if (error) {
           console.error('Error fetching Diagram task details:', error);
           return;
         }
         
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           taskDetails = data[0] as unknown as TaskDetails;
         }
       } else if (category === 'document') {
         // Fetch Document task details
-        const { data, error } = await supabase
-          .rpc('apl_get_document_task_details', { task_id_param: taskId });
+        const { data, error } = await supabase.rpc(
+          'apl_get_document_task_details', 
+          { task_id_param: taskId }
+        );
           
         if (error) {
           console.error('Error fetching Document task details:', error);
           return;
         }
         
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           taskDetails = data[0] as unknown as TaskDetails;
         }
       }
@@ -364,7 +385,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } finally {
       setSelectedTaskLoading(false);
     }
-  }, [tasks, user]);
+  }, [tasks, user, workspaceId]);
 
   // Save MUnit task to the database
   const saveMUnitTask = async (payload: MUnitGeneratorPayload) => {
@@ -373,6 +394,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
     
     try {
+      // Fix the table name by using it as a proper string for PostgrestQueryBuilder
       const { data, error } = await supabase
         .from('apl_munit_tasks')
         .insert({
@@ -510,6 +532,44 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   };
 
+  // Save RAML task to the database
+  const saveRamlTask = async (payload: RAMLGeneratorPayload) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('apl_raml_tasks')
+        .insert({
+          user_id: user.id,
+          workspace_id: payload.workspace_id,
+          task_id: payload.task_id,
+          task_name: payload.task_name,
+          category: 'raml',
+          description: payload.description,
+          api_name: payload.api_name,
+          api_version: payload.api_version,
+          base_uri: payload.base_uri,
+          endpoints: payload.endpoints,
+          raml_content: payload.raml_content,
+          documentation: payload.documentation
+        });
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Refresh tasks list
+      fetchWorkspaceTasks();
+      
+      return data;
+    } catch (error) {
+      console.error('Error saving RAML task:', error);
+      throw error;
+    }
+  };
+
   // Load initial data when component mounts
   useEffect(() => {
     if (workspaceId && user) {
@@ -527,6 +587,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     saveMUnitTask,
     saveSampleDataTask,
     saveDiagramTask,
-    saveDocumentTask
+    saveDocumentTask,
+    saveRamlTask
   };
 };

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Calendar, Tag, Code, Copy } from 'lucide-react';
 import { TaskDetails } from '@/hooks/useWorkspaceTasks';
@@ -354,8 +353,14 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
   const isDiagramTask = (task: TaskDetails) => task.category === 'diagram';
   const isDocumentTask = (task: TaskDetails) => task.category === 'document';
 
+  const isDataWeaveTaskValue = isDataWeaveTask(task);
+  const isMUnitTaskValue = isMUnitTask(task);
+  const isSampleDataTaskValue = isSampleDataTask(task);
+  const isDiagramTaskValue = isDiagramTask(task);
+  const isDocumentTaskValue = isDocumentTask(task);
+
   const renderTaskContent = (task: TaskDetails) => {
-    if (isDataWeaveTask(task)) {
+    if (isDataWeaveTaskValue) {
       return (
         <div className="space-y-6">
           <div>
@@ -429,11 +434,11 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isIntegrationTask(task)) {
+    } else if (isIntegrationTask) {
       return renderIntegrationFlow(task.generated_scripts && task.generated_scripts.length > 0 ? task.generated_scripts[0].code : '');
-    } else if (isRAMLTask(task)) {
+    } else if (isRAMLTask) {
       return renderRamlSpecification(task.raml_content || '');
-    } else if (isMUnitTask(task)) {
+    } else if (isMUnitTaskValue) {
       return (
         <div className="space-y-6">
           <div>
@@ -507,7 +512,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isSampleDataTask(task)) {
+    } else if (isSampleDataTaskValue) {
       return (
         <div className="space-y-6">
           <div>
@@ -568,7 +573,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isDiagramTask(task)) {
+    } else if (isDiagramTaskValue) {
       return (
         <div className="space-y-6">
           <div>
@@ -628,7 +633,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isDocumentTask(task)) {
+    } else if (isDocumentTaskValue) {
       return (
         <div className="space-y-6">
           <div>
