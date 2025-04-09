@@ -625,7 +625,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         category: 'munit'
       };
 
-      const { data, error } = await supabase.rpc('apl_insert_munit_task', taskData);
+      const { data, error } = await supabase.rpc<string>('apl_insert_munit_task', taskData);
       
       if (error) throw error;
       
