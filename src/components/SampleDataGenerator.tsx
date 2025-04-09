@@ -521,7 +521,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-medium text-gray-700">
-                    Schema <span className="text-red-500">*</span>
+                    Dataweave <span className="text-red-500">*</span>
                   </label>
                   {selectedFile && (
                     <div className="flex items-center text-sm text-purple-700 font-medium">
@@ -554,7 +554,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                 </div>
                 
                 <div className="text-sm text-gray-500">
-                  Provide the schema or structure for which you want to generate sample data
+                  Provide the Dataweave for which you want to generate sample data
                 </div>
               </div>
 
