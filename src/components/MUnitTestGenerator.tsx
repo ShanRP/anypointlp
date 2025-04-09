@@ -17,6 +17,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 
 type MUnitTestGeneratorProps = {
   onTaskCreated?: (task: any) => void;
@@ -40,6 +42,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
 }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [sourceType, setSourceType] = useState<'noRepository' | 'withRepository' | 'local'>('noRepository');
   const [description, setDescription] = useState('');
@@ -66,6 +69,8 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     fileContent, 
     loading 
   } = useMUnitRepositoryData();
+
+  const { saveMUnitTask } = useWorkspaceTasks(selectedWorkspaceId || '');
 
   // Create a memoized handler for generation to avoid recreating it on each render
   const handleGenerate = useCallback(async () => {
@@ -127,30 +132,83 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         setActiveTab('result');
       });
 
-      if (onTaskCreated && selectedWorkspaceId) {
-        onTaskCreated({
-          id: taskId,
-          label: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
-          category: 'munit',
-          icon: "TestTube2",
-          workspace_id: selectedWorkspaceId,
-          content: {
+      if (user && selectedWorkspaceId) {
+        // Save the task to the database
+        try {
+          await saveMUnitTask({
+            workspace_id: selectedWorkspaceId,
+            task_id: `M-${taskId.substring(0, 8).toUpperCase()}`,
+            task_name: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
+            user_id: user.id,
             description,
             notes,
-            flow: flowImplementation,
-            tests: generatedCode,
+            flow_implementation: flowImplementation,
             runtime,
-            scenarioCount
+            scenario_count: scenarioCount,
+            generated_tests: generatedCode
+          });
+          
+          if (onTaskCreated) {
+            onTaskCreated({
+              id: taskId,
+              label: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
+              category: 'munit',
+              icon: "TestTube2",
+              workspace_id: selectedWorkspaceId,
+              content: {
+                description,
+                notes,
+                flow: flowImplementation,
+                tests: generatedCode,
+                runtime,
+                scenarioCount
+              }
+            });
           }
-        });
 
+          toast({
+            title: "Success!",
+            description: "MUnit tests generated and saved successfully.",
+          });
+
+          if (onSaveTask) {
+            onSaveTask(taskId);
+          }
+        } catch (saveError) {
+          console.error('Error saving MUnit task:', saveError);
+          toast({
+            title: "Task saved but could not be stored",
+            description: "MUnit tests were generated but could not be saved to your workspace.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        // Just notify of success but don't save if no user or workspace
         toast({
           title: "Success!",
           description: "MUnit tests generated successfully.",
         });
+        
+        if (onTaskCreated && selectedWorkspaceId) {
+          onTaskCreated({
+            id: taskId,
+            label: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
+            category: 'munit',
+            icon: "TestTube2",
+            workspace_id: selectedWorkspaceId,
+            content: {
+              description,
+              notes,
+              flow: flowImplementation,
+              tests: generatedCode,
+              runtime,
+              scenarioCount
+            }
+          });
 
-        if (onSaveTask) {
-          onSaveTask(taskId);
+          if (onSaveTask) {
+            onSaveTask(taskId);
+          }
         }
       }
     } catch (error) {
@@ -163,7 +221,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [description, notes, flowImplementation, runtime, scenarioCount, selectedWorkspaceId, toast, onTaskCreated, onSaveTask, taskId]);
+  }, [description, notes, flowImplementation, runtime, scenarioCount, selectedWorkspaceId, toast, onTaskCreated, onSaveTask, taskId, user, saveMUnitTask]);
 
   const handleReset = useCallback(() => {
     setDescription('');

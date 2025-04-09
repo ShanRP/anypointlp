@@ -345,8 +345,377 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
     );
   };
 
+  const isDataWeaveTask = (task: TaskDetails) => task.category === 'dataweave';
   const isIntegrationTask = task.category === 'integration' || task.task_name?.includes('Integration Flow');
-  const isRamlTask = task.category === 'raml';
+  const isRAMLTask = task.category === 'raml';
+  const isMUnitTask = (task: TaskDetails) => task.category === 'munit';
+  const isSampleDataTask = (task: TaskDetails) => task.category === 'sampledata';
+  const isDiagramTask = (task: TaskDetails) => task.category === 'diagram';
+  const isDocumentTask = (task: TaskDetails) => task.category === 'document';
+
+  const renderTaskContent = (task: TaskDetails) => {
+    if (isDataWeaveTask(task)) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">DataWeave Script Details</h2>
+            <div className="text-gray-500 text-sm">
+              Created on {new Date(task.created_at).toLocaleString()}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-md font-semibold mb-1">Description</h3>
+              <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
+            </div>
+            <div>
+              <h3 className="text-md font-semibold mb-1">Input Format</h3>
+              <p className="text-gray-700 dark:text-gray-300">{task.input_format || 'No input format provided'}</p>
+            </div>
+          </div>
+
+          {task.notes && (
+            <div>
+              <h3 className="text-md font-semibold mb-1">Notes</h3>
+              <p className="text-gray-700 dark:text-gray-300">{task.notes}</p>
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">DataWeave Script</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="dataweave"
+                value={task.dataweave_script || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="250px"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Generated Data</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="json"
+                value={task.generated_data || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="400px"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(task.generated_data || '');
+                toast({
+                  title: "Copied!",
+                  description: "Generated data copied to clipboard",
+                });
+              }}
+            >
+              Copy to Clipboard
+            </Button>
+          </div>
+        </div>
+      );
+    } else if (isIntegrationTask(task)) {
+      return renderIntegrationFlow(task.generated_scripts[0].code);
+    } else if (isRAMLTask(task)) {
+      return renderRamlSpecification(task.raml_content);
+    } else if (isMUnitTask(task)) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">MUnit Test Details</h2>
+            <div className="text-gray-500 text-sm">
+              Created on {new Date(task.created_at).toLocaleString()}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-md font-semibold mb-1">Description</h3>
+              <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
+            </div>
+            <div>
+              <h3 className="text-md font-semibold mb-1">Runtime</h3>
+              <p className="text-gray-700 dark:text-gray-300">{task.runtime || 'Default runtime'}</p>
+            </div>
+          </div>
+
+          {task.notes && (
+            <div>
+              <h3 className="text-md font-semibold mb-1">Notes</h3>
+              <p className="text-gray-700 dark:text-gray-300">{task.notes}</p>
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Flow Implementation</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="xml"
+                value={task.flow_implementation || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="250px"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Generated MUnit Tests</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="xml"
+                value={task.generated_tests || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="400px"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(task.generated_tests || '');
+                toast({
+                  title: "Copied!",
+                  description: "MUnit tests copied to clipboard",
+                });
+              }}
+            >
+              Copy to Clipboard
+            </Button>
+          </div>
+        </div>
+      );
+    } else if (isSampleDataTask(task)) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Sample Data Details</h2>
+            <div className="text-gray-500 text-sm">
+              Created on {new Date(task.created_at).toLocaleString()}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Description</h3>
+            <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">DataWeave Script</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="dataweave"
+                value={task.dataweave_script || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="250px"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Generated Sample Data</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="json"
+                value={task.generated_data || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="400px"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(task.generated_data || '');
+                toast({
+                  title: "Copied!",
+                  description: "Sample data copied to clipboard",
+                });
+              }}
+            >
+              Copy to Clipboard
+            </Button>
+          </div>
+        </div>
+      );
+    } else if (isDiagramTask(task)) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Diagram Details</h2>
+            <div className="text-gray-500 text-sm">
+              Created on {new Date(task.created_at).toLocaleString()}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Description</h3>
+            <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Diagram Type</h3>
+            <p className="text-gray-700 dark:text-gray-300">{task.diagram_type || 'Unknown'}</p>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Diagram Content</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="text"
+                value={task.diagram_content || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="250px"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Generated Diagram</h3>
+            <div className="border rounded-md p-4">
+              {task.generated_diagram ? (
+                <div dangerouslySetInnerHTML={{ __html: task.generated_diagram }} />
+              ) : (
+                <p className="text-gray-500">No diagram available</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(task.generated_diagram || '');
+                toast({
+                  title: "Copied!",
+                  description: "Diagram SVG copied to clipboard",
+                });
+              }}
+            >
+              Copy SVG to Clipboard
+            </Button>
+          </div>
+        </div>
+      );
+    } else if (isDocumentTask(task)) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Document Details</h2>
+            <div className="text-gray-500 text-sm">
+              Created on {new Date(task.created_at).toLocaleString()}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Description</h3>
+            <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Document Type</h3>
+            <p className="text-gray-700 dark:text-gray-300">{task.document_type || 'Unknown'}</p>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Source Content</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="text"
+                value={task.source_content || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="250px"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-md font-semibold mb-1">Generated Document</h3>
+            <div className="border rounded-md overflow-hidden">
+              <MonacoEditor
+                language="markdown"
+                value={task.generated_document || ''}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                }}
+                height="400px"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(task.generated_document || '');
+                toast({
+                  title: "Copied!",
+                  description: "Document content copied to clipboard",
+                });
+              }}
+            >
+              Copy to Clipboard
+            </Button>
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="text-center py-10">
+          <p className="text-gray-500">No scripts found for this task</p>
+        </div>
+      );
+    }
+  };
 
   return (
     <motion.div 
@@ -373,50 +742,14 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      {task.notes && !isIntegrationTask && !isRamlTask && (
+      {task.notes && !isIntegrationTask && !isRAMLTask && !isMUnitTask && !isSampleDataTask && !isDiagramTask && !isDocumentTask && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h3 className="text-sm font-medium mb-2">Notes</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300">{task.notes}</p>
         </div>
       )}
       
-      {isRamlTask && task.raml_content ? (
-        renderRamlSpecification(task.raml_content)
-      ) : isIntegrationTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
-        renderIntegrationFlow(task.generated_scripts[0].code)
-      ) : task.generated_scripts && task.generated_scripts.length > 0 ? (
-        <Tabs defaultValue={task.generated_scripts[0].id} className="w-full">
-          <TabsList className="mb-4 flex flex-wrap">
-            {task.generated_scripts.map((script: any, index: number) => (
-              <TabsTrigger key={script.id} value={script.id}>
-                <Code size={14} className="mr-2" />
-                Script {index + 1}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          
-          {task.generated_scripts.map((script: any, index: number) => {
-            const samples = findSampleForScript(script.id, index);
-            
-            return (
-              <TabsContent key={script.id} value={script.id}>
-                <DataWeaveResult 
-                  script={script.code} 
-                  onNewTask={handleBackButton} 
-                  showNewTaskButton={false}
-                  inputSample={samples?.inputSample}
-                  outputSample={samples?.outputSample}
-                  originalNotes={task.notes || ""}
-                />
-              </TabsContent>
-            );
-          })}
-        </Tabs>
-      ) : (
-        <div className="text-center py-10">
-          <p className="text-gray-500">No scripts found for this task</p>
-        </div>
-      )}
+      {renderTaskContent(task)}
     </motion.div>
   );
 };
