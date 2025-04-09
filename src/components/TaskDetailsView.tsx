@@ -345,99 +345,8 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
     );
   };
 
-  const renderMunitTest = (munitContent: string, flowImplementation: string) => {
-    return (
-      <div className="space-y-8">
-        {task.flow_description && (
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Flow Description</h2>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => copyToClipboard(task.flow_description || '')}
-                className="text-xs"
-              >
-                <Copy size={14} className="mr-1" /> Copy
-              </Button>
-            </div>
-            <p className="whitespace-pre-wrap">{task.flow_description}</p>
-          </div>
-        )}
-
-        {flowImplementation && (
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Flow Implementation</h2>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => copyToClipboard(flowImplementation)}
-                className="text-xs"
-              >
-                <Copy size={14} className="mr-1" /> Copy
-              </Button>
-            </div>
-            <div className="relative">
-              <MonacoEditor
-                value={flowImplementation}
-                language="xml"
-                height="300px"
-                readOnly={true}
-                options={{
-                  minimap: { enabled: true }
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">MUnit Test</h2>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => copyToClipboard(munitContent)}
-              className="text-xs"
-            >
-              <Copy size={14} className="mr-1" /> Copy
-            </Button>
-          </div>
-          <div className="relative">
-            <MonacoEditor
-              value={munitContent}
-              language="xml"
-              height="400px"
-              readOnly={true}
-              options={{
-                minimap: { enabled: true }
-              }}
-            />
-          </div>
-        </div>
-        
-        <div className="flex justify-end space-x-4">
-          <Button variant="outline" onClick={handleBackButton}>
-            Back to Dashboard
-          </Button>
-          <Button 
-            onClick={() => {
-              navigator.clipboard.writeText(munitContent);
-              toast.success('All content copied to clipboard!');
-            }}
-            className="bg-black hover:bg-gray-800 text-white"
-          >
-            Copy All
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
   const isIntegrationTask = task.category === 'integration' || task.task_name?.includes('Integration Flow');
   const isRamlTask = task.category === 'raml';
-  const isMunitTask = task.category === 'munit';
 
   return (
     <motion.div 
@@ -455,7 +364,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <span>{new Date(task.created_at).toLocaleString()}</span>
             <span className="mx-2">•</span>
             <Tag size={14} className="mr-2" />
-            <span>{task.input_format || task.category}</span>
+            <span>{task.input_format}</span>
           </div>
         }
       />
@@ -464,16 +373,14 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      {task.notes && !isIntegrationTask && !isRamlTask && !isMunitTask && (
+      {task.notes && !isIntegrationTask && !isRamlTask && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h3 className="text-sm font-medium mb-2">Notes</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300">{task.notes}</p>
         </div>
       )}
       
-      {isMunitTask && task.munit_content ? (
-        renderMunitTest(task.munit_content, task.flow_implementation || '')
-      ) : isRamlTask && task.raml_content ? (
+      {isRamlTask && task.raml_content ? (
         renderRamlSpecification(task.raml_content)
       ) : isIntegrationTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
         renderIntegrationFlow(task.generated_scripts[0].code)

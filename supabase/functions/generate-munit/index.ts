@@ -62,8 +62,7 @@ serve(async (req) => {
       console.error('Missing required field: description');
       return new Response(JSON.stringify({ 
         error: 'Missing required field: description',
-        success: false,
-        receivedBody: body
+        success: false
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,8 +73,7 @@ serve(async (req) => {
       console.error('Missing required field: flowImplementation');
       return new Response(JSON.stringify({ 
         error: 'Missing required field: flowImplementation',
-        success: false,
-        receivedBody: body
+        success: false
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -178,7 +176,7 @@ The output should be complete XML that can be directly added to a MuleSoft proje
         }
       }
       
-      // Return the generated MUnit test code
+      // Return the generated MUnit test code with stable structure
       return new Response(JSON.stringify({ 
         code: generatedCode,
         success: true 
