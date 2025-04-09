@@ -941,7 +941,7 @@ const DataWeaveGenerator: React.FC<DataWeaveGeneratorProps> = ({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add any notes or context for the generator..."
-                  className="min-h-[100px] bg-white border-gray-200 text-gray-800"
+                  className="min-h-[100px] bg-white border-gray-200 text-gray-800 resize-none"
                 />
               </div>
 

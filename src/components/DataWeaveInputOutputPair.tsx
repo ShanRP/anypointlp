@@ -61,7 +61,7 @@ const DataWeaveInputOutputPair: React.FC<DataWeaveInputOutputPairProps> = ({
         isValid={outputSample.isValid}
       />
 
-      <div className="md:col-span-2 flex justify-end mt-2">
+      <div className="md:col-span-2 flex justify-end mt-0">
         <Button
           variant="ghost"
           size="sm"

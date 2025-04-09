@@ -113,8 +113,8 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
   useEffect(() => {
     if (endpoints.length === 0) {
       setEndpoints([{
-        path: 'resource',
-        description: 'A sample resource',
+        path: 'Endpoint1',
+        description: '',
         methods: [{ ...DEFAULT_METHOD }]
       }]);
     }
@@ -523,6 +523,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                   onChange={(e) => setApiDescription(e.target.value)} 
                   placeholder="Describe your API"
                   rows={3}
+                  className='resize-none'
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -909,7 +909,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Describe the integration flow requirements. For example: Create a REST API that connects to a database, processes data, and returns JSON."
-                      className="min-h-[120px]"
+                      className="min-h-[120px] resize-none"
                     />
                   </div>
                   
@@ -968,7 +968,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                           onClick={() => setRamlOption('workspace')}
                           className={ramlOption === 'workspace' ? 'bg-gray-100' : ''}
                         >
-                          From Workspace
+                          From Exchange
                         </Button>
                       </div>
                     </div>

@@ -51,7 +51,7 @@ const DataWeaveInputSample: React.FC<DataWeaveInputSampleProps> = ({
         </button>
       </div>
 
-      <div className="h-[200px] w-full border rounded-md overflow-hidden">
+      <div className="h-[250px] w-full border rounded-md overflow-hidden">
         <MonacoEditor
           value={value}
           onChange={(newValue) => onChange(newValue || '')}
