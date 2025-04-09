@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Calendar, Tag, Code, Copy } from 'lucide-react';
 import { TaskDetails } from '@/hooks/useWorkspaceTasks';
@@ -420,10 +421,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <Button
               onClick={() => {
                 navigator.clipboard.writeText(task.generated_data || '');
-                toast({
-                  title: "Copied!",
-                  description: "Generated data copied to clipboard",
-                });
+                toast.success('Generated data copied to clipboard');
               }}
             >
               Copy to Clipboard
@@ -432,9 +430,9 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         </div>
       );
     } else if (isIntegrationTask(task)) {
-      return renderIntegrationFlow(task.generated_scripts[0].code);
+      return renderIntegrationFlow(task.generated_scripts && task.generated_scripts.length > 0 ? task.generated_scripts[0].code : '');
     } else if (isRAMLTask(task)) {
-      return renderRamlSpecification(task.raml_content);
+      return renderRamlSpecification(task.raml_content || '');
     } else if (isMUnitTask(task)) {
       return (
         <div className="space-y-6">
@@ -501,10 +499,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <Button
               onClick={() => {
                 navigator.clipboard.writeText(task.generated_tests || '');
-                toast({
-                  title: "Copied!",
-                  description: "MUnit tests copied to clipboard",
-                });
+                toast.success('MUnit tests copied to clipboard');
               }}
             >
               Copy to Clipboard
@@ -565,10 +560,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <Button
               onClick={() => {
                 navigator.clipboard.writeText(task.generated_data || '');
-                toast({
-                  title: "Copied!",
-                  description: "Sample data copied to clipboard",
-                });
+                toast.success('Sample data copied to clipboard');
               }}
             >
               Copy to Clipboard
@@ -628,10 +620,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <Button
               onClick={() => {
                 navigator.clipboard.writeText(task.generated_diagram || '');
-                toast({
-                  title: "Copied!",
-                  description: "Diagram SVG copied to clipboard",
-                });
+                toast.success('Diagram SVG copied to clipboard');
               }}
             >
               Copy SVG to Clipboard
@@ -697,10 +686,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <Button
               onClick={() => {
                 navigator.clipboard.writeText(task.generated_document || '');
-                toast({
-                  title: "Copied!",
-                  description: "Document content copied to clipboard",
-                });
+                toast.success('Document content copied to clipboard');
               }}
             >
               Copy to Clipboard
@@ -733,7 +719,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <span>{new Date(task.created_at).toLocaleString()}</span>
             <span className="mx-2">•</span>
             <Tag size={14} className="mr-2" />
-            <span>{task.input_format}</span>
+            <span>{task.category}</span>
           </div>
         }
       />
@@ -742,7 +728,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      {task.notes && !isIntegrationTask && !isRAMLTask && !isMUnitTask && !isSampleDataTask && !isDiagramTask && !isDocumentTask && (
+      {task.notes && !isIntegrationTask && !isRAMLTask && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h3 className="text-sm font-medium mb-2">Notes</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300">{task.notes}</p>

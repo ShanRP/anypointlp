@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, Save, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [activeTab, setActiveTab] = useState<string>('input');
   
   // Use useMemo for taskId to ensure it's stable across renders
-  const taskId = React.useMemo(() => uuidv4(), []);
+  const taskId = useMemo(() => `M-${uuidv4().substring(0, 8).toUpperCase()}`, []);
   
   const { 
     repositories, 
@@ -137,7 +137,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         try {
           await saveMUnitTask({
             workspace_id: selectedWorkspaceId,
-            task_id: `M-${taskId.substring(0, 8).toUpperCase()}`,
+            task_id: taskId,
             task_name: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
             user_id: user.id,
             description,
@@ -150,7 +150,8 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
           
           if (onTaskCreated) {
             onTaskCreated({
-              id: taskId,
+              id: uuidv4(),
+              task_id: taskId,
               label: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
               category: 'munit',
               icon: "TestTube2",
@@ -191,7 +192,8 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         
         if (onTaskCreated && selectedWorkspaceId) {
           onTaskCreated({
-            id: taskId,
+            id: uuidv4(),
+            task_id: taskId,
             label: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
             category: 'munit',
             icon: "TestTube2",

@@ -670,7 +670,9 @@ export type Database = {
           id: string
           task_id: string
           task_name: string
+          category: string
           created_at: string
+          description: string
         }[]
       }
       apl_increment_exchange_counter: {
