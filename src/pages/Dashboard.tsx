@@ -250,7 +250,8 @@ const Dashboard = () => {
   const {
     fetchTaskDetails,
     selectedTask,
-    tasks: workspaceTasks
+    tasks: workspaceTasks,
+    fetchWorkspaceTasks: fetchTasks // Rename to avoid naming conflict
   } = useWorkspaceTasks(selectedWorkspace?.id || '');
 
   useEffect(() => {
@@ -301,7 +302,11 @@ const Dashboard = () => {
       navigate('/dashboard/diagram');
     }
   };
-
+  const refreshWorkspaceTasks = () => {
+    if (selectedWorkspace?.id) {
+      fetchTasks(); // Use the function from the hook
+    }
+  };
   const handleTaskCreated = (task: SidebarTask) => {
     const taskWithWorkspace = {
       ...task,
@@ -310,7 +315,7 @@ const Dashboard = () => {
     setTasks(prevTasks => [...prevTasks, taskWithWorkspace]);
     
     if (selectedWorkspace?.id) {
-      fetchWorkspaceTasks();
+      refreshWorkspaceTasks(); // Use the wrapper function
     }
     
     toast.success(`Task ${task.id} created successfully!`);
