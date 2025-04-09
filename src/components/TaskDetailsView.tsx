@@ -9,7 +9,8 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BackButton } from './ui/BackButton';
 import MonacoEditor from './MonacoEditor';
-import { Card, CopyIcon } from '@/components/ui';
+import { Card } from '@/components/ui/card';
+import { Copy as CopyIcon } from 'lucide-react';
 
 type TaskDetailsViewProps = {
   task: TaskDetails;
