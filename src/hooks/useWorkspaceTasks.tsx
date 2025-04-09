@@ -18,11 +18,11 @@ export interface TaskDetails {
   id: string;
   task_id: string;
   task_name: string;
-  input_format?: string;
-  input_samples?: any[];
-  output_samples?: any[];
-  notes?: string;
-  generated_scripts?: any[];
+  input_format: string;
+  input_samples: any[];
+  output_samples: any[];
+  notes: string;
+  generated_scripts: any[];
   created_at: string;
   workspace_id: string;
   category: string; // Category of the task
@@ -35,12 +35,6 @@ export interface TaskDetails {
   endpoints?: any[];
   raml_content?: string;
   documentation?: string;
-  
-  // MUnit specific properties
-  flow_implementation?: string;
-  runtime?: string;
-  scenario_count?: number;
-  generated_tests?: string;
 }
 
 export interface IntegrationGeneratorProps {
@@ -48,35 +42,6 @@ export interface IntegrationGeneratorProps {
   selectedWorkspaceId?: string;
   onBack?: () => void;
   onSaveTask?: (taskId: string) => void;
-}
-
-export interface RAMLGeneratorPayload {
-  workspace_id: string;
-  task_id?: string;
-  task_name: string;
-  user_id: string;
-  description?: string;
-  raml_content?: string;
-  api_name?: string;
-  api_version?: string;
-  base_uri?: string;
-  endpoints?: any;
-  documentation?: string;
-  category: "raml";
-}
-
-export interface MUnitGeneratorPayload {
-  workspace_id: string;
-  task_id?: string;
-  task_name: string;
-  user_id: string;
-  description?: string;
-  notes?: string;
-  flow_implementation: string;
-  runtime: string;
-  scenario_count: number;
-  generated_tests: string;
-  category: "munit";
 }
 
 export const useWorkspaceTasks = (workspaceId: string) => {
@@ -154,42 +119,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   }, [workspaceId]);
 
-  const fetchMUnitTasks = useCallback(async () => {
-    if (!workspaceId) return [];
-    
-    try {
-      console.log('Fetching MUnit tasks for workspace:', workspaceId);
-      
-      const { data, error } = await supabase
-        .from('apl_munit_tasks')
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .eq('user_id', user?.id || '')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching MUnit tasks:', error);
-        throw error;
-      }
-      
-      const munitTasks = Array.isArray(data) ? data.map((task: any) => ({
-        id: task.id,
-        task_id: task.task_id,
-        task_name: task.task_name,
-        created_at: task.created_at,
-        workspace_id: workspaceId,
-        category: 'munit',
-        description: task.description || ''
-      })) : [];
-      
-      console.log('Fetched MUnit tasks:', munitTasks.length);
-      return munitTasks;
-    } catch (err: any) {
-      console.error('Error in fetchMUnitTasks:', err);
-      return [];
-    }
-  }, [workspaceId, user?.id]);
-
   const fetchWorkspaceTasks = useCallback(async () => {
     if (!workspaceId) return;
     
@@ -219,10 +148,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       }));
       
       const integrationTasks = await fetchIntegrationTasks();
-      const ramlTasks = await fetchRamlTasks();
-      const munitTasks = await fetchMUnitTasks();
       
-      const allTasks = [...workspaceTasks, ...integrationTasks, ...ramlTasks, ...munitTasks].sort((a, b) => 
+      const ramlTasks = await fetchRamlTasks();
+      
+      const allTasks = [...workspaceTasks, ...integrationTasks, ...ramlTasks].sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       
@@ -235,7 +164,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, fetchIntegrationTasks, fetchRamlTasks, fetchMUnitTasks]);
+  }, [workspaceId, fetchIntegrationTasks, fetchRamlTasks]);
 
   const fetchIntegrationTaskDetails = async (taskId: string) => {
     try {
@@ -362,71 +291,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       return null;
     }
   };
-  
-  const fetchMUnitTaskDetails = async (taskId: string) => {
-    try {
-      console.log('Fetching MUnit task details for:', taskId);
-      
-      let data;
-      let error;
-      
-      const isUuid = taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-      
-      if (isUuid) {
-        console.log('Using UUID for MUnit task lookup:', taskId);
-        ({ data, error } = await supabase
-          .from('apl_munit_tasks')
-          .select('*')
-          .eq('id', taskId)
-          .eq('user_id', user?.id || '')
-          .limit(1));
-      } else {
-        console.log('Using task_id for MUnit task lookup:', taskId);
-        ({ data, error } = await supabase
-          .from('apl_munit_tasks')
-          .select('*')
-          .eq('task_id', taskId)
-          .eq('user_id', user?.id || '')
-          .limit(1));
-      }
-      
-      if (error) {
-        console.error('Error fetching MUnit task details:', error);
-        throw error;
-      }
-      
-      if (data && data.length > 0) {
-        const munitTask = data[0];
-        console.log('Found task in MUnit tasks table');
-        
-        const taskDetails: TaskDetails = {
-          id: munitTask.id,
-          task_id: munitTask.task_id,
-          task_name: munitTask.task_name || 'MUnit Test Suite',
-          input_format: 'Flow Implementation',
-          input_samples: [],
-          output_samples: [],
-          notes: munitTask.notes || '',
-          created_at: munitTask.created_at,
-          workspace_id: workspaceId,
-          category: 'munit',
-          description: munitTask.description || '',
-          flow_implementation: munitTask.flow_implementation,
-          runtime: munitTask.runtime,
-          scenario_count: munitTask.scenario_count,
-          generated_tests: munitTask.generated_tests
-        };
-        
-        setSelectedTask(taskDetails);
-        return taskDetails;
-      }
-      
-      return null;
-    } catch (err: any) {
-      console.error('Error in fetchMUnitTaskDetails:', err);
-      return null;
-    }
-  };
 
   const fetchTaskDetails = async (taskId: string) => {
     setLoading(true);
@@ -447,14 +311,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         return;
       }
       
-      const munitTaskDetails = await fetchMUnitTaskDetails(taskId);
-      
-      if (munitTaskDetails) {
-        console.log('Found task in MUnit tasks table');
-        return;
-      }
-      
-      console.log('Task not found in integration, RAML, or MUnit tasks, checking regular tasks');
+      console.log('Task not found in integration or RAML tasks, checking regular tasks');
       
       const { data, error } = await supabase.rpc('apl_get_task_details', { 
         task_id_param: taskId 
@@ -547,7 +404,19 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   };
 
-  const saveRamlTask = async (task: RAMLGeneratorPayload) => {
+  const saveRamlTask = async (task: {
+    workspace_id: string;
+    task_id?: string;
+    task_name: string;
+    user_id: string;
+    description?: string;
+    raml_content?: string;
+    api_name?: string;
+    api_version?: string;
+    base_uri?: string;
+    endpoints?: any;
+    documentation?: string;
+  }) => {
     try {
       const taskId = task.task_id || `R-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
@@ -583,42 +452,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       throw err;
     }
   };
-  
-  const saveMUnitTask = async (task: MUnitGeneratorPayload) => {
-    try {
-      const taskId = task.task_id || `M-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
-      
-      const taskData = {
-        workspace_id: task.workspace_id,
-        task_id: taskId,
-        task_name: task.task_name,
-        user_id: task.user_id,
-        description: task.description || '',
-        notes: task.notes || '',
-        flow_implementation: task.flow_implementation,
-        runtime: task.runtime,
-        scenario_count: task.scenario_count,
-        generated_tests: task.generated_tests,
-        category: 'munit'
-      };
-
-      const { data, error } = await supabase
-        .from('apl_munit_tasks')
-        .insert([taskData])
-        .select();
-      
-      if (error) throw error;
-      
-      await fetchWorkspaceTasks();
-      
-      toast.success('MUnit task saved successfully!');
-      return data;
-    } catch (err: any) {
-      console.error('Error saving MUnit task:', err);
-      toast.error('Failed to save MUnit task');
-      throw err;
-    }
-  };
 
   useEffect(() => {
     if (workspaceId) {
@@ -636,7 +469,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     fetchWorkspaceTasks,
     fetchTaskDetails,
     saveTask,
-    saveRamlTask,
-    saveMUnitTask
+    saveRamlTask
   };
 };

@@ -1,25 +1,35 @@
-
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
-import { useAuth } from '@/hooks/useAuth';
-import { v4 as uuid } from 'uuid';
-import { MUnitGeneratorPayload, useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
-import TaskDetailsView from './TaskDetailsView';
-import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { BackButton } from './ui/BackButton';
+import { ArrowLeft, UploadCloud, Save, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { useMUnitRepositoryData } from '@/hooks/useMUnitRepositoryData';
+import MonacoEditor from './MonacoEditor';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/integrations/supabase/client';
+import { motion } from 'framer-motion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface MUnitTestGeneratorProps {
+type MUnitTestGeneratorProps = {
   onTaskCreated?: (task: any) => void;
   selectedWorkspaceId?: string;
   onBack?: () => void;
-  onSaveTask?: (taskId: string) => void;
-}
+  onSaveTask?: (id: string) => void;
+};
+
+const runtimeOptions = [
+  { label: 'Mule 3.9.0', value: '3.9.0' },
+  { label: 'Mule 4.3.0', value: '4.3.0' },
+  { label: 'Mule 4.4.0', value: '4.4.0' },
+  { label: 'Mule 4.5.0', value: '4.5.0' }
+];
 
 const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   onTaskCreated,
@@ -27,314 +37,440 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   onBack,
   onSaveTask
 }) => {
-  const [description, setDescription] = useState('');
-  const [flowImplementation, setFlowImplementation] = useState('');
-  const [runtime, setRuntime] = useState('Mule 4.4, Java 8');
-  const [numberOfScenarios, setNumberOfScenarios] = useState(3);
-  const [notes, setNotes] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [generatedTests, setGeneratedTests] = useState('');
-  const [testName, setTestName] = useState('');
-  const [currentTab, setCurrentTab] = useState('input');
-  const [savedTaskId, setSavedTaskId] = useState<string | null>(null);
-  const { user } = useAuth();
-  const { saveMUnitTask } = useWorkspaceTasks(selectedWorkspaceId || '');
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [sourceType, setSourceType] = useState<'noRepository' | 'withRepository' | 'local'>('noRepository');
+  const [description, setDescription] = useState('');
+  const [notes, setNotes] = useState('');
+  const [flowImplementation, setFlowImplementation] = useState('');
+  const [runtime, setRuntime] = useState('4.4.0');
+  const [scenarioCount, setScenarioCount] = useState(1);
+  const [generatedTests, setGeneratedTests] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('input');
+  
+  const { 
+    repositories, 
+    selectedRepository, 
+    selectRepository, 
+    branches, 
+    selectedBranch, 
+    selectBranch, 
+    files, 
+    selectedFilePath, 
+    selectFile, 
+    fileContent, 
+    loading 
+  } = useMUnitRepositoryData();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!flowImplementation.trim()) {
-      toast.error('Please provide the flow implementation');
+  const handleGenerate = async () => {
+    if (!description) {
+      toast({
+        title: "Missing information",
+        description: "Please provide a description for the test.",
+        variant: "destructive"
+      });
       return;
     }
-    
-    if (!description.trim()) {
-      toast.error('Please provide a description');
+
+    if (!flowImplementation) {
+      toast({
+        title: "Missing flow implementation",
+        description: "Please provide the flow implementation to generate tests for.",
+        variant: "destructive"
+      });
       return;
     }
-    
+
     setIsGenerating(true);
     
     try {
-      const response = await fetch('https://xrdzfyxesrcbkatygoij.functions.supabase.co/generate-munit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const taskId = uuidv4();
+      
+      console.log("Sending request with payload:", {
+        description,
+        notes,
+        flowImplementation,
+        runtime,
+        numberOfScenarios: scenarioCount
+      });
+      
+      const { data, error } = await supabase.functions.invoke('generate-munit', {
+        body: {
           description,
           notes,
           flowImplementation,
           runtime,
-          numberOfScenarios
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate MUnit tests');
-      }
-      
-      const data = await response.json();
-      
-      if (data.success && data.code) {
-        setGeneratedTests(data.code);
-        
-        // Auto-generate a name if not provided
-        const generatedName = testName.trim() || `MUnit Test for ${description.slice(0, 30)}${description.length > 30 ? '...' : ''}`;
-        setTestName(generatedName);
-        
-        // Auto-save if workspace is selected
-        if (selectedWorkspaceId && user) {
-          await saveToWorkspace(data.code, generatedName);
+          numberOfScenarios: scenarioCount
         }
-        
-        // Switch to output tab
-        setCurrentTab('output');
-      } else {
-        throw new Error(data.error || 'Failed to generate tests');
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
-    } catch (error: any) {
+
+      console.log("Response from generate-munit:", data);
+      
+      setGeneratedTests(data.code || "// No tests generated");
+
+      if (onTaskCreated && selectedWorkspaceId) {
+        onTaskCreated({
+          id: taskId,
+          label: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
+          category: 'munit',
+          icon: "TestTube2",
+          workspace_id: selectedWorkspaceId,
+          content: {
+            description,
+            notes,
+            flow: flowImplementation,
+            tests: data.code,
+            runtime,
+            scenarioCount
+          }
+        });
+
+        toast({
+          title: "Success!",
+          description: "MUnit tests generated successfully.",
+        });
+
+        if (onSaveTask) {
+          onSaveTask(taskId);
+        }
+      }
+      
+      setActiveTab('result');
+    } catch (error) {
       console.error('Error generating MUnit tests:', error);
-      // Suppress error toast since it's handled by the edge function
+      toast({
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Failed to generate MUnit tests. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsGenerating(false);
     }
   };
-  
-  const saveToWorkspace = async (testsCode: string, name: string) => {
-    if (!selectedWorkspaceId || !user) {
-      toast.error('You must be logged in and have a workspace selected to save the tests');
-      return;
-    }
-    
-    setIsSaving(true);
-    
-    try {
-      const taskId = `M-${uuid().substring(0, 8).toUpperCase()}`;
-      
-      const taskData: MUnitGeneratorPayload = {
-        task_id: taskId,
-        task_name: name,
-        user_id: user.id,
-        workspace_id: selectedWorkspaceId,
-        description,
-        notes,
-        flow_implementation: flowImplementation,
-        runtime,
-        scenario_count: numberOfScenarios,
-        generated_tests: testsCode,
-        category: "munit" // Using literal string "munit"
-      };
-      
-      const result = await saveMUnitTask(taskData);
-      
-      if (result && result.length > 0 && result[0]) {
-        toast.success('MUnit tests saved to workspace!');
-        setSavedTaskId(result[0].id);
-        
-        if (onTaskCreated) {
-          onTaskCreated(result[0]);
-        }
-        
-        if (onSaveTask && result[0].id) {
-          onSaveTask(result[0].id);
-        }
-      } else {
-        throw new Error('Failed to save MUnit tests');
-      }
-    } catch (error) {
-      console.error('Error saving MUnit tests:', error);
-      toast.error('Failed to save MUnit tests');
-    } finally {
-      setIsSaving(false);
+
+  const handleReset = () => {
+    setDescription('');
+    setNotes('');
+    setFlowImplementation('');
+    setRuntime('4.4.0');
+    setScenarioCount(1);
+    setGeneratedTests('');
+    setActiveTab('input');
+  };
+
+  const handleFileSelect = (filePath: string) => {
+    selectFile(filePath);
+    if (fileContent) {
+      setFlowImplementation(fileContent);
     }
   };
-  
-  if (savedTaskId) {
-    return <TaskDetailsView task={{
-      id: savedTaskId,
-      task_id: savedTaskId,
-      task_name: testName,
-      category: 'munit',
-      created_at: new Date().toISOString(),
-      workspace_id: selectedWorkspaceId || '',
-      description,
-      notes,
-      flow_implementation: flowImplementation,
-      runtime,
-      scenario_count: numberOfScenarios,
-      generated_tests: generatedTests
-    }} onBack={onBack || (() => setSavedTaskId(null))} />;
-  }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto bg-white dark:bg-gray-900 rounded-xl shadow-sm">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          MUnit Test Generator
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Generate MUnit tests for your Mule flows. Provide your flow implementation and we'll generate comprehensive tests.
-        </p>
+    <div className="w-full h-full flex flex-col">
+      <div className="flex items-center p-4 border-b">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={onBack || (() => navigate('/dashboard'))}
+          className="mr-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <div>
+          <h1 className="text-2xl font-semibold">MUnit Test Generator</h1>
+          <p className="text-muted-foreground">Generate MUnit tests for your Mule flows</p>
+        </div>
       </div>
 
-      <Tabs value={currentTab} onValueChange={setCurrentTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="input">Input</TabsTrigger>
-          <TabsTrigger value="output" disabled={!generatedTests}>Output</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="input">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
+      <div className="flex-1 p-6 overflow-auto flex flex-col">
+        <motion.div 
+          className="mb-6 h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
+          initial={{ width: '0%' }}
+          animate={{ width: '100%' }}
+          transition={{ duration: 0.5 }}
+        />
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+          <TabsList className="mb-4">
+            <TabsTrigger value="input">Input</TabsTrigger>
+            <TabsTrigger value="result">Result</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="input" className="space-y-6 flex-1 flex flex-col h-full">
+            <div className="mb-6">
+              <RadioGroup 
+                value={sourceType} 
+                onValueChange={(value) => setSourceType(value as 'noRepository' | 'withRepository' | 'local')}
+                className="flex space-x-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="noRepository" id="noRepository" />
+                  <Label htmlFor="noRepository">No Repository</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="withRepository" id="withRepository" />
+                  <Label htmlFor="withRepository">With Repository</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="local" id="local" />
+                  <Label htmlFor="local">Upload from Computer</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-4 flex-1 flex flex-col">
               <div>
-                <Label htmlFor="testName">Test Suite Name</Label>
-                <Input
-                  id="testName"
-                  placeholder="MUnit Test Suite Name"
-                  value={testName}
-                  onChange={(e) => setTestName(e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
+                <Label htmlFor="description" className="font-medium mb-1 block">Description<span className="text-red-500">*</span></Label>
+                <Textarea 
                   id="description"
-                  placeholder="Describe what your flow does..."
-                  rows={3}
+                  placeholder="Describe what the MUnit test should validate"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  required
+                  className="min-h-24 resize-none"
                 />
               </div>
-              
+
               <div>
-                <Label htmlFor="flowImplementation">Flow Implementation (XML)</Label>
-                <Textarea
-                  id="flowImplementation"
-                  placeholder="Paste your Mule flow XML here..."
-                  rows={12}
-                  value={flowImplementation}
-                  onChange={(e) => setFlowImplementation(e.target.value)}
-                  required
-                  className="font-mono"
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="runtime">Mule Runtime</Label>
-                  <Input
-                    id="runtime"
-                    placeholder="Mule 4.4, Java 8"
-                    value={runtime}
-                    onChange={(e) => setRuntime(e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="numberOfScenarios">Number of Test Scenarios</Label>
-                  <Input
-                    id="numberOfScenarios"
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={numberOfScenarios}
-                    onChange={(e) => setNumberOfScenarios(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                <Textarea
+                <Label htmlFor="notes" className="font-medium mb-1 block">Notes (optional)</Label>
+                <Textarea 
                   id="notes"
-                  placeholder="Any additional information for test generation..."
-                  rows={3}
+                  placeholder="Add any additional notes or context for the test generation"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                  className='resize-none'
                 />
               </div>
-            </div>
-            
-            <div className="flex justify-end space-x-4">
-              {onBack && (
-                <Button type="button" variant="outline" onClick={onBack}>
-                  Back
-                </Button>
+
+              {sourceType === 'withRepository' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="repository" className="font-medium mb-1 block">Repository</Label>
+                      <Select
+                        value={selectedRepository || ""}
+                        onValueChange={selectRepository}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select repository" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {repositories.map((repo) => (
+                            <SelectItem key={repo.id} value={repo.id}>{repo.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="branch" className="font-medium mb-1 block">Branch</Label>
+                      <Select
+                        value={selectedBranch}
+                        onValueChange={selectBranch}
+                        disabled={!selectedRepository}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches.map((branch) => (
+                            <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="file" className="font-medium mb-1 block">File</Label>
+                    <Select
+                      value={selectedFilePath}
+                      onValueChange={handleFileSelect}
+                      disabled={!selectedBranch}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select file" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {files.map((file) => (
+                          <SelectItem 
+                            key={file.path} 
+                            value={file.path}
+                          >
+                            {file.path}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               )}
-              
-              <Button type="submit" disabled={isGenerating}>
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  'Generate MUnit Tests'
-                )}
-              </Button>
-            </div>
-          </form>
-        </TabsContent>
-        
-        <TabsContent value="output">
-          <div className="space-y-6">
-            <div>
-              <Label htmlFor="generatedTests">Generated MUnit Tests</Label>
-              <div className="relative mt-2">
-                <Textarea
-                  id="generatedTests"
-                  value={generatedTests}
-                  readOnly
-                  rows={20}
-                  className="font-mono bg-gray-50 dark:bg-gray-800"
-                />
-                
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                  onClick={() => {
-                    navigator.clipboard.writeText(generatedTests);
-                    toast.success('Copied to clipboard!');
-                  }}
-                >
-                  Copy
-                </Button>
+
+              {sourceType === 'local' && (
+                <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                  <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
+                  <p className="mt-2 text-sm text-gray-600">Drag and drop your XML file here, or click to browse</p>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".xml"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          if (event.target?.result) {
+                            setFlowImplementation(event.target.result as string);
+                          }
+                        };
+                        reader.readAsText(file);
+                      }
+                    }}
+                    id="file-upload"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                  >
+                    Browse
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex-1 flex flex-col  h-full">
+                <Label htmlFor="flowImplementation" className="font-medium mb-1 block">
+                  Flow Implementation<span className="text-red-500">*</span>
+                </Label>
+                <div className="border rounded-md flex-1 h-full" style={{ minHeight: '400px' }}>
+                  <MonacoEditor
+                    language="xml"
+                    value={flowImplementation}
+                    onChange={setFlowImplementation}
+                    options={{
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                    }}
+                    height="90vh"
+                  />
+                </div>
               </div>
-            </div>
-            
-            <div className="flex justify-between space-x-4">
-              <Button type="button" variant="outline" onClick={() => setCurrentTab('input')}>
-                Back to Input
-              </Button>
-              
-              {selectedWorkspaceId && (
+
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                  <Label htmlFor="runtime" className="font-medium mb-1 block">Runtime</Label>
+                  <Select
+                    value={runtime}
+                    onValueChange={setRuntime}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select runtime" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {runtimeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="scenarioCount" className="font-medium mb-1 block">Number of MUnit Scenarios</Label>
+                  <Input
+                    id="scenarioCount"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={scenarioCount}
+                    onChange={(e) => setScenarioCount(Math.min(5, Math.max(1, parseInt(e.target.value) || 1)))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
                 <Button 
-                  type="button" 
-                  disabled={isSaving}
-                  onClick={() => saveToWorkspace(generatedTests, testName)}
+                  variant="outline" 
+                  onClick={handleReset}
+                  disabled={isGenerating}
                 >
-                  {isSaving ? (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Reset
+                </Button>
+                <Button 
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !description || !flowImplementation}
+                >
+                  {isGenerating ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
                     </>
                   ) : (
-                    'Save to Workspace'
+                    <>Generate</>
                   )}
                 </Button>
-              )}
+              </div>
             </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+
+          <TabsContent value="result" className="space-y-6 flex-1 flex flex-col h-full">
+            {generatedTests ? (
+              <div className="space-y-4 flex-1 flex flex-col h-full">
+                <Card className="p-4 flex-1 flex flex-col h-full">
+                  <h3 className="font-semibold text-lg mb-2">Generated MUnit Tests</h3>
+                  <Separator className="my-2" />
+                  <div className="border rounded-md flex-1 h-full" style={{ minHeight: '400px' }}>
+                    <MonacoEditor
+                      language="xml"
+                      value={generatedTests}
+                      options={{
+                        readOnly: true,
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                      }}
+                      height="90vh"
+                    />
+                  </div>
+                </Card>
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setActiveTab('input')}
+                  >
+                    Back to Input
+                  </Button>
+                  <Button onClick={() => {
+                    navigator.clipboard.writeText(generatedTests);
+                    toast({
+                      title: "Copied!",
+                      description: "MUnit tests copied to clipboard",
+                    });
+                  }}>
+                    Copy to Clipboard
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 flex-1 flex flex-col justify-center">
+                <p className="text-gray-500">No test results yet. Generate tests first.</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab('input')}
+                  className="mt-4 mx-auto"
+                >
+                  Back to Input
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
