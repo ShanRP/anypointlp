@@ -25,7 +25,7 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
   const { user } = useAuth();
   const { saveSampleDataTask } = useWorkspaceTasks(selectedWorkspaceId || '');
   
-  const [dataweaveScript, setDataweaveScript] = useState<%script%>(`%dw 2.0
+  const [dataweaveScript, setDataweaveScript] = useState<string>(`%dw 2.0
 output application/json
 ---
 {
