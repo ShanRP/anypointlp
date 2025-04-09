@@ -232,7 +232,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                   placeholder="Describe what the MUnit test should validate"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-24"
+                  className="min-h-24 resize-none"
                 />
               </div>
 
@@ -243,6 +243,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                   placeholder="Add any additional notes or context for the test generation"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                  className='resize-none'
                 />
               </div>
 

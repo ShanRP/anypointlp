@@ -564,7 +564,7 @@ function SampleDataGenerator({ onBack }: { onBack: () => void }) {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add any specific requirements or constraints for the generated data..."
-                  className="min-h-[100px]"
+                  className="min-h-[100px] resize-none"
                 />
               </div>
 
