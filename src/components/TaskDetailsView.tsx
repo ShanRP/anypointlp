@@ -319,8 +319,8 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
               value={ramlContent}
               language="yaml"
               height="400px"
-              readOnly={true}
               options={{
+                readOnly: true,
                 minimap: { enabled: true }
               }}
             />
@@ -345,8 +345,93 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
     );
   };
 
+  const renderMUnitTests = (tests: string) => {
+    return (
+      <div className="space-y-8">
+        {task.description && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Description</h2>
+            </div>
+            <p className="whitespace-pre-wrap">{task.description}</p>
+          </div>
+        )}
+
+        {task.notes && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Notes</h2>
+            </div>
+            <p className="whitespace-pre-wrap">{task.notes}</p>
+          </div>
+        )}
+
+        {task.runtime && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Runtime Information</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Runtime Version</p>
+                <p>{task.runtime}</p>
+              </div>
+              {task.scenario_count && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Number of Test Scenarios</p>
+                  <p>{task.scenario_count}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Generated MUnit Tests</h2>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => copyToClipboard(tests)}
+              className="text-xs"
+            >
+              <Copy size={14} className="mr-1" /> Copy
+            </Button>
+          </div>
+          <div className="relative">
+            <MonacoEditor
+              value={tests}
+              language="xml"
+              height="400px"
+              options={{
+                readOnly: true,
+                minimap: { enabled: true }
+              }}
+            />
+          </div>
+        </div>
+        
+        <div className="flex justify-end space-x-4">
+          <Button variant="outline" onClick={handleBackButton}>
+            Back to Dashboard
+          </Button>
+          <Button 
+            onClick={() => {
+              navigator.clipboard.writeText(tests);
+              toast.success('All content copied to clipboard!');
+            }}
+            className="bg-black hover:bg-gray-800 text-white"
+          >
+            Copy All
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const isIntegrationTask = task.category === 'integration' || task.task_name?.includes('Integration Flow');
   const isRamlTask = task.category === 'raml';
+  const isMUnitTask = task.category === 'munit';
 
   return (
     <motion.div 
@@ -364,7 +449,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <span>{new Date(task.created_at).toLocaleString()}</span>
             <span className="mx-2">•</span>
             <Tag size={14} className="mr-2" />
-            <span>{task.input_format}</span>
+            <span>{task.category}</span>
           </div>
         }
       />
@@ -373,7 +458,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         <div className="bg-purple-500 h-2 rounded-full w-full"></div>
       </div>
 
-      {task.notes && !isIntegrationTask && !isRamlTask && (
+      {task.notes && !isIntegrationTask && !isRamlTask && !isMUnitTask && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h3 className="text-sm font-medium mb-2">Notes</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300">{task.notes}</p>
@@ -384,6 +469,8 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         renderRamlSpecification(task.raml_content)
       ) : isIntegrationTask && task.generated_scripts && task.generated_scripts.length > 0 ? (
         renderIntegrationFlow(task.generated_scripts[0].code)
+      ) : isMUnitTask && task.generated_tests ? (
+        renderMUnitTests(task.generated_tests)
       ) : task.generated_scripts && task.generated_scripts.length > 0 ? (
         <Tabs defaultValue={task.generated_scripts[0].id} className="w-full">
           <TabsList className="mb-4 flex flex-wrap">

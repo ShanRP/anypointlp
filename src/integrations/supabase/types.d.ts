@@ -123,6 +123,65 @@ export interface ExtendedDatabase extends OriginalDatabase {
           }
         ];
       };
+      apl_munit_tasks: {
+        Row: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          notes: string;
+          flow_implementation: string;
+          runtime: string;
+          scenario_count: number;
+          generated_tests: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description?: string;
+          created_at?: string;
+          updated_at?: string;
+          category?: string;
+          notes?: string;
+          flow_implementation: string;
+          runtime: string;
+          scenario_count: number;
+          generated_tests: string;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          task_name?: string;
+          user_id?: string;
+          workspace_id?: string;
+          description?: string;
+          created_at?: string;
+          updated_at?: string;
+          category?: string;
+          notes?: string;
+          flow_implementation?: string;
+          runtime?: string;
+          scenario_count?: number;
+          generated_tests?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "apl_munit_tasks_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       apl_newsletter_subscribers: {
         Row: {
           id: string;
@@ -187,6 +246,44 @@ export interface ExtendedDatabase extends OriginalDatabase {
           base_uri: string;
           endpoints: Json;
           documentation: string;
+        }[];
+      };
+      apl_get_munit_tasks: {
+        Args: { workspace_id_param: string };
+        Returns: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          notes: string;
+          flow_implementation: string;
+          runtime: string;
+          scenario_count: number;
+          generated_tests: string;
+        }[];
+      };
+      apl_get_munit_task_details: {
+        Args: { task_id_param: string };
+        Returns: {
+          id: string;
+          task_id: string;
+          task_name: string;
+          user_id: string;
+          workspace_id: string;
+          description: string;
+          created_at: string;
+          updated_at: string;
+          category: string;
+          notes: string;
+          flow_implementation: string;
+          runtime: string;
+          scenario_count: number;
+          generated_tests: string;
         }[];
       };
     };

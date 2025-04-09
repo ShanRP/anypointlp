@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, Save, RefreshCw } from 'lucide-react';
@@ -17,6 +16,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 
 type MUnitTestGeneratorProps = {
   onTaskCreated?: (task: any) => void;
@@ -49,9 +50,11 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [scenarioCount, setScenarioCount] = useState(1);
   const [generatedTests, setGeneratedTests] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('input');
+  const { user } = useAuth();
   
-  // Use useMemo for taskId to ensure it's stable across renders
-  const taskId = React.useMemo(() => uuidv4(), []);
+  const taskId = React.useMemo(() => `M-${uuidv4().substring(0, 8).toUpperCase()}`, []);
+  
+  const { saveRamlTask, saveTask } = useWorkspaceTasks(selectedWorkspaceId || '');
   
   const { 
     repositories, 
@@ -67,7 +70,53 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     loading 
   } = useMUnitRepositoryData();
 
-  // Create a memoized handler for generation to avoid recreating it on each render
+  const saveMUnitTask = useCallback(async (tests: string, taskName: string) => {
+    if (!user || !selectedWorkspaceId) {
+      toast({
+        title: "Unable to save",
+        description: "You must be logged in and have a selected workspace to save tasks.",
+        variant: "destructive"
+      });
+      return null;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('apl_munit_tasks')
+        .insert([{
+          task_id: taskId,
+          task_name: taskName,
+          user_id: user.id,
+          workspace_id: selectedWorkspaceId,
+          description: description,
+          notes: notes,
+          flow_implementation: flowImplementation,
+          runtime: runtime,
+          scenario_count: scenarioCount,
+          generated_tests: tests,
+          category: 'munit'
+        }])
+        .select();
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Task saved!",
+        description: "Your MUnit test has been saved successfully.",
+      });
+      
+      return data[0];
+    } catch (err: any) {
+      console.error("Error saving MUnit task:", err);
+      toast({
+        title: "Failed to save task",
+        description: err.message || "An error occurred while saving your task.",
+        variant: "destructive"
+      });
+      return null;
+    }
+  }, [user, selectedWorkspaceId, taskId, description, notes, flowImplementation, runtime, scenarioCount, toast]);
+
   const handleGenerate = useCallback(async () => {
     if (!description) {
       toast({
@@ -118,39 +167,38 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         throw new Error(data?.error || 'Failed to generate MUnit tests');
       }
       
-      // Store the generated code before changing the tab
-      const generatedCode = data.code || "// No tests generated";
+      const generatedCode = data.code || "<!-- No tests generated -->";
       setGeneratedTests(generatedCode);
       
-      // Use requestAnimationFrame for more reliable UI updates
       requestAnimationFrame(() => {
         setActiveTab('result');
       });
-
-      if (onTaskCreated && selectedWorkspaceId) {
+      
+      const taskName = description.substring(0, 30) + (description.length > 30 ? '...' : '');
+      const savedTask = await saveMUnitTask(generatedCode, taskName);
+      
+      if (savedTask && onTaskCreated) {
         onTaskCreated({
-          id: taskId,
-          label: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
+          id: savedTask.id,
+          task_id: taskId,
+          task_name: taskName,
           category: 'munit',
-          icon: "TestTube2",
           workspace_id: selectedWorkspaceId,
-          content: {
-            description,
-            notes,
-            flow: flowImplementation,
-            tests: generatedCode,
-            runtime,
-            scenarioCount
-          }
+          description,
+          notes,
+          flow_implementation: flowImplementation,
+          runtime,
+          scenario_count: scenarioCount,
+          generated_tests: generatedCode
         });
 
         toast({
           title: "Success!",
-          description: "MUnit tests generated successfully.",
+          description: "MUnit tests generated and saved successfully.",
         });
 
         if (onSaveTask) {
-          onSaveTask(taskId);
+          onSaveTask(savedTask.id);
         }
       }
     } catch (error) {
@@ -163,7 +211,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [description, notes, flowImplementation, runtime, scenarioCount, selectedWorkspaceId, toast, onTaskCreated, onSaveTask, taskId]);
+  }, [description, notes, flowImplementation, runtime, scenarioCount, selectedWorkspaceId, toast, onTaskCreated, onSaveTask, saveMUnitTask, taskId]);
 
   const handleReset = useCallback(() => {
     setDescription('');
@@ -212,7 +260,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
           transition={{ duration: 0.5 }}
         />
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full h-full flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
           <TabsList className="mb-4">
             <TabsTrigger value="input">Input</TabsTrigger>
             <TabsTrigger value="result">Result</TabsTrigger>
@@ -305,7 +353,12 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                     <Label htmlFor="file" className="font-medium mb-1 block">File</Label>
                     <Select
                       value={selectedFilePath}
-                      onValueChange={handleFileSelect}
+                      onValueChange={(path) => {
+                        selectFile(path);
+                        if (fileContent) {
+                          setFlowImplementation(fileContent);
+                        }
+                      }}
                       disabled={!selectedBranch}
                     >
                       <SelectTrigger>
@@ -359,7 +412,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                 </div>
               )}
 
-              <div className="flex-1 flex flex-col  h-full">
+              <div className="flex-1 flex flex-col h-full">
                 <Label htmlFor="flowImplementation" className="font-medium mb-1 block">
                   Flow Implementation<span className="text-red-500">*</span>
                 </Label>
@@ -411,7 +464,15 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
               <div className="flex justify-end space-x-2 pt-4">
                 <Button 
                   variant="outline" 
-                  onClick={handleReset}
+                  onClick={() => {
+                    setDescription('');
+                    setNotes('');
+                    setFlowImplementation('');
+                    setRuntime('4.4.0');
+                    setScenarioCount(1);
+                    setGeneratedTests('');
+                    setActiveTab('input');
+                  }}
                   disabled={isGenerating}
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
@@ -438,7 +499,10 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
             {generatedTests ? (
               <div className="space-y-4 flex-1 flex flex-col h-full">
                 <Card className="p-4 flex-1 flex flex-col h-full">
-                  <h3 className="font-semibold text-lg mb-2">Generated MUnit Tests</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-lg">Generated MUnit Tests</h3>
+                    <div className="text-sm text-muted-foreground">ID: {taskId}</div>
+                  </div>
                   <Separator className="my-2" />
                   <div className="border rounded-md flex-1 h-full" style={{ minHeight: '400px' }}>
                     <MonacoEditor

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock, Code } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -465,6 +464,65 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedRAML);
     toast.success('RAML copied to clipboard');
+  };
+
+  const handleSaveToDatabase = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to save this RAML specification.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      const payload: RAMLGeneratorPayload = {
+        workspace_id: selectedWorkspaceId || '',
+        task_name: apiName || 'RAML API Specification',
+        user_id: user.id,
+        description: apiDescription,
+        raml_content: generatedRAML,
+        api_name: apiName,
+        api_version: apiVersion,
+        base_uri: baseUri,
+        endpoints: endpoints,
+        documentation: '',
+        category: "raml"
+      };
+      
+      const savedTask = await saveRamlTask(payload);
+      
+      if (savedTask && onTaskCreated) {
+        onTaskCreated({
+          id: savedTask[0].id,
+          task_id: savedTask[0].task_id,
+          task_name: apiName || 'RAML API Specification',
+          category: 'raml',
+          workspace_id: selectedWorkspaceId
+        });
+      }
+      
+      toast({
+        title: "Saved!",
+        description: "Your RAML specification has been saved successfully.",
+      });
+      
+      if (onSaveTask) {
+        onSaveTask(savedTask[0].id);
+      }
+    } catch (error: any) {
+      console.error('Error saving RAML specification:', error);
+      toast({
+        title: "Save failed",
+        description: error.message || "Failed to save your RAML specification.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
