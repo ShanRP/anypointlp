@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, Save, RefreshCw } from 'lucide-react';
@@ -50,8 +49,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [generatedTests, setGeneratedTests] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('input');
   
-  // Generate a unique task ID when the component mounts
-  const [taskId] = useState<string>(() => uuidv4());
+  const taskId = React.useMemo(() => uuidv4(), []);
   
   const { 
     repositories, 
@@ -89,7 +87,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     setIsGenerating(true);
     
     try {
-      // Use the pre-generated taskId that was created during component mount
       console.log("Sending request with payload:", {
         description,
         notes,
@@ -118,11 +115,12 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         throw new Error(data?.error || 'Failed to generate MUnit tests');
       }
       
-      // Update the generatedTests state after successful response
-      setGeneratedTests(data.code || "// No tests generated");
-
-      // Switch to the result tab after successful generation
-      setActiveTab('result');
+      const generatedCode = data.code || "// No tests generated";
+      setGeneratedTests(generatedCode);
+      
+      setTimeout(() => {
+        setActiveTab('result');
+      }, 0);
 
       if (onTaskCreated && selectedWorkspaceId) {
         onTaskCreated({
@@ -135,7 +133,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
             description,
             notes,
             flow: flowImplementation,
-            tests: data.code,
+            tests: generatedCode,
             runtime,
             scenarioCount
           }
@@ -179,6 +177,10 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     }
   };
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center p-4 border-b">
@@ -205,7 +207,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
           transition={{ duration: 0.5 }}
         />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full h-full flex flex-col">
           <TabsList className="mb-4">
             <TabsTrigger value="input">Input</TabsTrigger>
             <TabsTrigger value="result">Result</TabsTrigger>
