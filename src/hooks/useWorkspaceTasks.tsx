@@ -106,9 +106,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       console.log('Fetching RAML tasks for workspace:', workspaceId);
       
       const { data, error } = await supabase
-        .rpc('apl_get_raml_tasks', { 
-          workspace_id_param: workspaceId 
-        });
+        .from('apl_raml_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching RAML tasks:', error);
@@ -140,9 +141,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       console.log('Fetching MUnit tasks for workspace:', workspaceId);
       
       const { data, error } = await supabase
-        .rpc('apl_get_munit_tasks', { 
-          workspace_id_param: workspaceId 
-        });
+        .from('apl_munit_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching MUnit tasks:', error);
@@ -621,7 +623,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         notes: task.notes || '',
         generated_scripts: JSON.parse(JSON.stringify(task.generated_scripts)) as Json,
         user_id: task.user_id,
-        username: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous',
         category: task.category,
         description: task.description || ''
       };
@@ -634,13 +635,15 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       if (error) throw error;
       
       await fetchWorkspaceTasks();
+      
+      toast.success('Task saved successfully!');
       return data;
     } catch (err: any) {
       console.error('Error saving task:', err);
       toast.error('Failed to save task');
       throw err;
     }
-  }, [fetchWorkspaceTasks, user]);
+  }, [fetchWorkspaceTasks]);
 
   const saveRamlTask = useCallback(async (task: {
     workspace_id: string;
@@ -706,22 +709,23 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       const taskId = task.task_id || `M-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
       
-      const taskData = {
-        workspace_id: task.workspace_id,
-        task_id: taskId,
-        task_name: task.task_name,
-        user_id: task.user_id,
-        description: task.description || '',
-        flow_implementation: task.flow_implementation || '',
-        flow_description: task.flow_description || '',
-        munit_content: task.munit_content || '',
-        runtime: task.runtime || '',
-        number_of_scenarios: task.number_of_scenarios || 1,
-        category: 'munit'
-      };
-
+      // Direct insert instead of using RPC to avoid type issues
       const { data, error } = await supabase
-        .rpc('apl_insert_munit_task', taskData);
+        .from('apl_munit_tasks')
+        .insert([{
+          workspace_id: task.workspace_id,
+          task_id: taskId,
+          task_name: task.task_name,
+          user_id: task.user_id,
+          description: task.description || '',
+          flow_implementation: task.flow_implementation || '',
+          flow_description: task.flow_description || '',
+          munit_content: task.munit_content || '',
+          runtime: task.runtime || '',
+          number_of_scenarios: task.number_of_scenarios || 1,
+          category: 'munit'
+        }])
+        .select();
       
       if (error) throw error;
       
