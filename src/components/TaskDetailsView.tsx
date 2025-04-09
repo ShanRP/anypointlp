@@ -439,12 +439,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <div>
               <h3 className="text-lg font-medium">Flow Implementation</h3>
               <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                <Editor
+                <MonacoEditor
                   height="300px"
-                  defaultLanguage="xml"
+                  language="xml"
                   value={task.flow_implementation}
-                  options={{ readOnly: true }}
-                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  readOnly={true}
+                  options={{
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
                 />
               </div>
             </div>
@@ -452,12 +456,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <div>
               <h3 className="text-lg font-medium">Generated Tests</h3>
               <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                <Editor
+                <MonacoEditor
                   height="400px"
-                  defaultLanguage="xml"
+                  language="xml"
                   value={task.generated_tests}
-                  options={{ readOnly: true }}
-                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  readOnly={true}
+                  options={{
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
                 />
               </div>
             </div>
@@ -489,12 +497,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <div>
               <h3 className="text-lg font-medium">DataWeave Script</h3>
               <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                <Editor
+                <MonacoEditor
                   height="300px"
-                  defaultLanguage="javascript"
+                  language="javascript"
                   value={task.dataweave_script}
-                  options={{ readOnly: true }}
-                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  readOnly={true}
+                  options={{
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
                 />
               </div>
             </div>
@@ -502,12 +514,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <div>
               <h3 className="text-lg font-medium">Generated Sample Data</h3>
               <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                <Editor
+                <MonacoEditor
                   height="400px"
-                  defaultLanguage="json"
+                  language="json"
                   value={task.generated_data}
-                  options={{ readOnly: true }}
-                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  readOnly={true}
+                  options={{
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
                 />
               </div>
             </div>
@@ -516,12 +532,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
               <div>
                 <h3 className="text-lg font-medium">Input Schema</h3>
                 <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                  <Editor
+                  <MonacoEditor
                     height="200px"
-                    defaultLanguage="json"
+                    language="json"
                     value={task.input_schema}
-                    options={{ readOnly: true }}
-                    theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                    readOnly={true}
+                    options={{
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                    }}
                   />
                 </div>
               </div>
@@ -531,12 +551,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
               <div>
                 <h3 className="text-lg font-medium">Output Schema</h3>
                 <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                  <Editor
+                  <MonacoEditor
                     height="200px"
-                    defaultLanguage="json"
+                    language="json"
                     value={task.output_schema}
-                    options={{ readOnly: true }}
-                    theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                    readOnly={true}
+                    options={{
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                    }}
                   />
                 </div>
               </div>
@@ -556,12 +580,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <div>
               <h3 className="text-lg font-medium">Diagram Specification</h3>
               <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                <Editor
+                <MonacoEditor
                   height="300px"
-                  defaultLanguage="markdown"
+                  language="markdown"
                   value={task.diagram_content}
-                  options={{ readOnly: true }}
-                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  readOnly={true}
+                  options={{
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
                 />
               </div>
             </div>
@@ -590,12 +618,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
             <div>
               <h3 className="text-lg font-medium">Source Content</h3>
               <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                <Editor
+                <MonacoEditor
                   height="300px"
-                  defaultLanguage={task.document_type === 'markdown' ? 'markdown' : 'text'}
+                  language={task.document_type === 'markdown' ? 'markdown' : 'text'}
                   value={task.source_content}
-                  options={{ readOnly: true }}
-                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  readOnly={true}
+                  options={{
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
                 />
               </div>
             </div>
@@ -610,12 +642,16 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
                 </div>
               ) : (
                 <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
-                  <Editor
+                  <MonacoEditor
                     height="400px"
-                    defaultLanguage="text"
+                    language="text"
                     value={task.generated_document}
-                    options={{ readOnly: true }}
-                    theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                    readOnly={true}
+                    options={{
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                    }}
                   />
                 </div>
               )}

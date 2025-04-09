@@ -64,6 +64,20 @@ const DEFAULT_METHOD: Method = {
   responses: [{ code: '200', description: 'Success response' }]
 };
 
+interface RAMLGeneratorPayload {
+  task_id: string;
+  task_name: string;
+  workspace_id: string;
+  description: string;
+  api_name: string;
+  api_version: string;
+  base_uri: string;
+  endpoints: any;
+  raml_content: string;
+  documentation?: string;
+  category: string;
+}
+
 interface RAMLGeneratorProps {
   selectedWorkspaceId?: string;
   onBack?: () => void;
@@ -340,7 +354,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
     setIsGenerating(true);
     
     try {
-      setGenerating(true);
+      setIsGenerating(true);
       const { data, error } = await supabase.functions.invoke('APL_generate-raml', {
         body: {
           apiName,
@@ -375,7 +389,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
             base_uri: baseUri,
             endpoints: endpoints as any,
             raml_content: data.raml,
-            documentation: docs || '',
+            documentation: '',
             category: 'raml'
           };
 
