@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, Save, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,12 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [scenarioCount, setScenarioCount] = useState(1);
   const [generatedTests, setGeneratedTests] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('input');
+  const [taskId, setTaskId] = useState<string>('');
+  
+  // Initialize taskId only once when component mounts
+  useEffect(() => {
+    setTaskId(uuidv4());
+  }, []);
   
   const { 
     repositories, 
@@ -85,8 +92,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     setIsGenerating(true);
     
     try {
-      const taskId = uuidv4();
-      
+      // Use the pre-generated taskId instead of creating a new one during generation
       console.log("Sending request with payload:", {
         description,
         notes,
@@ -110,6 +116,10 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
       }
 
       console.log("Response from generate-munit:", data);
+      
+      if (!data || !data.success) {
+        throw new Error(data?.error || 'Failed to generate MUnit tests');
+      }
       
       setGeneratedTests(data.code || "// No tests generated");
 
