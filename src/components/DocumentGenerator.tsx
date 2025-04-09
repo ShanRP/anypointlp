@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, FileText, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
@@ -14,15 +13,23 @@ import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Label } from "./ui/label";
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+import { useAuth } from '@/hooks/useAuth';
 
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 type DocumentType = 'flow-implementation' | 'flow-endpoints';
 
 interface DocumentGeneratorProps {
   onBack: () => void;
+  selectedWorkspaceId?: string;
+  onSaveTask?: (taskId: string) => void;
 }
 
-const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ onBack }) => {
+const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ 
+  onBack, 
+  selectedWorkspaceId,
+  onSaveTask 
+}) => {
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
   const [documentType, setDocumentType] = useState<DocumentType>('flow-implementation');
   const [description, setDescription] = useState('');
@@ -36,6 +43,8 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ onBack }) => {
           fileStructure, loadingFileStructure, fetchFileStructure,
           fetchFileContent } = useGithubApi();
   const { selectedRepository, repositoryFileStructure, toggleFileSelection } = useRepositoryData();
+  const { user } = useAuth();
+  const { saveDocumentTask } = useWorkspaceTasks(selectedWorkspaceId || '');
   
   // State for file upload
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -191,8 +200,37 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ onBack }) => {
 
       const data = await response.json();
       if (data.choices && data.choices.length > 0) {
-        setResult(data.choices[0].message.content.trim());
+        const generatedResult = data.choices[0].message.content.trim();
+        setResult(generatedResult);
         setActiveTab('result');
+        
+        // Save task if workspace ID is provided
+        if (selectedWorkspaceId && user) {
+          const taskName = documentType === 'flow-implementation' 
+            ? 'Flow Implementation Document' 
+            : 'Flow Endpoints Document';
+            
+          try {
+            const savedTask = await saveDocumentTask({
+              workspace_id: selectedWorkspaceId,
+              task_name: taskName,
+              user_id: user.id,
+              description: description,
+              document_type: documentType,
+              source_type: sourceType,
+              code: code,
+              result_content: generatedResult
+            });
+            
+            if (savedTask && onSaveTask) {
+              onSaveTask(savedTask[0].task_id);
+            }
+            
+            toast.success('Document saved to workspace!');
+          } catch (error) {
+            console.error('Error saving document task:', error);
+          }
+        }
       } else {
         throw new Error('No response received from API');
       }

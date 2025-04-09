@@ -13,14 +13,22 @@ import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { Input } from './ui/input';
 import { Animation } from './ui/Animation';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+import { useAuth } from '@/hooks/useAuth';
 
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 
 interface DiagramGeneratorProps {
   onBack: () => void;
+  selectedWorkspaceId?: string;
+  onSaveTask?: (taskId: string) => void;
 }
 
-const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({ onBack }) => {
+const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({ 
+  onBack,
+  selectedWorkspaceId,
+  onSaveTask
+}) => {
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
   const [description, setDescription] = useState('');
   const [raml, setRaml] = useState('');
@@ -29,6 +37,8 @@ const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({ onBack }) => {
   const [connectionSteps, setConnectionSteps] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('input');
+  const { user } = useAuth();
+  const { saveDiagramTask } = useWorkspaceTasks(selectedWorkspaceId || '');
   
   const { repositories, loadingRepositories, fetchRepositories, 
           fileStructure, loadingFileStructure, fetchFileStructure,
@@ -223,6 +233,32 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
         }
         
         setActiveTab('result');
+        
+        if (selectedWorkspaceId && user) {
+          try {
+            const diagramTitle = `Flow Diagram: ${description.substring(0, 30)}${description.length > 30 ? '...' : ''}`;
+            
+            const savedTask = await saveDiagramTask({
+              workspace_id: selectedWorkspaceId,
+              task_name: diagramTitle,
+              user_id: user.id,
+              description: description,
+              raml_content: raml,
+              flow_diagram: flowDiagramMatch?.[1]?.trim() || '',
+              connection_steps: connectionStepsMatch?.[1]?.trim() || '',
+              result_content: content
+            });
+            
+            if (savedTask && onSaveTask) {
+              onSaveTask(savedTask[0].task_id);
+            }
+            
+            toast.success('Diagram saved to workspace!');
+          } catch (error) {
+            console.error('Error saving diagram task:', error);
+          }
+        }
+        
         toast.success('Diagram generated successfully!');
       } else {
         throw new Error('No response received from API');

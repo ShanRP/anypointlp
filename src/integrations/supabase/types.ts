@@ -134,6 +134,102 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_diagram_tasks: {
+        Row: {
+          category: string
+          connection_steps: string | null
+          created_at: string
+          description: string | null
+          flow_diagram: string | null
+          id: string
+          raml_content: string | null
+          result_content: string | null
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          category?: string
+          connection_steps?: string | null
+          created_at?: string
+          description?: string | null
+          flow_diagram?: string | null
+          id?: string
+          raml_content?: string | null
+          result_content?: string | null
+          task_id: string
+          task_name: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          category?: string
+          connection_steps?: string | null
+          created_at?: string
+          description?: string | null
+          flow_diagram?: string | null
+          id?: string
+          raml_content?: string | null
+          result_content?: string | null
+          task_id?: string
+          task_name?: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      apl_document_tasks: {
+        Row: {
+          category: string
+          code: string | null
+          created_at: string
+          description: string | null
+          document_type: string | null
+          id: string
+          result_content: string | null
+          source_type: string | null
+          task_id: string
+          task_name: string
+          updated_at: string
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          category?: string
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          document_type?: string | null
+          id?: string
+          result_content?: string | null
+          source_type?: string | null
+          task_id: string
+          task_name: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          category?: string
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          document_type?: string | null
+          id?: string
+          result_content?: string | null
+          source_type?: string | null
+          task_id?: string
+          task_name?: string
+          updated_at?: string
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       apl_exchange_comments: {
         Row: {
           comment: string

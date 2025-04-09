@@ -302,11 +302,13 @@ const Dashboard = () => {
       navigate('/dashboard/diagram');
     }
   };
+
   const refreshWorkspaceTasks = () => {
     if (selectedWorkspace?.id) {
       fetchTasks();
     }
   };
+
   const handleTaskCreated = (task: SidebarTask) => {
     const taskWithWorkspace = {
       ...task,
@@ -591,7 +593,14 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }} className="p-0">
-              <DocumentGenerator onBack={handleBackToDashboard} />
+              <DocumentGenerator 
+                onBack={handleBackToDashboard} 
+                selectedWorkspaceId={selectedWorkspace?.id}
+                onSaveTask={(id) => {
+                  refreshWorkspaceTasks();
+                  toast.success(`Document saved with ID: ${id}`);
+                }}
+              />
             </motion.div>}
 
           {currentPage === 'diagram' && <motion.div initial={{
@@ -601,7 +610,14 @@ const Dashboard = () => {
         }} transition={{
           duration: 0.3
         }} className="p-0">
-              <DiagramGenerator onBack={handleBackToDashboard} />
+              <DiagramGenerator 
+                onBack={handleBackToDashboard} 
+                selectedWorkspaceId={selectedWorkspace?.id}
+                onSaveTask={(id) => {
+                  refreshWorkspaceTasks();
+                  toast.success(`Diagram saved with ID: ${id}`);
+                }}
+              />
             </motion.div>}
         </div>
         <CodingAssistantDialog 
