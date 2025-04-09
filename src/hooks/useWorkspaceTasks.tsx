@@ -888,31 +888,32 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       // Generate a unique task ID
       const taskId = `DOC-${Date.now().toString(36).toUpperCase()}`;
       
-      // Use any type to avoid TypeScript errors
-      const result: any = await supabase.from('apl_document_tasks').insert({
-        task_id: taskId,
-        task_name: documentData.task_name,
-        workspace_id: documentData.workspace_id,
-        user_id: documentData.user_id,
-        description: documentData.description || '',
-        document_type: documentData.document_type || '',
-        source_type: documentData.source_type || '',
-        code: documentData.code || '',
-        result_content: documentData.result_content || '',
-        category: 'document'
-      }).select();
+      const { data, error } = await supabase
+        .from('apl_document_tasks')
+        .insert({
+          task_id: taskId,
+          task_name: documentData.task_name,
+          workspace_id: documentData.workspace_id,
+          user_id: documentData.user_id,
+          description: documentData.description || '',
+          document_type: documentData.document_type || '',
+          source_type: documentData.source_type || '',
+          code: documentData.code || '',
+          result_content: documentData.result_content || '',
+          category: 'document'
+        }).select();
       
-      if (result.error) {
-        console.error('Error saving document task:', result.error);
-        throw result.error;
+      if (error) {
+        console.error('Error saving document task:', error);
+        throw error;
       }
       
-      console.log('Document task saved successfully:', result.data);
+      console.log('Document task saved successfully:', data);
       
       // Refresh the task list
       fetchWorkspaceTasks();
       
-      return result.data;
+      return data;
     } catch (error) {
       console.error('Error in saveDocumentTask:', error);
       toast.error('Failed to save document task');
@@ -937,31 +938,32 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       // Generate a unique task ID
       const taskId = `DIA-${Date.now().toString(36).toUpperCase()}`;
       
-      // Use any type to avoid TypeScript errors
-      const result: any = await supabase.from('apl_diagram_tasks').insert({
-        task_id: taskId,
-        task_name: diagramData.task_name,
-        workspace_id: diagramData.workspace_id,
-        user_id: diagramData.user_id,
-        description: diagramData.description || '',
-        raml_content: diagramData.raml_content || '',
-        flow_diagram: diagramData.flow_diagram || '',
-        connection_steps: diagramData.connection_steps || '',
-        result_content: diagramData.result_content || '',
-        category: 'diagram'
-      }).select();
+      const { data, error } = await supabase
+        .from('apl_diagram_tasks')
+        .insert({
+          task_id: taskId,
+          task_name: diagramData.task_name,
+          workspace_id: diagramData.workspace_id,
+          user_id: diagramData.user_id,
+          description: diagramData.description || '',
+          raml_content: diagramData.raml_content || '',
+          flow_diagram: diagramData.flow_diagram || '',
+          connection_steps: diagramData.connection_steps || '',
+          result_content: diagramData.result_content || '',
+          category: 'diagram'
+        }).select();
       
-      if (result.error) {
-        console.error('Error saving diagram task:', result.error);
-        throw result.error;
+      if (error) {
+        console.error('Error saving diagram task:', error);
+        throw error;
       }
       
-      console.log('Diagram task saved successfully:', result.data);
+      console.log('Diagram task saved successfully:', data);
       
       // Refresh the task list
       fetchWorkspaceTasks();
       
-      return result.data;
+      return data;
     } catch (error) {
       console.error('Error in saveDiagramTask:', error);
       toast.error('Failed to save diagram task');
@@ -1017,6 +1019,106 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   };
 
+  // Function to save RAML task
+  const saveRamlTask = async (ramlData: {
+    workspace_id: string;
+    task_id: string;
+    task_name: string;
+    user_id: string;
+    description?: string;
+    api_name?: string;
+    api_version?: string;
+    base_uri?: string;
+    endpoints?: any[];
+    raml_content?: string;
+    documentation?: string;
+  }) => {
+    try {
+      console.log('Saving RAML task:', ramlData);
+      
+      const { data, error } = await supabase
+        .from('apl_raml_tasks')
+        .insert({
+          task_id: ramlData.task_id,
+          task_name: ramlData.task_name,
+          workspace_id: ramlData.workspace_id,
+          user_id: ramlData.user_id,
+          description: ramlData.description || '',
+          api_name: ramlData.api_name || '',
+          api_version: ramlData.api_version || '',
+          base_uri: ramlData.base_uri || '',
+          endpoints: ramlData.endpoints || [],
+          raml_content: ramlData.raml_content || '',
+          documentation: ramlData.documentation || '',
+          category: 'raml'
+        }).select();
+      
+      if (error) {
+        console.error('Error saving RAML task:', error);
+        throw error;
+      }
+      
+      console.log('RAML task saved successfully:', data);
+      
+      // Refresh the task list
+      fetchWorkspaceTasks();
+      
+      return data;
+    } catch (error) {
+      console.error('Error in saveRamlTask:', error);
+      toast.error('Failed to save RAML task');
+      throw error;
+    }
+  };
+
+  // Function to save MUnit task
+  const saveMunitTask = async (munitData: {
+    workspace_id: string;
+    task_id: string;
+    task_name: string;
+    user_id: string;
+    description?: string;
+    flow_description?: string;
+    flow_implementation?: string;
+    munit_content?: string;
+    runtime?: string;
+    number_of_scenarios?: number;
+  }) => {
+    try {
+      console.log('Saving MUnit task:', munitData);
+      
+      const { data, error } = await supabase.rpc('apl_insert_munit_task', {
+        workspace_id: munitData.workspace_id,
+        task_id: munitData.task_id,
+        task_name: munitData.task_name,
+        user_id: munitData.user_id,
+        description: munitData.description || '',
+        flow_description: munitData.flow_description || '',
+        flow_implementation: munitData.flow_implementation || '',
+        munit_content: munitData.munit_content || '',
+        runtime: munitData.runtime || '',
+        number_of_scenarios: munitData.number_of_scenarios || 1,
+        category: 'munit'
+      });
+      
+      if (error) {
+        console.error('Error saving MUnit task:', error);
+        throw error;
+      }
+      
+      console.log('MUnit task saved successfully:', data);
+      
+      // Refresh the task list
+      fetchWorkspaceTasks();
+      
+      return data;
+    } catch (error) {
+      console.error('Error in saveMunitTask:', error);
+      toast.error('Failed to save MUnit task');
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (workspaceId) {
       fetchWorkspaceTasks();
@@ -1032,6 +1134,8 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     fetchWorkspaceTasks,
     saveDocumentTask,
     saveDiagramTask,
-    saveSampleDataTask
+    saveSampleDataTask,
+    saveRamlTask,
+    saveMunitTask
   };
 };
