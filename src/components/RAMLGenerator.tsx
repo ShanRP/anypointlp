@@ -91,8 +91,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
       toast({
         children: "RAML specification generated successfully!",
-        duration: 3000,
-        className: 'bg-green-500 text-white'
       });
       
       if (selectedWorkspaceId) {
@@ -119,8 +117,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           
           toast({
             children: "RAML specification saved to workspace!",
-            duration: 3000,
-            className: 'bg-green-500 text-white'
           });
           
           if (onTaskCreated) {
@@ -135,8 +131,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           console.error('Error saving RAML task:', saveError);
           toast({
             children: "Failed to save RAML specification",
-            duration: 3000,
-            className: 'bg-red-500 text-white'
           });
         } finally {
           setIsSaving(false);
@@ -148,8 +142,6 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
       
       toast({
         children: "Failed to generate RAML specification",
-        duration: 3000,
-        className: 'bg-red-500 text-white'
       });
       
       setGenerationError(error as Error);

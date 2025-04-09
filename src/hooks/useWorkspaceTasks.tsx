@@ -160,9 +160,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching MUnit tasks for workspace:', workspaceId);
       
-      const { data, error } = await supabase.rpc('apl_get_munit_tasks', { 
-        workspace_id_param: workspaceId 
-      });
+      const { data, error } = await supabase
+        .from('apl_munit_tasks')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user?.id || '')
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching MUnit tasks:', error);
@@ -185,7 +188,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       console.error('Error in fetchMUnitTasks:', err);
       return [];
     }
-  }, [workspaceId]);
+  }, [workspaceId, user?.id]);
 
   const fetchWorkspaceTasks = useCallback(async () => {
     if (!workspaceId) return;
@@ -372,16 +375,18 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       if (isUuid) {
         console.log('Using UUID for MUnit task lookup:', taskId);
         ({ data, error } = await supabase
-          .from('apl_munit_tasks' as any)
+          .from('apl_munit_tasks')
           .select('*')
           .eq('id', taskId)
+          .eq('user_id', user?.id || '')
           .limit(1));
       } else {
         console.log('Using task_id for MUnit task lookup:', taskId);
         ({ data, error } = await supabase
-          .from('apl_munit_tasks' as any)
+          .from('apl_munit_tasks')
           .select('*')
           .eq('task_id', taskId)
+          .eq('user_id', user?.id || '')
           .limit(1));
       }
       
@@ -598,7 +603,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       };
 
       const { data, error } = await supabase
-        .from('apl_munit_tasks' as any)
+        .from('apl_munit_tasks')
         .insert([taskData])
         .select();
       

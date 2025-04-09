@@ -5,13 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { v4 as uuid } from 'uuid';
 import { MUnitGeneratorPayload, useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import TaskDetailsView from './TaskDetailsView';
 import { Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { BackButton } from './ui/BackButton';
 
 interface MUnitTestGeneratorProps {
   onTaskCreated?: (task: any) => void;
@@ -39,6 +40,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [savedTaskId, setSavedTaskId] = useState<string | null>(null);
   const { user } = useAuth();
   const { saveMUnitTask } = useWorkspaceTasks(selectedWorkspaceId || '');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,12 +126,12 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         runtime,
         scenario_count: numberOfScenarios,
         generated_tests: testsCode,
-        category: "munit"
+        category: "munit" // Using literal string "munit"
       };
       
       const result = await saveMUnitTask(taskData);
       
-      if (result && result[0]) {
+      if (result && result.length > 0 && result[0]) {
         toast.success('MUnit tests saved to workspace!');
         setSavedTaskId(result[0].id);
         
@@ -137,7 +139,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
           onTaskCreated(result[0]);
         }
         
-        if (onSaveTask) {
+        if (onSaveTask && result[0].id) {
           onSaveTask(result[0].id);
         }
       } else {
