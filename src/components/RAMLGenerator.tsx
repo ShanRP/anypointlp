@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock, Code } from 'lucide-react';
+import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock, Code, FileCode2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -331,7 +331,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
     setProtocols(updatedProtocols);
   };
 
-  const generateRAML = async () => {
+  const handleGenerateRAML = async () => {
     if (!apiName.trim()) {
       toast.error('API name is required');
       return;
@@ -340,6 +340,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
     setIsGenerating(true);
     
     try {
+      setGenerating(true);
       const { data, error } = await supabase.functions.invoke('APL_generate-raml', {
         body: {
           apiName,
@@ -363,45 +364,39 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
         toast.success('RAML specification generated successfully');
         
         if (user) {
+          const uniqueId = crypto.randomUUID().substring(0, 8).toUpperCase();
+          const ramlData: RAMLGeneratorPayload = {
+            task_id: uniqueId,
+            task_name: apiName,
+            workspace_id: workspaceId,
+            description: apiDescription,
+            api_name: apiName,
+            api_version: apiVersion,
+            base_uri: baseUri,
+            endpoints: endpoints as any,
+            raml_content: data.raml,
+            documentation: docs || '',
+            category: 'raml'
+          };
+
           try {
-            const taskId = `R-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
-            
-            const taskData: RAMLGeneratorPayload = {
-              task_id: taskId,
-              task_name: apiName,
-              workspace_id: workspaceId,
-              description: apiDescription,
-              raml_content: data.raml,
-              api_name: apiName,
-              api_version: apiVersion,
-              base_uri: baseUri,
-              endpoints: endpoints as any,
-              category: 'raml'
-            };
-            
-            const savedTask = await saveRamlTask(taskData);
-            
-            if (savedTask && onTaskCreated) {
-              onTaskCreated({
-                id: savedTask[0]?.id,
-                label: apiName,
-                category: 'raml',
-                icon: <Code className="h-4 w-4" />,
-                workspace_id: workspaceId
-              });
+            const savedTask = await saveRamlTask(ramlData);
+            if (savedTask && savedTask.length > 0) {
+              toast.success('RAML definition saved successfully!');
+              
+              if (onTaskCreated) {
+                onTaskCreated({
+                  id: savedTask[0].id,
+                  label: apiName,
+                  category: 'raml',
+                  icon: <FileCode2 size={16} />,
+                  workspace_id: workspaceId
+                });
+              }
             }
-            
-            if (onSaveTask && savedTask) {
-              onSaveTask(savedTask[0]?.id);
-            }
-            
-            setPublishTitle(apiName);
-            setPublishDescription(apiDescription);
-            
-            toast.success('RAML task saved to workspace');
-          } catch (err) {
-            console.error('Error saving RAML task:', err);
-            toast.error('Failed to save RAML task to workspace');
+          } catch (saveError) {
+            console.error('Error saving RAML task:', saveError);
+            toast.error('Failed to save RAML definition!');
           }
         }
       } else {
@@ -731,7 +726,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 View Generated RAML
               </Button>
               <Button 
-                onClick={generateRAML}
+                onClick={handleGenerateRAML}
                 disabled={isGenerating || !apiName.trim()}
               >
                 {isGenerating ? (

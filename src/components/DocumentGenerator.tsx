@@ -1,520 +1,386 @@
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, RotateCcw, FileText, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Save } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useForm } from 'react-hook-form';
+import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
-import MonacoEditor from './MonacoEditor';
-import { BackButton } from './ui/BackButton';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Separator } from './ui/separator';
-import { Textarea } from './ui/textarea';
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Label } from "./ui/label";
-import { useGithubApi } from '@/hooks/useGithubApi';
-import { useRepositoryData } from '@/hooks/useRepositoryData';
-
-type SourceType = 'no-repository' | 'with-repository' | 'upload';
-type DocumentType = 'flow-implementation' | 'flow-endpoints';
+import Editor from '@monaco-editor/react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useWorkspaceTasks, DocumentPayload } from '@/hooks/useWorkspaceTasks';
 
 interface DocumentGeneratorProps {
-  onBack: () => void;
+  selectedWorkspaceId?: string;
+  onBack?: () => void;
 }
 
-const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ onBack }) => {
-  const [sourceType, setSourceType] = useState<SourceType>('no-repository');
-  const [documentType, setDocumentType] = useState<DocumentType>('flow-implementation');
-  const [description, setDescription] = useState('');
-  const [code, setCode] = useState('');
-  const [result, setResult] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('input');
+const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
+  selectedWorkspaceId,
+  onBack
+}) => {
+  const { user } = useAuth();
+  const { saveDocumentTask } = useWorkspaceTasks(selectedWorkspaceId || '');
   
-  // Repository-related hooks
-  const { repositories, loadingRepositories, fetchRepositories, 
-          fileStructure, loadingFileStructure, fetchFileStructure,
-          fetchFileContent } = useGithubApi();
-  const { selectedRepository, repositoryFileStructure, toggleFileSelection } = useRepositoryData();
+  const [documentType, setDocumentType] = useState('markdown');
+  const [sourceContent, setSourceContent] = useState(
+`# API Documentation Sample
+
+## Overview
+This API allows you to manage users and their data.
+
+## Endpoints
+
+### GET /users
+Returns a list of all users.
+
+#### Parameters
+- **page** (optional): Page number for pagination
+- **limit** (optional): Number of items per page
+
+#### Responses
+- 200 OK: Successfully retrieved users
+- 401 Unauthorized: Authentication required
+- 500 Internal Server Error: Server error
+
+### POST /users
+Creates a new user.
+
+#### Request Body
+\`\`\`json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "role": "user"
+}
+\`\`\`
+
+#### Responses
+- 201 Created: User successfully created
+- 400 Bad Request: Invalid input
+- 401 Unauthorized: Authentication required
+- 500 Internal Server Error: Server error
+`
+  );
   
-  // State for file upload
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [fileContent, setFileContent] = useState<string>('');
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [currentDirectory, setCurrentDirectory] = useState<string>('/');
-
-  const handleReset = () => {
-    setSourceType('no-repository');
-    setDocumentType('flow-implementation');
-    setDescription('');
-    setCode('');
-    setResult('');
-    setActiveTab('input');
-    setUploadedFiles([]);
-    setFileContent('');
-    setSelectedFile(null);
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      const files = Array.from(event.target.files);
-      setUploadedFiles(files);
-      
-      // Read the first file's content
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          setFileContent(e.target.result as string);
-          setCode(e.target.result as string);
-        }
-      };
-      reader.readAsText(files[0]);
-      
-      toast.success(`${files.length} files uploaded successfully`);
-    }
-  };
-
-  const handleSelectRepository = async (repo: any) => {
-    try {
-      await fetchFileStructure(repo);
-      toast.success(`Repository ${repo.name} loaded successfully`);
-    } catch (error) {
-      toast.error('Failed to load repository structure');
-    }
-  };
-
-  const getCurrentDirectoryContents = () => {
-    if (currentDirectory === '/') {
-      return fileStructure;
-    }
-    
-    const findDirectory = (nodes: any[], path: string): any[] | null => {
-      for (const node of nodes) {
-        if (node.path === path && node.type === 'directory') {
-          return node.children || [];
-        }
-        if (node.children) {
-          const result = findDirectory(node.children, path);
-          if (result) return result;
-        }
-      }
-      return null;
-    };
-    
-    const dirContents = findDirectory(fileStructure, currentDirectory);
-    return dirContents || [];
-  };
-
-  const navigateDirectory = (dir: any) => {
-    if (dir.type === 'directory') {
-      setCurrentDirectory(dir.path);
-      toast.success(`Navigated to ${dir.name}`);
-    }
-  };
+  const [generatedDocument, setGeneratedDocument] = useState('');
+  const [generating, setGenerating] = useState(false);
   
-  const goUpDirectory = () => {
-    if (currentDirectory === '/') return;
-    
-    const pathParts = currentDirectory.split('/');
-    pathParts.pop();
-    const parentPath = pathParts.length === 1 ? '/' : pathParts.join('/');
-    
-    setCurrentDirectory(parentPath);
-  };
-
-  const handleFileSelect = async (file: any) => {
-    if (file.type === 'file') {
-      setSelectedFile(file.path);
-      
-      if (selectedRepository) {
-        const content = await fetchFileContent(selectedRepository, file.path);
-        if (content) {
-          setFileContent(content);
-          setCode(content);
-          toast.success(`File "${file.name}" loaded successfully`);
-        }
-      }
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    defaultValues: {
+      taskName: '',
+      description: ''
     }
-  };
-
-  const handleGenerate = async () => {
-    if (!documentType) {
-      toast.error('Please select a document type');
+  });
+  
+  const handleGenerateDocument = async () => {
+    if (!sourceContent.trim()) {
+      toast.error('Please provide source content');
       return;
     }
-
-    if (!code.trim()) {
-      toast.error('Please provide code for documentation');
-      return;
-    }
-
-    setIsLoading(true);
+    
+    setGenerating(true);
+    
     try {
-      // Prepare the prompt based on sourceType and documentType
-      let prompt = `Generate a detailed document for a ${documentType === 'flow-implementation' ? 'Flow Implementation' : 'Flow Endpoints'}.`;
-      
-      if (description) {
-        prompt += ` Description: ${description}`;
-      }
-      
-      prompt += ` Here is the code to document:\n\n${code}`;
-      
-      if (sourceType === 'with-repository' && selectedRepository) {
-        prompt += ` Based on the repository: ${selectedRepository.name}`;
-      } else if (sourceType === 'upload' && fileContent) {
-        prompt += ` Based on the uploaded file.`;
-      }
-      
-      // Using Mistral API key
-      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer CG0eH5ViBtkYjgubdeia5Au5tZHxsL1E'
-        },
-        body: JSON.stringify({
-          model: 'mistral-large-latest',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a documentation expert. You create detailed, structured, and interactive documentation for Mule applications.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.2,
-          max_tokens: 2000
-        })
-      });
-
-      const data = await response.json();
-      if (data.choices && data.choices.length > 0) {
-        setResult(data.choices[0].message.content.trim());
-        setActiveTab('result');
-      } else {
-        throw new Error('No response received from API');
-      }
+      // For demo/mock purposes, we'll format the document
+      // In a real app, this would call an API to process the document
+      setTimeout(() => {
+        try {
+          // Generate formatted document
+          const processedDocument = generateMockDocument(documentType, sourceContent);
+          setGeneratedDocument(processedDocument);
+          toast.success('Document generated successfully!');
+        } catch (error) {
+          console.error('Error generating document:', error);
+          toast.error('Failed to generate document');
+        } finally {
+          setGenerating(false);
+        }
+      }, 1500);
     } catch (error) {
       console.error('Error generating document:', error);
-      toast.error('Failed to generate document. Please try again.');
-    } finally {
-      setIsLoading(false);
+      toast.error('Failed to generate document');
+      setGenerating(false);
     }
   };
+  
+  const generateMockDocument = (type: string, content: string) => {
+    // This is a very simplified mock document generation
+    // In a real app, you would use a proper document processing service
+    
+    if (type === 'markdown') {
+      // For markdown, we'll just clean it up and add some metadata
+      return `---
+title: Generated Documentation
+date: ${new Date().toISOString().split('T')[0]}
+author: Document Generator
+---
 
-  const handleCopyToClipboard = () => {
-    navigator.clipboard.writeText(result);
-    toast.success('Document copied to clipboard!');
-  };
+${content}
 
-  return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <BackButton onBack={onBack} label="Back to Dashboard" />
+---
+*This document was automatically generated by the Document Generator*
+`;
+    } else if (type === 'html') {
+      // For HTML, we'll convert markdown-like content to basic HTML
+      const htmlContent = content
+        .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
+        .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
+        .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')
+        .replace(/^- (.*?)$/gm, '<li>$1</li>')
+        .split('\n\n').map(paragraph => {
+          if (!paragraph.startsWith('<h') && !paragraph.startsWith('<pre') && !paragraph.startsWith('<li')) {
+            return `<p>${paragraph.replace(/\n/g, ' ')}</p>`;
+          }
+          return paragraph;
+        }).join('\n');
       
-      <Card className="mt-4 border border-gray-200 shadow-sm overflow-hidden">
-        <CardHeader className="bg-gray-50 border-b border-gray-200">
-          <CardTitle className="text-xl font-semibold">Document Generator</CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <motion.div 
-            className="mb-6 h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
-            initial={{ width: '0%' }}
-            animate={{ width: '100%' }}
-            transition={{ duration: 0.5 }}
-          />
-
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-4">
-              <TabsTrigger value="input">Input</TabsTrigger>
-              <TabsTrigger value="result">Result</TabsTrigger>
-            </TabsList>
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generated Documentation</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+    h1, h2, h3 { color: #333; }
+    pre { background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    code { font-family: monospace; }
+  </style>
+</head>
+<body>
+  ${htmlContent}
+  <hr>
+  <footer>
+    <em>This document was automatically generated by the Document Generator</em>
+  </footer>
+</body>
+</html>`;
+    } else {
+      // Default text formatting
+      return content + '\n\n--- Generated by Document Generator ---';
+    }
+  };
+  
+  const handleCopyToClipboard = () => {
+    if (generatedDocument) {
+      navigator.clipboard.writeText(generatedDocument);
+      toast.success('Document copied to clipboard!');
+    }
+  };
+  
+  const handleDownload = () => {
+    if (generatedDocument) {
+      const extension = documentType === 'markdown' ? 'md' : documentType === 'html' ? 'html' : 'txt';
+      const mimeType = documentType === 'html' ? 'text/html' : 'text/plain';
+      
+      const blob = new Blob([generatedDocument], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `generated-document.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Document downloaded!');
+    }
+  };
+  
+  const handleSaveTask = handleSubmit(async (data) => {
+    if (!user || !selectedWorkspaceId) {
+      toast.error('You must be logged in to save a task');
+      return;
+    }
+    
+    if (!generatedDocument) {
+      toast.error('Please generate a document first');
+      return;
+    }
+    
+    try {
+      const uniqueId = uuidv4().substring(0, 8);
+      
+      const payload: DocumentPayload = {
+        task_id: uniqueId,
+        task_name: data.taskName || `${documentType.charAt(0).toUpperCase() + documentType.slice(1)} Document`,
+        user_id: user.id,
+        workspace_id: selectedWorkspaceId,
+        description: data.description || '',
+        document_type: documentType,
+        source_content: sourceContent,
+        generated_document: generatedDocument,
+        category: 'document'
+      };
+      
+      const result = await saveDocumentTask(payload);
+      
+      if (result) {
+        toast.success('Document task saved successfully!');
+        if (onBack) {
+          onBack();
+        }
+      }
+    } catch (error) {
+      console.error('Error saving document task:', error);
+      toast.error('Failed to save document task');
+    }
+  });
+  
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="flex items-center mb-6">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="mr-2" 
+          onClick={onBack}
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back
+        </Button>
+        <h1 className="text-2xl font-bold">Document Generator</h1>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-4">Source Content</h2>
             
-            <TabsContent value="input" className="space-y-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Source Type</label>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant={sourceType === 'no-repository' ? 'default' : 'outline'}
-                    onClick={() => setSourceType('no-repository')}
-                    className="flex-1 min-w-[180px]"
-                  >
-                    No Repository
-                  </Button>
-                  <Button
-                    variant={sourceType === 'with-repository' ? 'default' : 'outline'}
-                    onClick={() => setSourceType('with-repository')}
-                    className="flex-1 min-w-[180px] flex items-center gap-2"
-                  >
-                    <FolderTree size={16} />
-                    With Repository
-                  </Button>
-                  <Button
-                    variant={sourceType === 'upload' ? 'default' : 'outline'}
-                    onClick={() => setSourceType('upload')}
-                    className="flex-1 min-w-[180px] flex items-center gap-2"
-                  >
-                    <Upload size={16} />
-                    Upload from Computer
-                  </Button>
-                </div>
+            <div className="mb-4">
+              <Label htmlFor="documentType">Document Type</Label>
+              <Select
+                value={documentType}
+                onValueChange={setDocumentType}
+              >
+                <SelectTrigger id="documentType">
+                  <SelectValue placeholder="Select document type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="markdown">Markdown</SelectItem>
+                  <SelectItem value="html">HTML</SelectItem>
+                  <SelectItem value="text">Plain Text</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="h-72 border rounded-md overflow-hidden">
+              <Editor
+                language={documentType === 'markdown' ? 'markdown' : documentType === 'html' ? 'html' : 'plaintext'}
+                value={sourceContent}
+                onChange={(value) => setSourceContent(value || '')}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  fontSize: 14
+                }}
+              />
+            </div>
+            
+            <Button 
+              className="w-full mt-4" 
+              onClick={handleGenerateDocument}
+              disabled={generating}
+            >
+              {generating ? 'Generating...' : 'Generate Document'}
+            </Button>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <form onSubmit={handleSaveTask} className="space-y-4">
+              <div>
+                <Label htmlFor="taskName">Task Name</Label>
+                <Input
+                  id="taskName"
+                  placeholder="Enter a name for this document"
+                  {...register('taskName', { required: 'Task name is required' })}
+                />
+                {errors.taskName && (
+                  <p className="text-red-500 text-sm mt-1">{errors.taskName.message}</p>
+                )}
               </div>
-
-              {sourceType === 'with-repository' && (
-                <div className="space-y-2 border p-4 rounded-md bg-gray-50">
-                  <h3 className="font-medium text-gray-900">Repository Selection</h3>
-                  {loadingRepositories ? (
-                    <div className="py-4 text-center">
-                      <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
-                      <p>Loading repositories...</p>
-                    </div>
-                  ) : repositories.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-2 mt-2">
-                      {repositories.map((repo) => (
-                        <div 
-                          key={repo.id}
-                          onClick={() => handleSelectRepository(repo)}
-                          className={`p-3 rounded-md cursor-pointer border ${
-                            selectedRepository?.id === repo.id 
-                              ? 'border-purple-500 bg-purple-50' 
-                              : 'border-gray-200 hover:bg-gray-100'
-                          }`}
-                        >
-                          <div className="font-medium">{repo.name}</div>
-                          <div className="text-xs text-gray-500">{repo.full_name}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center">
-                      <p>No repositories found. Connect your GitHub account in settings.</p>
-                      <Button 
-                        variant="outline" 
-                        onClick={fetchRepositories}
-                        className="mt-2"
-                      >
-                        Refresh Repositories
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {/* Repository file structure */}
-                  {selectedRepository && (
-                    <div className="mt-4">
-                      <h4 className="font-medium mb-2">Files</h4>
-                      <div className="border rounded-md overflow-hidden">
-                        <div className="bg-gray-100 p-2 flex items-center border-b">
-                          <button 
-                            onClick={goUpDirectory}
-                            disabled={currentDirectory === '/'} 
-                            className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-                          >
-                            <ArrowLeft size={16} />
-                          </button>
-                          <span className="text-sm font-medium truncate">
-                            {currentDirectory === '/' ? 'Root' : currentDirectory}
-                          </span>
-                        </div>
-                        
-                        <div className="max-h-60 overflow-y-auto">
-                          {getCurrentDirectoryContents().length === 0 ? (
-                            <div className="p-4 text-center text-gray-500">
-                              No files found in this directory
-                            </div>
-                          ) : (
-                            <div className="divide-y">
-                              {getCurrentDirectoryContents().map((item: any, index: number) => (
-                                <div 
-                                  key={index}
-                                  onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-                                  className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-                                    selectedFile === item.path
-                                      ? 'bg-purple-50' 
-                                      : ''
-                                  }`}
-                                >
-                                  {item.type === 'directory' ? (
-                                    <Folder className="h-4 w-4 mr-2 text-blue-500" />
-                                  ) : (
-                                    <File className="h-4 w-4 mr-2 text-gray-500" />
-                                  )}
-                                  <span className="truncate">{item.name}</span>
-                                  {selectedFile === item.path && (
-                                    <Check className="h-4 w-4 ml-auto text-purple-600" />
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {sourceType === 'upload' && (
-                <div className="space-y-2 border p-4 rounded-md bg-gray-50">
-                  <h3 className="font-medium text-gray-900">Upload Files</h3>
-                  <div className="mt-2">
-                    <label 
-                      htmlFor="file-upload" 
-                      className="cursor-pointer bg-white py-6 px-4 border-2 border-dashed border-gray-300 rounded-md flex justify-center items-center flex-col text-center"
-                    >
-                      <Upload size={24} className="mb-2 text-gray-400" />
-                      <span className="text-sm text-gray-600">Drag and drop files here, or click to browse</span>
-                      <input 
-                        id="file-upload" 
-                        type="file" 
-                        multiple 
-                        onChange={handleFileUpload} 
-                        className="hidden" 
-                      />
-                    </label>
-                  </div>
-                  
-                  {uploadedFiles.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="font-medium mb-2">Uploaded Files ({uploadedFiles.length})</h4>
-                      <div className="bg-gray-100 p-2 rounded text-sm max-h-40 overflow-y-auto">
-                        {uploadedFiles.map((file, index) => (
-                          <div key={index} className="py-1">{file.name}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Code <span className="text-red-500">*</span></label>
-                <div className="border rounded-md h-full" style={{ minHeight: '400px' }}>
-                  <MonacoEditor
-                    value={code}
-                    onChange={(value) => setCode(value || '')}
-                    language="xml"
-                    height="400px"
-                    options={{
-                      minimap: { enabled: false },
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Description (Optional)</label>
+              
+              <div>
+                <Label htmlFor="description">Description (Optional)</Label>
                 <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Add a description of what you'd like to document..."
-                  className="min-h-[100px] resize-none border-gray-300 focus:ring-purple-500 focus:border-purple-500"
+                  id="description"
+                  placeholder="Enter a description for this document"
+                  {...register('description')}
+                  className="h-24"
                 />
               </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Document Type <span className="text-red-500">*</span>
-                </label>
-                <RadioGroup 
-                  value={documentType} 
-                  onValueChange={(value) => setDocumentType(value as DocumentType)}
-                  className="flex flex-col space-y-2"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="flow-implementation" id="flow-implementation" />
-                    <Label htmlFor="flow-implementation">Flow Implementation</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="flow-endpoints" id="flow-endpoints" />
-                    <Label htmlFor="flow-endpoints">Flow Endpoints</Label>
-                  </div>
-                </RadioGroup>
+              
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={!generatedDocument}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Document
+              </Button>
+            </form>
+          </div>
+        </div>
+        
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Generated Document</h2>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleCopyToClipboard}
+                disabled={!generatedDocument}
+              >
+                <Copy className="h-4 w-4 mr-1" />
+                Copy
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleDownload}
+                disabled={!generatedDocument}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Download
+              </Button>
+            </div>
+          </div>
+          
+          <div className="border rounded-md overflow-hidden h-[600px]">
+            {documentType === 'html' && generatedDocument ? (
+              <div className="h-full overflow-auto bg-white p-4">
+                <iframe
+                  srcDoc={generatedDocument}
+                  title="Generated HTML Document"
+                  className="w-full h-full border-0"
+                  sandbox="allow-same-origin"
+                />
               </div>
-
-              <div className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={handleReset}
-                  className="flex items-center gap-2"
-                >
-                  <RotateCcw size={16} />
-                  Reset
-                </Button>
-                <Button 
-                  onClick={handleGenerate}
-                  disabled={isLoading || !documentType || !code.trim()}
-                  className="flex items-center gap-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <RefreshCw size={16} className="animate-spin mr-2" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <FileText size={16} />
-                      Generate Document
-                    </>
-                  )}
-                </Button>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="result" className="space-y-6">
-              {result ? (
-                <div className="space-y-4">
-                  <Card className="p-4">
-                    <h3 className="font-semibold text-lg mb-2">Generated Document</h3>
-                    <Separator className="my-2" />
-                    <div className="border rounded-md" style={{ minHeight: '400px' }}>
-                      <MonacoEditor
-                        value={result}
-                        language="markdown"
-                        options={{
-                          readOnly: true,
-                          minimap: { enabled: false },
-                          scrollBeyondLastLine: false,
-                          automaticLayout: true,
-                        }}
-                        height="400px"
-                      />
-                    </div>
-                  </Card>
-                  <div className="flex justify-end space-x-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setActiveTab('input')}
-                    >
-                      Back to Input
-                    </Button>
-                    <Button 
-                      onClick={handleCopyToClipboard}
-                      className="flex items-center gap-2"
-                    >
-                      <Copy size={16} />
-                      Copy to Clipboard
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No document generated yet. Generate a document first.</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setActiveTab('input')}
-                    className="mt-4"
-                  >
-                    Back to Input
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            ) : (
+              <Editor
+                language={documentType === 'markdown' ? 'markdown' : 'plaintext'}
+                value={generatedDocument}
+                theme="vs-dark"
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  fontSize: 14
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

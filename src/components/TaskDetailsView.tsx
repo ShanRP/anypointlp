@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Calendar, Tag, Code, Copy } from 'lucide-react';
 import { TaskDetails } from '@/hooks/useWorkspaceTasks';
@@ -354,8 +353,8 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
   const isDiagramTask = (task: TaskDetails) => task.category === 'diagram';
   const isDocumentTask = (task: TaskDetails) => task.category === 'document';
 
-  const renderTaskContent = (task: TaskDetails) => {
-    if (isDataWeaveTask(task)) {
+  const renderTaskDetails = () => {
+    if (task.category === 'dataweave') {
       return (
         <div className="space-y-6">
           <div>
@@ -429,277 +428,206 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </div>
         </div>
       );
-    } else if (isIntegrationTask(task)) {
+    } else if (task.category === 'integration') {
       return renderIntegrationFlow(task.generated_scripts && task.generated_scripts.length > 0 ? task.generated_scripts[0].code : '');
-    } else if (isRAMLTask(task)) {
+    } else if (task.category === 'raml') {
       return renderRamlSpecification(task.raml_content || '');
-    } else if (isMUnitTask(task)) {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold mb-1">MUnit Test Details</h2>
-            <div className="text-gray-500 text-sm">
-              Created on {new Date(task.created_at).toLocaleString()}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+    } else if (task.category === 'munit') {
+      if (task.flow_implementation && task.generated_tests) {
+        return (
+          <div className="space-y-6">
             <div>
-              <h3 className="text-md font-semibold mb-1">Description</h3>
-              <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
+              <h3 className="text-lg font-medium">Flow Implementation</h3>
+              <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                <Editor
+                  height="300px"
+                  defaultLanguage="xml"
+                  value={task.flow_implementation}
+                  options={{ readOnly: true }}
+                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                />
+              </div>
             </div>
+            
             <div>
-              <h3 className="text-md font-semibold mb-1">Runtime</h3>
-              <p className="text-gray-700 dark:text-gray-300">{task.runtime || 'Default runtime'}</p>
+              <h3 className="text-lg font-medium">Generated Tests</h3>
+              <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                <Editor
+                  height="400px"
+                  defaultLanguage="xml"
+                  value={task.generated_tests}
+                  options={{ readOnly: true }}
+                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                />
+              </div>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-lg font-medium">Runtime</h3>
+                <p className="mt-1 text-gray-500">{task.runtime}</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">Scenario Count</h3>
+                <p className="mt-1 text-gray-500">{task.scenario_count}</p>
+              </div>
+            </div>
+            
+            {task.notes && (
+              <div>
+                <h3 className="text-lg font-medium">Notes</h3>
+                <p className="mt-1 text-gray-500">{task.notes}</p>
+              </div>
+            )}
           </div>
-
-          {task.notes && (
+        );
+      }
+    } else if (task.category === 'sampledata') {
+      if (task.dataweave_script && task.generated_data) {
+        return (
+          <div className="space-y-6">
             <div>
-              <h3 className="text-md font-semibold mb-1">Notes</h3>
-              <p className="text-gray-700 dark:text-gray-300">{task.notes}</p>
+              <h3 className="text-lg font-medium">DataWeave Script</h3>
+              <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                <Editor
+                  height="300px"
+                  defaultLanguage="javascript"
+                  value={task.dataweave_script}
+                  options={{ readOnly: true }}
+                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                />
+              </div>
             </div>
-          )}
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Flow Implementation</h3>
-            <div className="border rounded-md overflow-hidden">
-              <MonacoEditor
-                language="xml"
-                value={task.flow_implementation || ''}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-                height="250px"
-              />
+            
+            <div>
+              <h3 className="text-lg font-medium">Generated Sample Data</h3>
+              <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                <Editor
+                  height="400px"
+                  defaultLanguage="json"
+                  value={task.generated_data}
+                  options={{ readOnly: true }}
+                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                />
+              </div>
             </div>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Generated MUnit Tests</h3>
-            <div className="border rounded-md overflow-hidden">
-              <MonacoEditor
-                language="xml"
-                value={task.generated_tests || ''}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-                height="400px"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                navigator.clipboard.writeText(task.generated_tests || '');
-                toast.success('MUnit tests copied to clipboard');
-              }}
-            >
-              Copy to Clipboard
-            </Button>
-          </div>
-        </div>
-      );
-    } else if (isSampleDataTask(task)) {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold mb-1">Sample Data Details</h2>
-            <div className="text-gray-500 text-sm">
-              Created on {new Date(task.created_at).toLocaleString()}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Description</h3>
-            <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">DataWeave Script</h3>
-            <div className="border rounded-md overflow-hidden">
-              <MonacoEditor
-                language="dataweave"
-                value={task.dataweave_script || ''}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-                height="250px"
-              />
+            
+            {task.input_schema && (
+              <div>
+                <h3 className="text-lg font-medium">Input Schema</h3>
+                <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                  <Editor
+                    height="200px"
+                    defaultLanguage="json"
+                    value={task.input_schema}
+                    options={{ readOnly: true }}
+                    theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {task.output_schema && (
+              <div>
+                <h3 className="text-lg font-medium">Output Schema</h3>
+                <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                  <Editor
+                    height="200px"
+                    defaultLanguage="json"
+                    value={task.output_schema}
+                    options={{ readOnly: true }}
+                    theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <h3 className="text-lg font-medium">Sample Count</h3>
+              <p className="mt-1 text-gray-500">{task.sample_count || 5}</p>
             </div>
           </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Generated Sample Data</h3>
-            <div className="border rounded-md overflow-hidden">
-              <MonacoEditor
-                language="json"
-                value={task.generated_data || ''}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-                height="400px"
-              />
+        );
+      }
+    } else if (task.category === 'diagram') {
+      if (task.diagram_content && task.generated_diagram) {
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium">Diagram Specification</h3>
+              <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                <Editor
+                  height="300px"
+                  defaultLanguage="markdown"
+                  value={task.diagram_content}
+                  options={{ readOnly: true }}
+                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                />
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-medium">Generated Diagram</h3>
+              <div className="mt-2 p-4 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                <div 
+                  className="overflow-auto max-h-[500px]"
+                  dangerouslySetInnerHTML={{ __html: task.generated_diagram }} 
+                />
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-medium">Diagram Type</h3>
+              <p className="mt-1 text-gray-500">{task.diagram_type}</p>
             </div>
           </div>
-
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                navigator.clipboard.writeText(task.generated_data || '');
-                toast.success('Sample data copied to clipboard');
-              }}
-            >
-              Copy to Clipboard
-            </Button>
-          </div>
-        </div>
-      );
-    } else if (isDiagramTask(task)) {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold mb-1">Diagram Details</h2>
-            <div className="text-gray-500 text-sm">
-              Created on {new Date(task.created_at).toLocaleString()}
+        );
+      }
+    } else if (task.category === 'document') {
+      if (task.source_content && task.generated_document) {
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium">Source Content</h3>
+              <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                <Editor
+                  height="300px"
+                  defaultLanguage={task.document_type === 'markdown' ? 'markdown' : 'text'}
+                  value={task.source_content}
+                  options={{ readOnly: true }}
+                  theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                />
+              </div>
             </div>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Description</h3>
-            <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Diagram Type</h3>
-            <p className="text-gray-700 dark:text-gray-300">{task.diagram_type || 'Unknown'}</p>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Diagram Content</h3>
-            <div className="border rounded-md overflow-hidden">
-              <MonacoEditor
-                language="text"
-                value={task.diagram_content || ''}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-                height="250px"
-              />
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Generated Diagram</h3>
-            <div className="border rounded-md p-4">
-              {task.generated_diagram ? (
-                <div dangerouslySetInnerHTML={{ __html: task.generated_diagram }} />
+            
+            <div>
+              <h3 className="text-lg font-medium">Generated Document</h3>
+              {task.document_type === 'markdown' ? (
+                <div className="mt-2 p-4 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 markdown-content">
+                  <div className="prose dark:prose-invert max-w-none">
+                    <pre className="whitespace-pre-wrap">{task.generated_document}</pre>
+                  </div>
+                </div>
               ) : (
-                <p className="text-gray-500">No diagram available</p>
+                <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                  <Editor
+                    height="400px"
+                    defaultLanguage="text"
+                    value={task.generated_document}
+                    options={{ readOnly: true }}
+                    theme={isDarkMode ? 'vs-dark' : 'vs-light'}
+                  />
+                </div>
               )}
             </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                navigator.clipboard.writeText(task.generated_diagram || '');
-                toast.success('Diagram SVG copied to clipboard');
-              }}
-            >
-              Copy SVG to Clipboard
-            </Button>
-          </div>
-        </div>
-      );
-    } else if (isDocumentTask(task)) {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold mb-1">Document Details</h2>
-            <div className="text-gray-500 text-sm">
-              Created on {new Date(task.created_at).toLocaleString()}
+            
+            <div>
+              <h3 className="text-lg font-medium">Document Type</h3>
+              <p className="mt-1 text-gray-500">{task.document_type}</p>
             </div>
           </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Description</h3>
-            <p className="text-gray-700 dark:text-gray-300">{task.description || 'No description provided'}</p>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Document Type</h3>
-            <p className="text-gray-700 dark:text-gray-300">{task.document_type || 'Unknown'}</p>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Source Content</h3>
-            <div className="border rounded-md overflow-hidden">
-              <MonacoEditor
-                language="text"
-                value={task.source_content || ''}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-                height="250px"
-              />
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-1">Generated Document</h3>
-            <div className="border rounded-md overflow-hidden">
-              <MonacoEditor
-                language="markdown"
-                value={task.generated_document || ''}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-                height="400px"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                navigator.clipboard.writeText(task.generated_document || '');
-                toast.success('Document content copied to clipboard');
-              }}
-            >
-              Copy to Clipboard
-            </Button>
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className="text-center py-10">
-          <p className="text-gray-500">No scripts found for this task</p>
-        </div>
-      );
+        );
+      }
     }
   };
 
@@ -735,7 +663,7 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         </div>
       )}
       
-      {renderTaskContent(task)}
+      {renderTaskDetails()}
     </motion.div>
   );
 };

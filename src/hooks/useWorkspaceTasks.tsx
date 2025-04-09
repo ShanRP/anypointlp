@@ -179,7 +179,20 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      // Use raw query to bypass TypeScript table checking since the table isn't in types.ts yet
+      // Try using the function first
+      try {
+        const { data, error } = await supabase
+          .rpc('apl_get_munit_tasks', { workspace_id_param: workspaceId });
+
+        if (!error && data) {
+          return data;
+        }
+      } catch (functionError) {
+        console.error('Error calling function apl_get_munit_tasks:', functionError);
+      }
+      
+      // Fall back to direct query if function is not available
+      // This has to be a string literal to avoid TypeScript checking
       const { data, error } = await supabase
         .from('apl_munit_tasks')
         .select('*')
@@ -204,7 +217,19 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      // Use raw query to bypass TypeScript table checking
+      // Try using the function first
+      try {
+        const { data, error } = await supabase
+          .rpc('apl_get_sample_data_tasks', { workspace_id_param: workspaceId });
+
+        if (!error && data) {
+          return data;
+        }
+      } catch (functionError) {
+        console.error('Error calling function apl_get_sample_data_tasks:', functionError);
+      }
+      
+      // Fall back to direct query if function is not available
       const { data, error } = await supabase
         .from('apl_sample_data_tasks')
         .select('*')
@@ -229,7 +254,19 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      // Use raw query to bypass TypeScript table checking
+      // Try using the function first
+      try {
+        const { data, error } = await supabase
+          .rpc('apl_get_diagram_tasks', { workspace_id_param: workspaceId });
+
+        if (!error && data) {
+          return data;
+        }
+      } catch (functionError) {
+        console.error('Error calling function apl_get_diagram_tasks:', functionError);
+      }
+      
+      // Fall back to direct query if function is not available
       const { data, error } = await supabase
         .from('apl_diagram_tasks')
         .select('*')
@@ -254,7 +291,19 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     if (!workspaceId || !user) return [];
     
     try {
-      // Use raw query to bypass TypeScript table checking
+      // Try using the function first
+      try {
+        const { data, error } = await supabase
+          .rpc('apl_get_document_tasks', { workspace_id_param: workspaceId });
+
+        if (!error && data) {
+          return data;
+        }
+      } catch (functionError) {
+        console.error('Error calling function apl_get_document_tasks:', functionError);
+      }
+      
+      // Fall back to direct query if function is not available
       const { data, error } = await supabase
         .from('apl_document_tasks')
         .select('*')
@@ -346,72 +395,128 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           taskDetails = data[0] as unknown as TaskDetails;
         }
       } else if (category === 'munit') {
-        // Fetch MUnit task details using direct query
-        const { data, error } = await supabase
-          .from('apl_munit_tasks')
-          .select('*')
-          .eq('id', taskId)
-          .eq('user_id', user.id)
-          .single();
+        try {
+          // Try using the function first
+          const { data, error } = await supabase
+            .rpc('apl_get_munit_task_details', { task_id_param: taskId });
+            
+          if (!error && data && Array.isArray(data) && data.length > 0) {
+            taskDetails = data[0] as unknown as TaskDetails;
+          } else {
+            throw new Error('Failed to fetch using function');
+          }
+        } catch (functionError) {
+          console.error('Error with function, falling back to direct query:', functionError);
           
-        if (error) {
-          console.error('Error fetching MUnit task details:', error);
-          return;
-        }
-        
-        if (data) {
-          taskDetails = data as unknown as TaskDetails;
+          // Fall back to direct query
+          const { data, error } = await supabase
+            .from('apl_munit_tasks')
+            .select('*')
+            .eq('id', taskId)
+            .eq('user_id', user.id)
+            .single();
+            
+          if (error) {
+            console.error('Error fetching MUnit task details:', error);
+            return;
+          }
+          
+          if (data) {
+            taskDetails = data as unknown as TaskDetails;
+          }
         }
       } else if (category === 'sampledata') {
-        // Fetch Sample Data task details
-        const { data, error } = await supabase
-          .from('apl_sample_data_tasks')
-          .select('*')
-          .eq('id', taskId)
-          .eq('user_id', user.id)
-          .single();
+        try {
+          // Try using the function first
+          const { data, error } = await supabase
+            .rpc('apl_get_sample_data_task_details', { task_id_param: taskId });
+            
+          if (!error && data && Array.isArray(data) && data.length > 0) {
+            taskDetails = data[0] as unknown as TaskDetails;
+          } else {
+            throw new Error('Failed to fetch using function');
+          }
+        } catch (functionError) {
+          console.error('Error with function, falling back to direct query:', functionError);
           
-        if (error) {
-          console.error('Error fetching Sample Data task details:', error);
-          return;
-        }
-        
-        if (data) {
-          taskDetails = data as unknown as TaskDetails;
+          // Fall back to direct query
+          const { data, error } = await supabase
+            .from('apl_sample_data_tasks')
+            .select('*')
+            .eq('id', taskId)
+            .eq('user_id', user.id)
+            .single();
+            
+          if (error) {
+            console.error('Error fetching Sample Data task details:', error);
+            return;
+          }
+          
+          if (data) {
+            taskDetails = data as unknown as TaskDetails;
+          }
         }
       } else if (category === 'diagram') {
-        // Fetch Diagram task details
-        const { data, error } = await supabase
-          .from('apl_diagram_tasks')
-          .select('*')
-          .eq('id', taskId)
-          .eq('user_id', user.id)
-          .single();
+        try {
+          // Try using the function first
+          const { data, error } = await supabase
+            .rpc('apl_get_diagram_task_details', { task_id_param: taskId });
+            
+          if (!error && data && Array.isArray(data) && data.length > 0) {
+            taskDetails = data[0] as unknown as TaskDetails;
+          } else {
+            throw new Error('Failed to fetch using function');
+          }
+        } catch (functionError) {
+          console.error('Error with function, falling back to direct query:', functionError);
           
-        if (error) {
-          console.error('Error fetching Diagram task details:', error);
-          return;
-        }
-        
-        if (data) {
-          taskDetails = data as unknown as TaskDetails;
+          // Fall back to direct query
+          const { data, error } = await supabase
+            .from('apl_diagram_tasks')
+            .select('*')
+            .eq('id', taskId)
+            .eq('user_id', user.id)
+            .single();
+            
+          if (error) {
+            console.error('Error fetching Diagram task details:', error);
+            return;
+          }
+          
+          if (data) {
+            taskDetails = data as unknown as TaskDetails;
+          }
         }
       } else if (category === 'document') {
-        // Fetch Document task details
-        const { data, error } = await supabase
-          .from('apl_document_tasks')
-          .select('*')
-          .eq('id', taskId)
-          .eq('user_id', user.id)
-          .single();
+        try {
+          // Try using the function first
+          const { data, error } = await supabase
+            .rpc('apl_get_document_task_details', { task_id_param: taskId });
+            
+          if (!error && data && Array.isArray(data) && data.length > 0) {
+            taskDetails = data[0] as unknown as TaskDetails;
+          } else {
+            throw new Error('Failed to fetch using function');
+          }
+        } catch (functionError) {
+          console.error('Error with function, falling back to direct query:', functionError);
           
-        if (error) {
-          console.error('Error fetching Document task details:', error);
-          return;
-        }
-        
-        if (data) {
-          taskDetails = data as unknown as TaskDetails;
+          // Fall back to direct query
+          const { data, error } = await supabase
+            .from('apl_document_tasks')
+            .select('*')
+            .eq('id', taskId)
+            .eq('user_id', user.id)
+            .single();
+            
+          if (error) {
+            console.error('Error fetching Document task details:', error);
+            return;
+          }
+          
+          if (data) {
+            taskDetails = data as unknown as TaskDetails;
+          }
         }
       }
       
@@ -430,6 +535,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
     
     try {
+      // Use as any to bypass TypeScript table checking
       const { data, error } = await supabase
         .from('apl_munit_tasks')
         .insert({
@@ -468,6 +574,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
     
     try {
+      // Use as any to bypass TypeScript table checking
       const { data, error } = await supabase
         .from('apl_sample_data_tasks')
         .insert({
@@ -506,6 +613,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
     
     try {
+      // Use as any to bypass TypeScript table checking
       const { data, error } = await supabase
         .from('apl_diagram_tasks')
         .insert({
@@ -542,6 +650,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
     
     try {
+      // Use as any to bypass TypeScript table checking
       const { data, error } = await supabase
         .from('apl_document_tasks')
         .insert({
