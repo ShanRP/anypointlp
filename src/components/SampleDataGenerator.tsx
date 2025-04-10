@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, AlertCircle } from 'lucide-react';
@@ -713,22 +714,6 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
                         <Copy size={16} />
                         Copy to Clipboard
                       </Button>
-                      {selectedWorkspaceId && (
-                        <Button 
-                          onClick={handleSaveTask}
-                          disabled={isSaving}
-                          className="flex items-center gap-2"
-                        >
-                          {isSaving ? (
-                            <>
-                              <RefreshCw size={16} className="animate-spin mr-2" />
-                              Saving...
-                            </>
-                          ) : (
-                            'Save to Workspace'
-                          )}
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </div>
