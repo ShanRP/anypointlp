@@ -508,8 +508,8 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
                     theme={editorTheme}
                   />
                 </div>
-              </div>
-            </CardContent>
+              </CardContent>
+            </Card>
           )}
         </div>
       );
