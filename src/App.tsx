@@ -14,6 +14,7 @@ import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import SettingsPage from "./components/SettingsPage";
+import WorkspaceInvite from "./pages/WorkspaceInvite";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
                   <Route path="/dashboard/document" element={<Dashboard />} />
                   <Route path="/dashboard/diagram" element={<Dashboard />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/workspace/:workspaceId" element={<WorkspaceInvite />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

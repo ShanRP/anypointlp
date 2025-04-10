@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
-import { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 
 export interface WorkspaceTask {
@@ -45,6 +44,7 @@ export interface TaskDetails {
   code?: string;
   flow_diagram?: string;
   connection_steps?: string;
+  endpoints?: any;
 }
 
 export interface IntegrationGeneratorProps {
@@ -1168,17 +1168,64 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Deleting task:', taskId);
       
-      const { data, error } = await supabase
-        .from('apl_tasks')
-        .delete()
-        .eq('task_id', taskId);
+      const taskToDelete = tasks.find(t => t.task_id === taskId);
+      
+      if (!taskToDelete) {
+        throw new Error('Task not found');
+      }
+      
+      let error = null;
+      
+      if (taskToDelete.category === 'dataweave') {
+        const result = await supabase
+          .from('apl_dataweave_tasks')
+          .delete()
+          .eq('task_id', taskId);
+        error = result.error;
+      } else if (taskToDelete.category === 'integration') {
+        const result = await supabase
+          .from('apl_integration_tasks')
+          .delete()
+          .eq('task_id', taskId);
+        error = result.error;
+      } else if (taskToDelete.category === 'raml') {
+        const result = await supabase
+          .from('apl_raml_tasks')
+          .delete()
+          .eq('task_id', taskId);
+        error = result.error;
+      } else if (taskToDelete.category === 'munit') {
+        const result = await supabase
+          .from('apl_munit_tasks')
+          .delete()
+          .eq('task_id', taskId);
+        error = result.error;
+      } else if (taskToDelete.category === 'sampledata') {
+        const result = await supabase
+          .from('apl_sample_data_tasks')
+          .delete()
+          .eq('task_id', taskId);
+        error = result.error;
+      } else if (taskToDelete.category === 'document') {
+        const result = await supabase
+          .from('apl_document_tasks')
+          .delete()
+          .eq('task_id', taskId);
+        error = result.error;
+      } else if (taskToDelete.category === 'diagram') {
+        const result = await supabase
+          .from('apl_diagram_tasks')
+          .delete()
+          .eq('task_id', taskId);
+        error = result.error;
+      }
       
       if (error) {
         console.error('Error deleting task:', error);
         throw error;
       }
       
-      console.log('Task deleted successfully:', data);
+      console.log('Task deleted successfully');
       
       await fetchTasks();
     } catch (error: any) {
@@ -1186,10 +1233,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       toast.error('Failed to delete task');
       throw error;
     }
-  }, [workspaceId, fetchTasks]);
+  }, [workspaceId, fetchTasks, tasks]);
 
   const generateId = () => {
-    return uuidv4();
+    return uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase();
   };
 
   useEffect(() => {

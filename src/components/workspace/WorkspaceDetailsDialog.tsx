@@ -1,12 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Clipboard, Check, Copy, Trash, Edit, Save } from 'lucide-react';
+import { Clipboard, Check, Copy, Trash, Edit, Save, Link, Share2 } from 'lucide-react';
 import { WorkspaceOption } from '@/hooks/useWorkspaces';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type WorkspaceDetailsDialogProps = {
   isOpen: boolean;
@@ -14,6 +17,7 @@ type WorkspaceDetailsDialogProps = {
   workspace: WorkspaceOption | null;
   onDelete: (id: string) => Promise<boolean>;
   onUpdate: (id: string, updates: Partial<WorkspaceOption>) => Promise<boolean>;
+  onGenerateInviteLink: (id: string) => Promise<string | boolean>;
 };
 
 const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
@@ -21,21 +25,27 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
   onClose,
   workspace,
   onDelete,
-  onUpdate
+  onUpdate,
+  onGenerateInviteLink
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
+  const [inviteEnabled, setInviteEnabled] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
 
   // Reset states when dialog opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen && workspace) {
       setWorkspaceName(workspace.name);
+      setInviteEnabled(workspace.invite_enabled || false);
       setIsEditing(false);
       setIsDeleting(false);
       setIsCopied(false);
+      setInviteLink(workspace.invite_link || '');
     }
   }, [isOpen, workspace]);
 
@@ -43,9 +53,10 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
 
   const appUrl = `${window.location.origin}/workspace/${workspace.id}`;
 
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(appUrl);
+  const handleCopyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
     setIsCopied(true);
+    toast.success('Link copied to clipboard!');
     setTimeout(() => setIsCopied(false), 2000);
   };
 
@@ -74,7 +85,11 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
     
     setIsUpdating(true);
     try {
-      const success = await onUpdate(workspace.id, { name: workspaceName });
+      const success = await onUpdate(workspace.id, { 
+        name: workspaceName,
+        invite_enabled: inviteEnabled
+      });
+      
       if (success) {
         toast.success("Workspace updated successfully");
         setIsEditing(false);
@@ -89,9 +104,30 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
     }
   };
 
+  const handleGenerateInviteLink = async () => {
+    if (!workspace) return;
+    
+    setIsGeneratingLink(true);
+    try {
+      const result = await onGenerateInviteLink(workspace.id);
+      
+      if (typeof result === 'string') {
+        setInviteLink(result);
+        toast.success("Invite link generated successfully");
+      } else {
+        toast.error("Failed to generate invite link");
+      }
+    } catch (error) {
+      console.error("Error generating invite link:", error);
+      toast.error("An error occurred while generating the invite link");
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="text-xl">Workspace Details</DialogTitle>
         </DialogHeader>
@@ -136,27 +172,72 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
             )}
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Workspace URL
-            </label>
+          {isEditing && (
             <div className="flex items-center space-x-2">
-              <Input 
-                value={appUrl} 
-                readOnly 
-                className="flex-1 bg-gray-50 dark:bg-gray-800"
+              <Switch
+                id="invite-enabled"
+                checked={inviteEnabled}
+                onCheckedChange={setInviteEnabled}
               />
-              <Button 
-                size="icon" 
-                variant="outline" 
-                onClick={handleCopyUrl}
+              <Label htmlFor="invite-enabled">Enable workspace invitations</Label>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Invite Link
+              </label>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-1" 
+                onClick={handleGenerateInviteLink}
+                disabled={isGeneratingLink}
               >
-                {isCopied ? (
-                  <Check className="h-4 w-4 text-green-500" />
+                {isGeneratingLink ? (
+                  <>
+                    <Clipboard className="h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
                 ) : (
-                  <Copy className="h-4 w-4" />
+                  <>
+                    <Link className="h-4 w-4" />
+                    Generate Link
+                  </>
                 )}
               </Button>
+            </div>
+            
+            {inviteLink ? (
+              <div className="flex items-center space-x-2">
+                <Input 
+                  value={inviteLink}
+                  readOnly 
+                  className="flex-1 bg-gray-50 dark:bg-gray-800 text-sm"
+                />
+                <Button 
+                  size="icon" 
+                  variant="outline" 
+                  onClick={() => handleCopyUrl(inviteLink)}
+                >
+                  {isCopied ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <Alert variant="default" className="bg-muted">
+                <AlertDescription className="text-sm">
+                  Generate an invite link to allow others to join this workspace
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="text-xs text-muted-foreground mt-1">
+              Anyone with this link can join your workspace after authentication
             </div>
           </div>
           
