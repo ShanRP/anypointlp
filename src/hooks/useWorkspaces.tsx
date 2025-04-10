@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
@@ -220,11 +219,12 @@ export const useWorkspaces = () => {
     if (!user) return false;
     
     try {
-      // Generate a UUID for the invite token
-      const inviteToken = workspaceId;
+      console.log('Generating invite link for workspace:', workspaceId);
       
-      // Use /invite/ path for the invite link instead of /workspace/
-      const inviteLink = `${window.location.origin}/invite/${inviteToken}`;
+      // Use invite path for the invite link
+      const inviteLink = `${window.location.origin}/invite/${workspaceId}`;
+      
+      console.log('Generated invite link:', inviteLink);
       
       const { data, error } = await supabase
         .from('apl_workspaces')
@@ -233,10 +233,14 @@ export const useWorkspaces = () => {
           invite_enabled: true
         })
         .eq('id', workspaceId)
-        .eq('user_id', user.id)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating workspace:', error);
+        throw error;
+      }
+      
+      console.log('Workspace updated:', data);
       
       // Fetch the updated workspace to ensure we have the latest data
       const { data: refreshedData, error: refreshError } = await supabase
@@ -245,7 +249,12 @@ export const useWorkspaces = () => {
         .eq('id', workspaceId)
         .single();
         
-      if (refreshError) throw refreshError;
+      if (refreshError) {
+        console.error('Error fetching refreshed data:', refreshError);
+        throw refreshError;
+      }
+      
+      console.log('Refreshed workspace data:', refreshedData);
       
       // Update the workspaces list with the refreshed data
       const updatedWorkspace = {

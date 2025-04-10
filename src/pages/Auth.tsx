@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,6 +10,7 @@ import { Logo } from '@/components/assets/Logo';
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const isSignUp = searchParams.get('signup') === 'true';
+  const redirect = searchParams.get('redirect');
   const [activeTab, setActiveTab] = useState(isSignUp ? 'signup' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,9 +22,13 @@ const Auth = () => {
 
   useEffect(() => {
     if (session) {
-      navigate('/dashboard');
+      if (redirect) {
+        navigate(redirect);
+      } else {
+        navigate('/dashboard');
+      }
     }
-  }, [session, navigate]);
+  }, [session, navigate, redirect]);
 
   useEffect(() => {
     setActiveTab(isSignUp ? 'signup' : 'login');
@@ -32,7 +36,11 @@ const Auth = () => {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    navigate(tab === 'signup' ? '?signup=true' : '');
+    if (redirect) {
+      navigate(`?${tab === 'signup' ? 'signup=true&' : ''}redirect=${encodeURIComponent(redirect)}`);
+    } else {
+      navigate(tab === 'signup' ? '?signup=true' : '');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,7 +104,6 @@ const Auth = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
       >
-        {/* Background decorative elements */}
         <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-b from-purple-500/20 to-indigo-500/20 rounded-full filter blur-3xl transform translate-x-20 -translate-y-20 z-0"></div>
         <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-t from-indigo-500/20 to-purple-500/20 rounded-full filter blur-3xl transform -translate-x-20 translate-y-20 z-0"></div>
         
@@ -130,7 +137,6 @@ const Auth = () => {
             </motion.p>
           </div>
 
-          {/* Tab navigation */}
           <div className="flex mb-6 bg-gray-100 dark:bg-gray-800/50 p-1 rounded-xl">
             <button
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${

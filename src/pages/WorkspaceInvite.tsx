@@ -25,6 +25,8 @@ const WorkspaceInvite = () => {
       }
 
       try {
+        console.log('Checking workspace with ID:', workspaceId);
+        
         // First check if the workspace exists
         const { data: workspaceData, error: workspaceError } = await supabase
           .from('apl_workspaces')
@@ -32,33 +34,54 @@ const WorkspaceInvite = () => {
           .eq('id', workspaceId)
           .single();
 
-        if (workspaceError || !workspaceData) {
+        console.log('Workspace query result:', { workspaceData, workspaceError });
+
+        if (workspaceError) {
+          console.error('Error fetching workspace:', workspaceError);
           setError('Workspace not found or invitation link is invalid');
           setLoading(false);
           return;
         }
 
+        if (!workspaceData) {
+          console.error('No workspace data found');
+          setError('Workspace not found or invitation link is invalid');
+          setLoading(false);
+          return;
+        }
+
+        console.log('Found workspace:', workspaceData);
         setWorkspace(workspaceData);
 
         // If user is logged in, check if they're already a member
         if (user) {
+          console.log('User is logged in, checking membership');
           const { data: memberData, error: memberError } = await supabase
             .from('apl_workspace_members')
             .select('*')
             .eq('workspace_id', workspaceId)
             .eq('user_id', user.id);
 
-          if (!memberError && memberData && memberData.length > 0) {
+          console.log('Membership check result:', { memberData, memberError });
+
+          if (memberError) {
+            console.error('Error checking membership:', memberError);
+          }
+
+          if (memberData && memberData.length > 0) {
             // User is already a member, redirect to dashboard
+            console.log('User is already a member');
             toast.info('You are already a member of this workspace');
             navigate('/dashboard');
             return;
           }
 
           // User is not a member, they can join
+          console.log('User is not a member, can join');
           setLoading(false);
         } else {
           // User is not logged in, they need to authenticate
+          console.log('User is not logged in');
           setLoading(false);
         }
       } catch (err) {
@@ -73,13 +96,17 @@ const WorkspaceInvite = () => {
 
   const handleJoinWorkspace = async () => {
     if (!user || !workspaceId) {
-      navigate(`/auth?redirect=/workspace/${workspaceId}`);
+      // Redirect to auth with return URL
+      const redirectPath = `/invite/${workspaceId}`;
+      navigate(`/auth?redirect=${encodeURIComponent(redirectPath)}`);
       return;
     }
 
     setLoading(true);
     try {
-      // Add user as member
+      console.log('Joining workspace', { workspaceId, userId: user.id });
+      
+      // Add user as member directly with SQL insert
       const { data, error: insertError } = await supabase
         .from('apl_workspace_members')
         .insert({
@@ -89,14 +116,16 @@ const WorkspaceInvite = () => {
         });
 
       if (insertError) {
+        console.error('Error joining workspace:', insertError);
         throw insertError;
       }
 
+      console.log('Successfully joined workspace:', data);
       toast.success('Successfully joined workspace!');
       navigate('/dashboard');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error joining workspace:', err);
-      toast.error('Failed to join workspace');
+      toast.error('Failed to join workspace: ' + (err.message || 'Unknown error'));
       setLoading(false);
     }
   };

@@ -16,7 +16,14 @@ import Dashboard from "./pages/Dashboard";
 import SettingsPage from "./components/SettingsPage";
 import WorkspaceInvite from "./pages/WorkspaceInvite";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <React.StrictMode>
@@ -43,7 +50,7 @@ const App = () => (
                   <Route path="/dashboard/diagram" element={<Dashboard />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   
-                  {/* Update workspace invite route */}
+                  {/* Workspace invite routes */}
                   <Route path="/workspace/:workspaceId" element={<WorkspaceInvite />} />
                   <Route path="/invite/:workspaceId" element={<WorkspaceInvite />} />
                   
