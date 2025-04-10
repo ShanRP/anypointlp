@@ -25,12 +25,14 @@ interface SampleDataGeneratorProps {
   onBack: () => void;
   selectedWorkspaceId?: string;
   onSaveTask?: (taskId: string) => void;
+  onTaskCreated?: (task: any) => void;
 }
 
 const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({ 
   onBack, 
   selectedWorkspaceId = 'default',
-  onSaveTask 
+  onSaveTask,
+  onTaskCreated
 }) => {
   const [generationType, setGenerationType] = useState<GenerationType>('JSON');
   const [sourceType, setSourceType] = useState<SourceType>('no-repository');
@@ -74,11 +76,6 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
       return;
     }
     
-    const canUseCredit = await useCredit();
-    if (!canUseCredit) {
-      return;
-    }
-    
     setIsGenerating(true);
     try {
       const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -116,6 +113,49 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
         }
         
         setResult(content);
+        
+        const canUseCredit = await useCredit();
+        if (!canUseCredit) {
+          throw new Error("Could not use credit. Check your credit balance.");
+        }
+        
+        if (selectedWorkspaceId && user) {
+          try {
+            const taskData = {
+              workspace_id: selectedWorkspaceId,
+              task_id: taskId,
+              task_name: taskName,
+              user_id: user.id,
+              description: notes || `Sample data in ${generationType} format`,
+              source_format: generationType,
+              schema_content: schemaContent,
+              result_content: content,
+              notes: notes
+            };
+            
+            await saveSampleDataTask(taskData);
+            
+            if (onTaskCreated) {
+              onTaskCreated({
+                id: taskId,
+                task_id: taskId,
+                label: taskName,
+                category: 'sampledata',
+                workspace_id: selectedWorkspaceId
+              });
+            }
+            
+            if (onSaveTask) {
+              onSaveTask(taskId);
+            }
+            
+            toast.success('Sample data task saved successfully!');
+          } catch (error) {
+            console.error('Error saving sample data task:', error);
+            toast.error('Generated data was not saved to database');
+          }
+        }
+        
         setActiveTab('result');
         toast.success('Sample data generated successfully!');
       } else {
@@ -126,58 +166,6 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
       toast.error('Failed to generate sample data. Please try again.');
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  const handleSaveTask = async () => {
-    if (!selectedWorkspaceId || !user) {
-      toast.error('You need to be logged in and have a workspace selected to save a task');
-      return;
-    }
-
-    if (!result) {
-      toast.error('You need to generate sample data before saving');
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      
-      console.log('Saving sample data task:', {
-        workspace_id: selectedWorkspaceId,
-        task_id: taskId,
-        task_name: taskName,
-        description: notes || `Sample data in ${generationType} format`,
-        source_format: generationType,
-        schema_content: schemaContent,
-        result_content: result
-      });
-      
-      const taskData = {
-        workspace_id: selectedWorkspaceId,
-        task_id: taskId,
-        task_name: taskName,
-        user_id: user.id,
-        description: notes || `Sample data in ${generationType} format`,
-        source_format: generationType,
-        schema_content: schemaContent,
-        result_content: result,
-        notes: notes
-      };
-      
-      await saveSampleDataTask(taskData);
-      
-      if (onSaveTask) {
-        onSaveTask(taskId);
-      }
-      
-      toast.success('Sample data task saved successfully!');
-      setActiveTab('result');
-    } catch (error) {
-      console.error('Error saving task:', error);
-      toast.error('Failed to save task');
-    } finally {
-      setIsSaving(false);
     }
   };
 
