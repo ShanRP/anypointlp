@@ -1,30 +1,32 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, Save, RefreshCw, Copy, CheckCircle } from 'lucide-react';
+import { ArrowLeft, UploadCloud, Save, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from '@/components/ui/separator';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 import { useMUnitRepositoryData } from '@/hooks/useMUnitRepositoryData';
 import MonacoEditor from './MonacoEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/integrations/supabase/client';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+
 import { useUserCredits } from '@/hooks/useUserCredits';
-import { motion } from 'framer-motion';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import LoadingSpinner from './ui/LoadingSpinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type MUnitTestGeneratorProps = {
   onTaskCreated?: (task: any) => void;
   selectedWorkspaceId?: string;
   onBack?: () => void;
-  onSaveTask?: (taskId: string) => void;
+  onSaveTask?: (id: string) => void;
 };
 
 const runtimeOptions = [
@@ -36,10 +38,11 @@ const runtimeOptions = [
 
 const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   onTaskCreated,
-  selectedWorkspaceId = 'default',
+  selectedWorkspaceId,
   onBack,
   onSaveTask
 }) => {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [sourceType, setSourceType] = useState<'noRepository' | 'withRepository' | 'local'>('noRepository');
@@ -50,12 +53,9 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
   const [scenarioCount, setScenarioCount] = useState(1);
   const [generatedTests, setGeneratedTests] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('input');
-  const [isCopied, setIsCopied] = useState(false);
-  
   const { user } = useAuth();
   const { useCredit } = useUserCredits();
   const { saveMunitTask } = useWorkspaceTasks(selectedWorkspaceId);
-  
   const { 
     repositories, 
     selectedRepository, 
@@ -72,18 +72,28 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
 
   const handleGenerate = async () => {
     if (!description) {
-      toast.error("Please provide a description for the test.");
+      toast({
+        title: "Missing information",
+        description: "Please provide a description for the test.",
+        variant: "destructive"
+      });
       return;
     }
 
     if (!flowImplementation) {
-      toast.error("Please provide the flow implementation to generate tests for.");
+      toast({
+        title: "Missing flow implementation",
+        description: "Please provide the flow implementation to generate tests for.",
+        variant: "destructive"
+      });
       return;
     }
-    
+
     setIsGenerating(true);
     
     try {
+      const taskId = uuidv4();
+      
       console.log("Sending request with payload:", {
         description,
         notes,
@@ -92,43 +102,30 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         numberOfScenarios: scenarioCount
       });
       
-      // Use fetch directly to better handle potential errors
-      const response = await fetch('/api/supabase/functions/v1/generate-munit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('generate-munit', {
+        body: {
           description,
           notes,
           flowImplementation,
           runtime,
           numberOfScenarios: scenarioCount
-        })
+        }
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error response from generate-munit:", errorText);
-        throw new Error(`Failed to generate MUnit tests. Server responded with status: ${response.status}`);
+
+      if (error) {
+        throw new Error(error.message);
       }
-      
-      const data = await response.json();
-      console.log("Response from generate-munit:", data);
-      
-      if (!data.success) {
-        throw new Error(data.error || "Unknown error occurred");
-      }
-      
+
       // Now that we have a successful result, use a credit
       const canUseCredit = await useCredit();
       if (!canUseCredit) {
         throw new Error("Could not use credit. Check your credit balance.");
       }
+
+      console.log("Response from generate-munit:", data);
       
       setGeneratedTests(data.code || "// No tests generated");
-      
+
       // Save task to database
       const task_id = `MUNIT-${Date.now().toString(36).toUpperCase()}`;
       
@@ -146,9 +143,10 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
       };
       
       const savedTask = await saveMunitTask(munitData);
-      
+
       if (savedTask) {
-        toast.success(`MUnit test saved with ID: ${task_id}`);
+        // toast.success(`MUnit test saved with ID: ${task_id}`);
+        console.log(`MUnit test saved with ID: ${task_id}`)
         
         if (onSaveTask) {
           onSaveTask(task_id);
@@ -164,13 +162,45 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
           });
         }
       } else {
-        toast.error('Failed to save MUnit test');
+        // toast.error('Failed to save MUnit test');
+        console.log('Failed to save MUnit test')
+      }
+
+      if (onTaskCreated && selectedWorkspaceId) {
+        onTaskCreated({
+          id: taskId,
+          label: description.substring(0, 30) + (description.length > 30 ? '...' : ''),
+          category: 'munit',
+          icon: "TestTube2",
+          workspace_id: selectedWorkspaceId,
+          content: {
+            description,
+            notes,
+            flow: flowImplementation,
+            tests: data.code,
+            runtime,
+            scenarioCount
+          }
+        });
+
+        toast({
+          title: "Success!",
+          description: "MUnit tests generated successfully.",
+        });
+
+        if (onSaveTask) {
+          onSaveTask(taskId);
+        }
       }
       
       setActiveTab('result');
     } catch (error) {
       console.error('Error generating MUnit tests:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate MUnit tests. Please try again.");
+      toast({
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Failed to generate MUnit tests. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -191,13 +221,6 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
     if (fileContent) {
       setFlowImplementation(fileContent);
     }
-  };
-  
-  const handleCopyToClipboard = () => {
-    navigator.clipboard.writeText(generatedTests);
-    setIsCopied(true);
-    toast.success("MUnit tests copied to clipboard");
-    setTimeout(() => setIsCopied(false), 3000);
   };
 
   return (
@@ -372,7 +395,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                 </div>
               )}
 
-              <div className="flex-1 flex flex-col h-full">
+              <div className="flex-1 flex flex-col  h-full">
                 <Label htmlFor="flowImplementation" className="font-medium mb-1 block">
                   Flow Implementation<span className="text-red-500">*</span>
                 </Label>
@@ -474,18 +497,14 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
                   >
                     Back to Input
                   </Button>
-                  <Button onClick={handleCopyToClipboard}>
-                    {isCopied ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy to Clipboard
-                      </>
-                    )}
+                  <Button onClick={() => {
+                    navigator.clipboard.writeText(generatedTests);
+                    toast({
+                      title: "Copied!",
+                      description: "MUnit tests copied to clipboard",
+                    });
+                  }}>
+                    Copy to Clipboard
                   </Button>
                 </div>
               </div>
