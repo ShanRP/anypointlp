@@ -735,6 +735,38 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_workspace_members: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apl_workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "apl_workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       apl_workspaces: {
         Row: {
           created_at: string

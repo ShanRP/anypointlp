@@ -20,6 +20,7 @@ export interface TaskDetails {
   task_name: string;
   category: string;
   created_at: string;
+  workspace_id: string; // Adding this property to fix the type error
   description?: string;
   input_format?: string;
   input_samples?: any[];
@@ -44,7 +45,7 @@ export interface TaskDetails {
   code?: string;
   flow_diagram?: string;
   connection_steps?: string;
-  endpoints?: any;
+  endpoints?: any[];
 }
 
 export interface IntegrationGeneratorProps {
@@ -811,10 +812,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           task_id: string;
           task_name: string;
           input_format: string;
-          input_samples: Json;
-          output_samples: Json;
+          input_samples: JSON;
+          output_samples: JSON;
           notes: string;
-          generated_scripts: Json;
+          generated_scripts: JSON;
           created_at: string;
           category?: string;
           description?: string;
@@ -1236,7 +1237,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
   }, [workspaceId, fetchTasks, tasks]);
 
   const generateId = () => {
-    return uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase();
+    return Math.random().toString(36).substring(2, 10).toUpperCase();
   };
 
   useEffect(() => {

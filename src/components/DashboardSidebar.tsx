@@ -156,7 +156,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const [isWorkspaceDetailsOpen, setIsWorkspaceDetailsOpen] = useState(false);
   const [selectedWorkspaceForDetails, setSelectedWorkspaceForDetails] = useState<WorkspaceOption | null>(null);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
-  const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace, updateWorkspace, deleteWorkspace } = useWorkspaces();
+  const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace, updateWorkspace, deleteWorkspace, generateInviteLink } = useWorkspaces();
   const { tasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
   const { fadeIn } = useAnimations();
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
@@ -537,6 +537,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         workspace={selectedWorkspaceForDetails}
         onDelete={deleteWorkspace}
         onUpdate={updateWorkspace}
+        onGenerateInviteLink={generateInviteLink}
       />
       
       <CodingAssistantDialog 
