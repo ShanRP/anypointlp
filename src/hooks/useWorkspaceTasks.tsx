@@ -1,18 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
-import { Json } from '@/integrations/supabase/types';
-import { useAuth } from '@/hooks/useAuth';
 
 export interface WorkspaceTask {
   id: string;
   task_id: string;
   task_name: string;
+  category: string;
   created_at: string;
-  workspace_id: string; 
-  category: string; // Category of the task (dataweave, raml, integration, munit, sampledata, document, diagram)
-  description?: string; // Optional description field
+  description: string;
 }
 
 export interface TaskDetails {
@@ -21,28 +17,42 @@ export interface TaskDetails {
   task_name: string;
   category: string;
   created_at: string;
+  
+  // Common fields that might be in any task
   description?: string;
+  notes?: string;
+  workspace_id?: string;
+  
+  // DataWeave specific
   input_format?: string;
   input_samples?: any[];
   output_samples?: any[];
-  notes?: string;
   generated_scripts?: any[];
+  
+  // Integration specific
+  flow_implementation?: string;
   raml_content?: string;
   api_name?: string;
   api_version?: string;
   base_uri?: string;
-  documentation?: string;
-  flow_implementation?: string;
-  flow_description?: string;
-  munit_content?: string;
   runtime?: string;
+  
+  // MUnit specific
+  munit_content?: string;
+  flow_description?: string;
   number_of_scenarios?: number;
+  
+  // Sample Data specific
   source_format?: string;
   schema_content?: string;
   result_content?: string;
+  
+  // Document specific
   document_type?: string;
   source_type?: string;
   code?: string;
+  
+  // Diagram specific
   flow_diagram?: string;
   connection_steps?: string;
 }
