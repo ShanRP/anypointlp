@@ -184,14 +184,17 @@ export const useUserCredits = () => {
     }
   }, [user, credits]);
 
-  // Initialize or reset credits on mount and when the user changes
+  // Initialize credits only once when the user is set
   useEffect(() => {
-    if (user) {
-      // Reset hasFetched when user changes
-      setHasFetched(false); 
+    if (user && !hasFetched) {
       fetchUserCredits();
+    } else if (!user) {
+      // Reset state when user logs out
+      setCredits(null);
+      setLoading(false);
+      setHasFetched(false);
     }
-  }, [user, fetchUserCredits]);
+  }, [user, fetchUserCredits, hasFetched]);
 
   // Refresh function that can be called externally
   const refreshCredits = useCallback(() => {

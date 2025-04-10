@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useUserCredits } from '@/hooks/useUserCredits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,7 @@ export function UserCreditsDisplay() {
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   
-  // Calculate these values directly from props instead of storing in state
-  // This prevents unnecessary re-renders
+  // Calculate values directly from credits object instead of tracking in state
   const getCreditsRemaining = () => {
     if (!credits) return 0;
     const limit = credits.is_pro ? 100 : 3;
@@ -35,6 +34,7 @@ export function UserCreditsDisplay() {
   
   const isPro = () => credits?.is_pro || false;
   
+  // Calculate once for this render
   const creditsRemaining = getCreditsRemaining();
 
   const handleUpgrade = async () => {
