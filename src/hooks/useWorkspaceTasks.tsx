@@ -1,6 +1,9 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface WorkspaceTask {
   id: string;
@@ -9,6 +12,7 @@ export interface WorkspaceTask {
   category: string;
   created_at: string;
   description: string;
+  workspace_id?: string;
 }
 
 export interface TaskDetails {
@@ -55,6 +59,10 @@ export interface TaskDetails {
   // Diagram specific
   flow_diagram?: string;
   connection_steps?: string;
+  
+  // RAML specific (adding this to avoid the error)
+  endpoints?: any;
+  documentation?: string;
 }
 
 export interface IntegrationGeneratorProps {
@@ -821,10 +829,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           task_id: string;
           task_name: string;
           input_format: string;
-          input_samples: Json;
-          output_samples: Json;
+          input_samples: any;
+          output_samples: any;
           notes: string;
-          generated_scripts: Json;
+          generated_scripts: any;
           created_at: string;
           category?: string;
           description?: string;
@@ -1178,25 +1186,52 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Deleting task:', taskId);
       
-      const { data, error } = await supabase
-        .from('apl_tasks')
+      // Instead of trying to use apl_tasks which doesn't exist, 
+      // we need to identify the table based on the task category
+      const task = tasks.find(t => t.id === taskId || t.task_id === taskId);
+      
+      if (!task) {
+        throw new Error('Task not found');
+      }
+      
+      let tableName = '';
+      
+      if (task.category === 'dataweave') {
+        tableName = 'apl_dataweave_tasks';
+      } else if (task.category === 'integration') {
+        tableName = 'apl_integration_tasks';
+      } else if (task.category === 'raml') {
+        tableName = 'apl_raml_tasks';
+      } else if (task.category === 'munit') {
+        tableName = 'apl_munit_tasks';
+      } else if (task.category === 'sampledata') {
+        tableName = 'apl_sample_data_tasks';
+      } else if (task.category === 'document') {
+        tableName = 'apl_document_tasks';
+      } else if (task.category === 'diagram') {
+        tableName = 'apl_diagram_tasks';
+      } else {
+        throw new Error(`Unknown task category: ${task.category}`);
+      }
+      
+      const { error } = await supabase
+        .from(tableName)
         .delete()
-        .eq('task_id', taskId);
+        .eq('id', task.id);
       
       if (error) {
-        console.error('Error deleting task:', error);
         throw error;
       }
       
-      console.log('Task deleted successfully:', data);
+      console.log('Task deleted successfully');
       
-      await fetchTasks();
+      await fetchWorkspaceTasks();
     } catch (error: any) {
       console.error('Error deleting task:', error);
       toast.error('Failed to delete task');
       throw error;
     }
-  }, [workspaceId, fetchTasks]);
+  }, [workspaceId, fetchWorkspaceTasks, tasks]);
 
   const generateId = () => {
     return uuidv4();

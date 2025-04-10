@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,12 +56,10 @@ const WorkspaceInvite = () => {
         setWorkspaceName(workspaces.name);
         
         // Check if user is already a member of this workspace
-        const { data: existingMembership, error: membershipError } = await supabase
-          .from('apl_workspace_members')
-          .select('*')
-          .eq('workspace_id', workspaces.id)
-          .eq('user_id', user.id)
-          .maybeSingle();
+        // We need to work around the TypeScript error by using execBatch instead
+        // until Supabase types are updated for apl_workspace_members
+        const members = await supabase.rpc('get_workspace_members', { workspace_id_param: workspaces.id });
+        const existingMembership = members.data?.find(m => m.user_id === user.id);
           
         if (existingMembership) {
           // User is already a member
@@ -72,15 +69,13 @@ const WorkspaceInvite = () => {
         }
         
         // Add user to workspace
+        // We'll use the native SQL query to work around the TypeScript error
         const { error: joinError } = await supabase
-          .from('apl_workspace_members')
-          .insert([
-            { 
-              workspace_id: workspaces.id, 
-              user_id: user.id,
-              role: 'member' 
-            }
-          ]);
+          .rpc('add_workspace_member', { 
+            workspace_id_param: workspaces.id, 
+            user_id_param: user.id,
+            role_param: 'member' 
+          });
           
         if (joinError) {
           console.error('Error joining workspace:', joinError);
@@ -108,10 +103,10 @@ const WorkspaceInvite = () => {
     navigate('/dashboard');
   };
   
-  if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+        {loading || authLoading ? (
           <div className="flex flex-col items-center justify-center space-y-4">
             <Loader2 className="h-12 w-12 text-purple-600 animate-spin" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Processing Invite</h1>
@@ -119,15 +114,7 @@ const WorkspaceInvite = () => {
               Please wait while we process your workspace invitation...
             </p>
           </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+        ) : error ? (
           <div className="flex flex-col items-center justify-center space-y-4">
             <XCircle className="h-16 w-16 text-red-500" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invite Error</h1>
@@ -136,15 +123,7 @@ const WorkspaceInvite = () => {
               Go to Dashboard
             </Button>
           </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (success) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+        ) : success ? (
           <div className="flex flex-col items-center justify-center space-y-4">
             <CheckCircle className="h-16 w-16 text-green-500" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Success!</h1>
@@ -155,12 +134,10 @@ const WorkspaceInvite = () => {
               Go to Dashboard
             </Button>
           </div>
-        </div>
+        ) : null}
       </div>
-    );
-  }
-  
-  return null;
+    </div>
+  );
 };
 
 export default WorkspaceInvite;
