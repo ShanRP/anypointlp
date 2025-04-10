@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Home, 
@@ -164,7 +165,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
     const olderTasks: WorkspaceTask[] = [];
     
     const workspaceTasks = tasks.filter(task => 
-      selectedWorkspace !== null && task.id !== undefined
+      task.workspace_id === selectedWorkspace?.id
     );
     
     workspaceTasks.forEach(task => {

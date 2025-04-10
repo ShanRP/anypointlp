@@ -1,18 +1,18 @@
-
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useAuth } from '@/hooks/useAuth';
 import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
+import { Json } from '@/integrations/supabase/types';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface WorkspaceTask {
   id: string;
   task_id: string;
   task_name: string;
-  category: string;
   created_at: string;
-  description: string;
-  workspace_id?: string;
+  workspace_id: string; 
+  category: string; // Category of the task (dataweave, raml, integration, munit, sampledata, document, diagram)
+  description?: string; // Optional description field
 }
 
 export interface TaskDetails {
@@ -21,48 +21,30 @@ export interface TaskDetails {
   task_name: string;
   category: string;
   created_at: string;
-  
-  // Common fields that might be in any task
   description?: string;
-  notes?: string;
-  workspace_id?: string;
-  
-  // DataWeave specific
   input_format?: string;
   input_samples?: any[];
   output_samples?: any[];
+  notes?: string;
   generated_scripts?: any[];
-  
-  // Integration specific
-  flow_implementation?: string;
   raml_content?: string;
   api_name?: string;
   api_version?: string;
   base_uri?: string;
-  runtime?: string;
-  
-  // MUnit specific
-  munit_content?: string;
+  documentation?: string;
+  flow_implementation?: string;
   flow_description?: string;
+  munit_content?: string;
+  runtime?: string;
   number_of_scenarios?: number;
-  
-  // Sample Data specific
   source_format?: string;
   schema_content?: string;
   result_content?: string;
-  
-  // Document specific
   document_type?: string;
   source_type?: string;
   code?: string;
-  
-  // Diagram specific
   flow_diagram?: string;
   connection_steps?: string;
-  
-  // RAML specific (adding this to avoid the error)
-  endpoints?: any;
-  documentation?: string;
 }
 
 export interface IntegrationGeneratorProps {
@@ -829,10 +811,10 @@ export const useWorkspaceTasks = (workspaceId: string) => {
           task_id: string;
           task_name: string;
           input_format: string;
-          input_samples: any;
-          output_samples: any;
+          input_samples: Json;
+          output_samples: Json;
           notes: string;
-          generated_scripts: any;
+          generated_scripts: Json;
           created_at: string;
           category?: string;
           description?: string;
@@ -1186,52 +1168,25 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Deleting task:', taskId);
       
-      // Instead of trying to use apl_tasks which doesn't exist, 
-      // we need to identify the table based on the task category
-      const task = tasks.find(t => t.id === taskId || t.task_id === taskId);
-      
-      if (!task) {
-        throw new Error('Task not found');
-      }
-      
-      let tableName = '';
-      
-      if (task.category === 'dataweave') {
-        tableName = 'apl_dataweave_tasks';
-      } else if (task.category === 'integration') {
-        tableName = 'apl_integration_tasks';
-      } else if (task.category === 'raml') {
-        tableName = 'apl_raml_tasks';
-      } else if (task.category === 'munit') {
-        tableName = 'apl_munit_tasks';
-      } else if (task.category === 'sampledata') {
-        tableName = 'apl_sample_data_tasks';
-      } else if (task.category === 'document') {
-        tableName = 'apl_document_tasks';
-      } else if (task.category === 'diagram') {
-        tableName = 'apl_diagram_tasks';
-      } else {
-        throw new Error(`Unknown task category: ${task.category}`);
-      }
-      
-      const { error } = await supabase
-        .from(tableName)
+      const { data, error } = await supabase
+        .from('apl_tasks')
         .delete()
-        .eq('id', task.id);
+        .eq('task_id', taskId);
       
       if (error) {
+        console.error('Error deleting task:', error);
         throw error;
       }
       
-      console.log('Task deleted successfully');
+      console.log('Task deleted successfully:', data);
       
-      await fetchWorkspaceTasks();
+      await fetchTasks();
     } catch (error: any) {
       console.error('Error deleting task:', error);
       toast.error('Failed to delete task');
       throw error;
     }
-  }, [workspaceId, fetchWorkspaceTasks, tasks]);
+  }, [workspaceId, fetchTasks]);
 
   const generateId = () => {
     return uuidv4();
