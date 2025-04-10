@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, FileCode, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -49,7 +49,7 @@ const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({
           fetchFileContent } = useGithubApi();
   const { selectedRepository, toggleFileSelection } = useRepositoryData();
   const { user } = useAuth();
-  const { saveDiagramTask } = useWorkspaceTasks(selectedWorkspaceId);
+  const { saveDiagramTask } = useWorkspaceTasks(selectedWorkspaceId || '');
   const { useCredit } = useUserCredits();
   
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -314,6 +314,12 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
     toast.success('Diagram copied to clipboard!');
   };
 
+  useEffect(() => {
+    if (sourceType === 'with-repository' && !repositories.length) {
+      fetchRepositories();
+    }
+  }, [sourceType, repositories, fetchRepositories]);
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -325,249 +331,248 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>Create MuleSoft Flow Diagram</CardTitle>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                  <TabsTrigger value="input">Input</TabsTrigger>
-                  <TabsTrigger value="result">Result</TabsTrigger>
-                </TabsList>
-              </Tabs>
             </div>
           </CardHeader>
           
           <CardContent className="p-6">
-            <TabsContent value="input" className="space-y-6">
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="taskName">Task Name</label>
-                  <Input
-                    id="taskName"
-                    placeholder="Name this diagram task"
-                    value={taskName}
-                    onChange={(e) => setTaskName(e.target.value)}
-                  />
-                </div>
-                
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">Source Type</label>
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      variant={sourceType === 'no-repository' ? 'default' : 'outline'}
-                      onClick={() => setSourceType('no-repository')}
-                      className="flex-1"
-                    >
-                      No Repository
-                    </Button>
-                    <Button
-                      variant={sourceType === 'with-repository' ? 'default' : 'outline'}
-                      onClick={() => setSourceType('with-repository')}
-                      className="flex-1 flex items-center gap-2"
-                    >
-                      <FolderTree size={16} />
-                      With Repository
-                    </Button>
-                    <Button
-                      variant={sourceType === 'upload' ? 'default' : 'outline'}
-                      onClick={() => setSourceType('upload')}
-                      className="flex-1 flex items-center gap-2"
-                    >
-                      <Upload size={16} />
-                      Upload Files
-                    </Button>
-                  </div>
-                </div>
-                
-                {sourceType === 'with-repository' && (
-                  <div className="space-y-4 border p-4 rounded-md bg-gray-50">
-                    <h3 className="font-medium">Repository Selection</h3>
-                    {loadingRepositories ? (
-                      <div className="py-4 text-center">
-                        <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
-                        <p>Loading repositories...</p>
-                      </div>
-                    ) : repositories.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-2">
-                        {repositories.map((repo) => (
-                          <div 
-                            key={repo.id}
-                            onClick={() => handleSelectRepository(repo)}
-                            className={`p-3 rounded-md cursor-pointer border ${
-                              selectedRepository?.id === repo.id 
-                                ? 'border-purple-500 bg-purple-50' 
-                                : 'border-gray-200 hover:bg-gray-100'
-                            }`}
-                          >
-                            <div className="font-medium">{repo.name}</div>
-                            <div className="text-xs text-gray-500">{repo.full_name}</div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-4 text-center">
-                        <p>No repositories found. Connect your GitHub account in settings.</p>
-                        <Button 
-                          variant="outline" 
-                          onClick={fetchRepositories}
-                          className="mt-2"
-                        >
-                          Refresh Repositories
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {selectedRepository && (
-                      <div className="mt-4">
-                        <h4 className="font-medium mb-2">Files</h4>
-                        <div className="border rounded-md overflow-hidden">
-                          <div className="bg-gray-100 p-2 flex items-center border-b">
-                            <button 
-                              onClick={goUpDirectory}
-                              disabled={currentDirectory === '/'} 
-                              className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-                              type="button"
-                            >
-                              <ArrowLeft size={16} />
-                            </button>
-                            <span className="text-sm font-medium truncate">
-                              {currentDirectory === '/' ? 'Root' : currentDirectory}
-                            </span>
-                          </div>
-                          
-                          <div className="max-h-60 overflow-y-auto">
-                            {getCurrentDirectoryContents().length === 0 ? (
-                              <div className="p-4 text-center text-gray-500">
-                                No files found in this directory
-                              </div>
-                            ) : (
-                              <div className="divide-y">
-                                {getCurrentDirectoryContents().map((item: any, index: number) => (
-                                  <div 
-                                    key={index}
-                                    onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-                                    className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-                                      selectedFile === item.path
-                                        ? 'bg-purple-50' 
-                                        : ''
-                                    }`}
-                                  >
-                                    {item.type === 'directory' ? (
-                                      <Folder className="h-4 w-4 mr-2 text-blue-500" />
-                                    ) : (
-                                      <File className="h-4 w-4 mr-2 text-gray-500" />
-                                    )}
-                                    <span className="truncate">{item.name}</span>
-                                    {selectedFile === item.path && (
-                                      <Check className="h-4 w-4 ml-auto text-purple-600" />
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {sourceType === 'upload' && (
-                  <div className="space-y-2 border p-4 rounded-md bg-gray-50">
-                    <h3 className="font-medium">Upload Files</h3>
-                    <div className="mt-2">
-                      <label 
-                        htmlFor="file-upload" 
-                        className="cursor-pointer bg-white py-6 px-4 border-2 border-dashed border-gray-300 rounded-md flex justify-center items-center flex-col text-center"
-                      >
-                        <Upload size={24} className="mb-2 text-gray-400" />
-                        <span className="text-sm text-gray-600">Drag and drop files here, or click to browse</span>
-                        <input 
-                          id="file-upload" 
-                          type="file" 
-                          multiple 
-                          onChange={handleFileUpload} 
-                          className="hidden" 
-                        />
-                      </label>
-                    </div>
-                    
-                    {uploadedFiles.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="font-medium mb-2">Uploaded Files ({uploadedFiles.length})</h4>
-                        <div className="bg-gray-100 p-2 rounded text-sm max-h-40 overflow-y-auto">
-                          {uploadedFiles.map((file, index) => (
-                            <div key={index} className="py-1">{file.name}</div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">
-                    Description <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe the flow you want to visualize..."
-                    className="min-h-[100px]"
-                    required
-                  />
-                </div>
-                
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">
-                    RAML Specification (Optional)
-                  </label>
-                  <div className="border rounded-md" style={{ height: "400px" }}>
-                    <MonacoEditor
-                      value={raml}
-                      onChange={(value) => setRaml(value || '')}
-                      language="yaml"
-                      height="400px"
-                      options={{
-                        minimap: { enabled: false },
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                      }}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList>
+                <TabsTrigger value="input">Input</TabsTrigger>
+                <TabsTrigger value="result">Result</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="input" className="space-y-6 mt-4">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium" htmlFor="taskName">Task Name</label>
+                    <Input
+                      id="taskName"
+                      placeholder="Name this diagram task"
+                      value={taskName}
+                      onChange={(e) => setTaskName(e.target.value)}
                     />
                   </div>
+                  
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium">Source Type</label>
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        variant={sourceType === 'no-repository' ? 'default' : 'outline'}
+                        onClick={() => setSourceType('no-repository')}
+                        className="flex-1"
+                      >
+                        No Repository
+                      </Button>
+                      <Button
+                        variant={sourceType === 'with-repository' ? 'default' : 'outline'}
+                        onClick={() => setSourceType('with-repository')}
+                        className="flex-1 flex items-center gap-2"
+                      >
+                        <FolderTree size={16} />
+                        With Repository
+                      </Button>
+                      <Button
+                        variant={sourceType === 'upload' ? 'default' : 'outline'}
+                        onClick={() => setSourceType('upload')}
+                        className="flex-1 flex items-center gap-2"
+                      >
+                        <Upload size={16} />
+                        Upload Files
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {sourceType === 'with-repository' && (
+                    <div className="space-y-4 border p-4 rounded-md bg-gray-50">
+                      <h3 className="font-medium">Repository Selection</h3>
+                      {loadingRepositories ? (
+                        <div className="py-4 text-center">
+                          <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
+                          <p>Loading repositories...</p>
+                        </div>
+                      ) : repositories.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-2">
+                          {repositories.map((repo) => (
+                            <div 
+                              key={repo.id}
+                              onClick={() => handleSelectRepository(repo)}
+                              className={`p-3 rounded-md cursor-pointer border ${
+                                selectedRepository?.id === repo.id 
+                                  ? 'border-purple-500 bg-purple-50' 
+                                  : 'border-gray-200 hover:bg-gray-100'
+                              }`}
+                            >
+                              <div className="font-medium">{repo.name}</div>
+                              <div className="text-xs text-gray-500">{repo.full_name}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-4 text-center">
+                          <p>No repositories found. Connect your GitHub account in settings.</p>
+                          <Button 
+                            variant="outline" 
+                            onClick={fetchRepositories}
+                            className="mt-2"
+                          >
+                            Refresh Repositories
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {selectedRepository && (
+                        <div className="mt-4">
+                          <h4 className="font-medium mb-2">Files</h4>
+                          <div className="border rounded-md overflow-hidden">
+                            <div className="bg-gray-100 p-2 flex items-center border-b">
+                              <button 
+                                onClick={goUpDirectory}
+                                disabled={currentDirectory === '/'} 
+                                className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                                type="button"
+                              >
+                                <ArrowLeft size={16} />
+                              </button>
+                              <span className="text-sm font-medium truncate">
+                                {currentDirectory === '/' ? 'Root' : currentDirectory}
+                              </span>
+                            </div>
+                            
+                            <div className="max-h-60 overflow-y-auto">
+                              {getCurrentDirectoryContents().length === 0 ? (
+                                <div className="p-4 text-center text-gray-500">
+                                  No files found in this directory
+                                </div>
+                              ) : (
+                                <div className="divide-y">
+                                  {getCurrentDirectoryContents().map((item: any, index: number) => (
+                                    <div 
+                                      key={index}
+                                      onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
+                                      className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                                        selectedFile === item.path
+                                          ? 'bg-purple-50' 
+                                          : ''
+                                      }`}
+                                    >
+                                      {item.type === 'directory' ? (
+                                        <Folder className="h-4 w-4 mr-2 text-blue-500" />
+                                      ) : (
+                                        <File className="h-4 w-4 mr-2 text-gray-500" />
+                                      )}
+                                      <span className="truncate">{item.name}</span>
+                                      {selectedFile === item.path && (
+                                        <Check className="h-4 w-4 ml-auto text-purple-600" />
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {sourceType === 'upload' && (
+                    <div className="space-y-2 border p-4 rounded-md bg-gray-50">
+                      <h3 className="font-medium">Upload Files</h3>
+                      <div className="mt-2">
+                        <label 
+                          htmlFor="file-upload" 
+                          className="cursor-pointer bg-white py-6 px-4 border-2 border-dashed border-gray-300 rounded-md flex justify-center items-center flex-col text-center"
+                        >
+                          <Upload size={24} className="mb-2 text-gray-400" />
+                          <span className="text-sm text-gray-600">Drag and drop files here, or click to browse</span>
+                          <input 
+                            id="file-upload" 
+                            type="file" 
+                            multiple 
+                            onChange={handleFileUpload} 
+                            className="hidden" 
+                          />
+                        </label>
+                      </div>
+                      
+                      {uploadedFiles.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="font-medium mb-2">Uploaded Files ({uploadedFiles.length})</h4>
+                          <div className="bg-gray-100 p-2 rounded text-sm max-h-40 overflow-y-auto">
+                            {uploadedFiles.map((file, index) => (
+                              <div key={index} className="py-1">{file.name}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium">
+                      Description <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe the flow you want to visualize..."
+                      className="min-h-[100px] resize-none border-gray-300 focus:ring-purple-500 focus:border-purple-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium">
+                      RAML Specification (Optional)
+                    </label>
+                    <div className="border rounded-md h-full" style={{ minHeight: "400px" }}>
+                      <MonacoEditor
+                        value={raml}
+                        onChange={(value) => setRaml(value || '')}
+                        language="yaml"
+                        height="400px"
+                        options={{
+                          minimap: { enabled: false },
+                          scrollBeyondLastLine: false,
+                          automaticLayout: true,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleReset}
+                      className="flex items-center gap-2"
+                    >
+                      <RotateCcw size={16} />
+                      Reset
+                    </Button>
+                    <Button 
+                      onClick={handleGenerate}
+                      disabled={isLoading || !description.trim()}
+                      className="flex items-center gap-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <RefreshCw size={16} className="animate-spin mr-2" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <FileCode size={16} />
+                          Generate Diagram
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                
-                <div className="flex justify-between">
-                  <Button 
-                    variant="outline" 
-                    onClick={handleReset}
-                    className="flex items-center gap-2"
-                  >
-                    <RotateCcw size={16} />
-                    Reset
-                  </Button>
-                  <Button 
-                    onClick={handleGenerate}
-                    disabled={isLoading || !description.trim()}
-                    className="flex items-center gap-2"
-                  >
-                    {isLoading ? (
-                      <>
-                        <RefreshCw size={16} className="animate-spin mr-2" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <FileCode size={16} />
-                        Generate Diagram
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="result" className="space-y-6">
-              {result ? (
-                <div className="space-y-6">
-                  <div className="grid gap-4">
+              </TabsContent>
+
+              <TabsContent value="result" className="space-y-6 mt-4">
+                {result ? (
+                  <div className="space-y-4">
                     <Card className="p-4">
                       <h3 className="font-semibold text-lg mb-2">Flow Diagram</h3>
                       <Separator className="my-2" />
@@ -603,23 +608,13 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
                         )}
                       </div>
                     </Card>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setActiveTab('input')}
-                    >
-                      Back to Input
-                    </Button>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={saveGeneratedTask}
-                        disabled={isLoading}
-                        className="flex items-center gap-2"
+                    
+                    <div className="flex justify-end space-x-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setActiveTab('input')}
                       >
-                        Save Task
+                        Back to Input
                       </Button>
                       <Button 
                         onClick={handleCopyToClipboard}
@@ -630,28 +625,22 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
                       </Button>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No diagram generated yet. Generate a diagram first.</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setActiveTab('input')}
-                    className="mt-4"
-                  >
-                    Back to Input
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No diagram generated yet. Generate a diagram first.</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setActiveTab('input')}
+                      className="mt-4"
+                    >
+                      Back to Input
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-        
-        {error && (
-          <div className="mt-4 text-red-500">
-            Error: {error}
-          </div>
-        )}
       </div>
     </div>
   );
