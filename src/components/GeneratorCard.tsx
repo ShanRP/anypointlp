@@ -40,7 +40,7 @@ const GeneratorCard = ({
             className="cursor-pointer"
             onClick={() => setDialogOpen(true)}
           >
-            <Card className="h-full overflow-hidden border rounded-xl shadow-sm hover:shadow-lg transition-all animated-border-card">
+            <Card className="h-full overflow-hidden border rounded-xl shadow-sm hover:shadow-lg transition-all train-border-card">
               <CardHeader className={`bg-gradient-to-r ${bgColor} text-white py-6 bg-opacity-90`}>
                 <div className="flex items-center gap-3">
                   <div className="bg-white/20 p-2.5 rounded-lg">
@@ -75,7 +75,7 @@ const GeneratorCard = ({
       className="cursor-pointer"
       onClick={onClick}
     >
-      <Card className="h-full overflow-hidden border rounded-xl shadow-sm hover:shadow-lg transition-all animated-border-card">
+      <Card className="h-full overflow-hidden border rounded-xl shadow-sm hover:shadow-lg transition-all train-border-card">
         <CardHeader className={`bg-gradient-to-r ${bgColor} text-white py-6 bg-opacity-90`}>
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2.5 rounded-lg">
