@@ -38,10 +38,10 @@ export const CallToAction: React.FC = () => {
               duration={0.8}
               triggerOnce
             >
-              <div className="inline-block px-3 py-1 mb-4 text-sm font-medium text-white bg-white/10 rounded-full backdrop-blur-sm border border-white/20">
+              <div className="inline-block px-3 py-1 mb-4 text-sm font-medium text-white bg-white/10 rounded-full backdrop-blur-sm border border-white/20 font-montserrat">
                 ACCELERATE YOUR WORKFLOW
               </div>
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-white">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-white font-display">
                 Deliver MuleSoft projects faster
               </h2>
             </Animation>
@@ -57,7 +57,7 @@ export const CallToAction: React.FC = () => {
               delay={0.2}
               triggerOnce
             >
-              <p className="text-xl text-white/90 mb-8">
+              <p className="text-xl text-white/90 mb-8 font-montserrat">
                 Our comprehensive suite of AI coding agents enables teams to get exceptional accuracy on coding tasks, reduce development time from hours to minutes and achieve 10X acceleration.
               </p>
             </Animation>
@@ -73,7 +73,7 @@ export const CallToAction: React.FC = () => {
                   className="flex items-center mb-3"
                 >
                   <CheckCircle className="w-5 h-5 text-green-300 mr-3 flex-shrink-0" />
-                  <span className="text-white">{item}</span>
+                  <span className="text-white font-montserrat">{item}</span>
                 </motion.div>
               ))}
             </div>
@@ -90,10 +90,10 @@ export const CallToAction: React.FC = () => {
                 duration={0.8}
                 delay={0.4}
                 triggerOnce
-                className="text-left p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20"
+                className="text-left p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 stats-card group"
               >
-                <div className="text-5xl font-bold mb-2 text-white">10x</div>
-                <p className="text-white/80">Acceleration with tedious, time consuming tasks</p>
+                <div className="text-5xl font-bold mb-2 text-white font-display">10x</div>
+                <p className="text-white/80 font-montserrat">Acceleration with tedious, time consuming tasks</p>
               </Animation>
               
               <Animation
@@ -106,10 +106,10 @@ export const CallToAction: React.FC = () => {
                 duration={0.8}
                 delay={0.6}
                 triggerOnce
-                className="text-left p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20"
+                className="text-left p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 stats-card group"
               >
-                <div className="text-5xl font-bold mb-2 text-white">30%</div>
-                <p className="text-white/80">Cost savings eliminating manual, erroneous efforts</p>
+                <div className="text-5xl font-bold mb-2 text-white font-display">30%</div>
+                <p className="text-white/80 font-montserrat">Cost savings eliminating manual, erroneous efforts</p>
               </Animation>
             </div>
             
@@ -130,14 +130,14 @@ export const CallToAction: React.FC = () => {
                   variant="primary" 
                   size="lg"
                   icon={<ArrowRight size={18} />}
-                  className="bg-white text-purple-700 hover:bg-gray-100"
+                  className="bg-white text-purple-700 hover:bg-gray-100 font-montserrat"
                 >
                   Test Drive
                 </CustomButton>
                 <CustomButton 
                   variant="outline"
                   size="lg"
-                  className="border-white text-white hover:bg-white/10"
+                  className="border-white text-white hover:bg-white/10 font-montserrat"
                 >
                   Sign Up for Free
                 </CustomButton>

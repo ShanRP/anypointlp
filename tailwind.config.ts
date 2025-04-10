@@ -1,5 +1,5 @@
+
 import { type Config } from "tailwindcss";
-import { fontFamily } from "tailwindcss/defaultTheme";
 
 export default {
   darkMode: ["class"],
@@ -21,6 +21,7 @@ export default {
     extend: {
       fontFamily: {
         sans: [
+          'Montserrat',
           'apple-system', 
           'system-ui', 
           'BlinkMacSystemFont', 
@@ -41,6 +42,8 @@ export default {
           'Arial', 
           'sans-serif'
         ],
+        display: ['Playfair Display', 'serif'],
+        montserrat: ['Montserrat', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -122,12 +125,47 @@ export default {
             transform: "translate(0px, 0px) scale(1)",
           },
         },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' },
+        },
+        shine: {
+          '0%': { backgroundPosition: '200% center' },
+          '100%': { backgroundPosition: '-200% center' },
+        },
+        pulse: {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.5 },
+        },
+        gradientMove: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
+        },
+        borderTravel: {
+          '0%': { backgroundPosition: '0% 0%' },
+          '25%': { backgroundPosition: '100% 0%' },
+          '50%': { backgroundPosition: '100% 100%' },
+          '75%': { backgroundPosition: '0% 100%' },
+          '100%': { backgroundPosition: '0% 0%' },
+        },
+        tiltShake: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '25%': { transform: 'rotate(1deg)' },
+          '75%': { transform: 'rotate(-1deg)' },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fadeIn": "fadeIn 0.3s ease-in-out",
         "blob": "blob 7s infinite",
+        "float": "float 3s ease-in-out infinite",
+        "shine": "shine 8s ease-in-out infinite",
+        "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "gradient": "gradientMove 8s ease infinite",
+        "border-travel": "borderTravel 4s linear infinite",
+        "tilt-shake": "tiltShake 1s ease-in-out infinite",
       },
       backdropFilter: {
         'none': 'none',

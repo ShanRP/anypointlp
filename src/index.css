@@ -70,11 +70,15 @@
 @layer base {
   * {
     @apply border-border;
-    font-family: apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Fira Sans", Ubuntu, Oxygen, "Oxygen Sans", Cantarell, "Droid Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Lucida Grande", Helvetica, Arial, sans-serif;
+    font-family: 'Montserrat', system-ui, sans-serif;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+  }
+  
+  h1, h2, h3, h4, h5 {
+    font-family: 'Playfair Display', serif;
   }
   
   /* Focus styles */
@@ -124,6 +128,39 @@
   
   .animation-delay-4000 {
     animation-delay: 4s;
+  }
+  
+  .animated-border-card {
+    position: relative;
+    z-index: 0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  
+  .animated-border-card::before {
+    content: '';
+    position: absolute;
+    z-index: -2;
+    inset: -2px;
+    background: conic-gradient(from 0deg at 50% 50%, #8B5CF6 0%, #4F46E5 25%, #10B981 50%, #3B82F6 75%, #8B5CF6 100%);
+    background-size: 300% 300%;
+    animation: borderTravel 4s linear infinite;
+    filter: blur(6px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .animated-border-card:hover::before {
+    opacity: 1;
+  }
+  
+  .stats-card {
+    transition: all 0.3s ease;
+  }
+  
+  .stats-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   }
 }
 

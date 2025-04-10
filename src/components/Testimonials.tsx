@@ -11,16 +11,16 @@ type TestimonialProps = {
 
 const Testimonial: React.FC<TestimonialProps> = ({ quote, name, role, className = '' }) => {
   return (
-    <div className={`bg-white rounded-xl p-8 shadow-sm border border-gray-100 ${className}`}>
-      <Quote size={36} className="text-purple-200 mb-4" />
-      <p className="text-lg text-gray-700 mb-6 italic">{quote}</p>
+    <div className={`bg-white rounded-xl p-8 shadow-sm border border-gray-100 hover:shadow-lg transition-all group ${className} animated-border-card`}>
+      <Quote size={36} className="text-purple-200 mb-4 group-hover:text-purple-300 transition-colors" />
+      <p className="text-lg text-gray-700 mb-6 italic font-montserrat">{quote}</p>
       <div className="flex items-center">
-        <div className="w-9 h-9 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-          <span className="text-purple-700 font-bold">{name.charAt(0)}</span>
+        <div className="w-9 h-9 bg-purple-100 rounded-full flex items-center justify-center mr-3 group-hover:bg-purple-200 transition-colors">
+          <span className="text-purple-700 font-bold font-display">{name.charAt(0)}</span>
         </div>
         <div>
-          <p className="font-semibold text-gray-900">{name}</p>
-          <p className="text-gray-500 text-sm">{role}</p>
+          <p className="font-semibold text-gray-900 font-display">{name}</p>
+          <p className="text-gray-500 text-sm font-montserrat">{role}</p>
         </div>
       </div>
     </div>
@@ -37,10 +37,10 @@ export const Testimonials: React.FC = () => {
       <div className="container px-4 mx-auto">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 font-display">
             Why developers and architects choose us
           </h2>
-          <p className="text-xl text-gray-600">
+          <p className="text-xl text-gray-600 font-montserrat">
             Hear from the MuleSoft professionals who've experienced the difference
           </p>
         </div>

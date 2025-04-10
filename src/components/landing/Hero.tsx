@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from "framer-motion";
 import { Canvas, useFrame } from "@react-three/fiber";
@@ -109,10 +110,10 @@ export const Hero = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <h1 className="text-5xl md:text-6xl font-medium font-geist mb-6 text-white">
-              Revolutionize Your MuleSoft Development
+            <h1 className="text-5xl md:text-6xl font-medium font-display mb-6 text-white leading-tight">
+              Revolutionize Your <span className="text-purple-400">MuleSoft</span> Development
             </h1>
-            <p className="text-xl text-gray-200 mb-8 font-geist">
+            <p className="text-xl text-gray-200 mb-8 font-montserrat">
               Harness the power of AI to streamline your integration workflows, automate DataWeave transformations, and accelerate API development by up to 10x.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -121,8 +122,9 @@ export const Hero = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link to="/auth?signup=true">
-                  <Button size="lg" className="px-8 py-6 text-lg font-semibold font-geist bg-white text-black hover:bg-gray-200">
-                    Start Building for Free
+                  <Button size="lg" className="px-8 py-6 text-lg font-semibold font-montserrat bg-white text-black hover:bg-gray-200 relative overflow-hidden group">
+                    <span className="relative z-10">Start Building for Free</span>
+                    <span className="absolute inset-0 bg-gradient-to-r from-purple-400 to-indigo-500 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></span>
                   </Button>
                 </Link>
               </motion.div>
@@ -131,7 +133,7 @@ export const Hero = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link to="/dashboard">
-                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg font-semibold font-geist bg-white text-black hover:bg-gray-200">
+                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg font-semibold font-montserrat border-white/20 text-white hover:bg-white/10 hover:border-white/40 transition-all duration-300">
                     Explore Features
                   </Button>
                 </Link>
@@ -148,7 +150,7 @@ export const Hero = () => {
             <div className="h-64 w-full rounded-xl overflow-hidden">
               <ErrorBoundary fallback={
                 <div className="h-64 w-full bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-xl flex items-center justify-center">
-                  <div className="text-white text-center font-geist">
+                  <div className="text-white text-center font-montserrat">
                     <p className="text-lg font-semibold">Interactive 3D Experience</p>
                     <p className="text-sm opacity-70">Visualize your integrations</p>
                   </div>
@@ -160,7 +162,7 @@ export const Hero = () => {
                   </Canvas>
                 ) : (
                   <div className="h-64 w-full bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-xl flex items-center justify-center">
-                    <div className="text-white text-center font-geist">
+                    <div className="text-white text-center font-montserrat">
                       <p className="text-lg font-semibold">Interactive Experience</p>
                       <p className="text-sm opacity-70">Visualize your integrations</p>
                     </div>
@@ -170,26 +172,37 @@ export const Hero = () => {
             </div>
             
             <div className="grid grid-cols-2 gap-8">
-              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10">
+              <motion.div 
+                className="stats-card text-center p-6 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 relative overflow-hidden group"
+                whileHover={{ y: -5 }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-purple-700/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <AnimatedNumber
                   value={10}
                   suffix="x"
-                  className="text-5xl font-bold text-white mb-4 font-geist"
+                  className="text-5xl font-bold font-display text-white mb-4 relative z-10"
                 />
-                <p className="text-gray-200 font-geist">
+                <p className="text-gray-200 font-montserrat relative z-10">
                   Faster development cycles with AI assistance
                 </p>
-              </div>
-              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10">
+                <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-purple-400/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+              </motion.div>
+              
+              <motion.div 
+                className="stats-card text-center p-6 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 relative overflow-hidden group"
+                whileHover={{ y: -5 }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/30 to-indigo-700/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <AnimatedNumber
                   value={85}
                   suffix="%"
-                  className="text-5xl font-bold text-white mb-4 font-geist"
+                  className="text-5xl font-bold font-display text-white mb-4 relative z-10"
                 />
-                <p className="text-gray-200 font-geist">
+                <p className="text-gray-200 font-montserrat relative z-10">
                   Reduced errors in integration projects
                 </p>
-              </div>
+                <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-indigo-400/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+              </motion.div>
             </div>
           </motion.div>
         </div>
