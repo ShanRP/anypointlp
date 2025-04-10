@@ -38,7 +38,7 @@ const Auth = () => {
     
     setLoading(true);
     try {
-      const { error } = await signIn({ email, password });
+      const { error } = await signIn(email, password);
       if (error) throw error;
       toast.success('Signed in successfully');
       navigate(redirectPath);
@@ -59,7 +59,7 @@ const Auth = () => {
     
     setLoading(true);
     try {
-      const { error } = await signUp({ email, password });
+      const { error } = await signUp(email, password);
       if (error) throw error;
       toast.success('Account created successfully. Please check your email for verification instructions.');
     } catch (error: any) {

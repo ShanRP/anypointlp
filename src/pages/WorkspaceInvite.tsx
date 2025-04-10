@@ -42,13 +42,13 @@ const WorkspaceInvite = () => {
 
         // If user is logged in, check if they're already a member
         if (user) {
-          const { data: membershipData, error: membershipError } = await supabase
-            .rpc('check_workspace_membership', {
-              workspace_id_param: workspaceId,
-              user_id_param: user.id
-            });
+          const { data: memberData, error: memberError } = await supabase
+            .from('apl_workspace_members')
+            .select('*')
+            .eq('workspace_id', workspaceId)
+            .eq('user_id', user.id);
 
-          if (!membershipError && membershipData && membershipData.length > 0) {
+          if (!memberError && memberData && memberData.length > 0) {
             // User is already a member, redirect to dashboard
             toast.info('You are already a member of this workspace');
             navigate('/dashboard');
@@ -81,10 +81,11 @@ const WorkspaceInvite = () => {
     try {
       // Add user as member
       const { data, error: insertError } = await supabase
-        .rpc('add_workspace_member', {
-          workspace_id_param: workspaceId,
-          user_id_param: user.id,
-          role_param: 'member'
+        .from('apl_workspace_members')
+        .insert({
+          workspace_id: workspaceId,
+          user_id: user.id,
+          role: 'member'
         });
 
       if (insertError) {

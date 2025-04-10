@@ -42,7 +42,11 @@ const App = () => (
                   <Route path="/dashboard/document" element={<Dashboard />} />
                   <Route path="/dashboard/diagram" element={<Dashboard />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  
+                  {/* Update workspace invite route */}
                   <Route path="/workspace/:workspaceId" element={<WorkspaceInvite />} />
+                  <Route path="/invite/:workspaceId" element={<WorkspaceInvite />} />
+                  
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

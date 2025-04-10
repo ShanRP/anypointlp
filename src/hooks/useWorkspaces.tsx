@@ -220,12 +220,18 @@ export const useWorkspaces = () => {
     if (!user) return false;
     
     try {
-      const inviteToken = crypto.randomUUID();
+      // Generate a UUID for the invite token
+      const inviteToken = workspaceId;
+      
+      // Use /invite/ path for the invite link instead of /workspace/
       const inviteLink = `${window.location.origin}/invite/${inviteToken}`;
       
       const { data, error } = await supabase
         .from('apl_workspaces')
-        .update({ invite_link: inviteLink })
+        .update({ 
+          invite_link: inviteLink,
+          invite_enabled: true
+        })
         .eq('id', workspaceId)
         .eq('user_id', user.id)
         .select();
