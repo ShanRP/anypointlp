@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, FileCode, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
@@ -269,38 +268,47 @@ Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connect
         return;
       }
       
+      // Ensure we have a valid task name
+      const diagramTitle = taskName.trim() || 'Flow Diagram';
+      
       const diagramData = {
         workspace_id: selectedWorkspaceId,
-        task_name: taskName || 'Flow Diagram',
+        task_name: diagramTitle,
         user_id: user.id,
+        description: description,
         raml_content: raml,
         flow_diagram: flowDiagram,
         connection_steps: connectionSteps,
         result_content: `
-          RAML Content: ${raml}
-          Flow Diagram: ${flowDiagram}
-          Connection Steps: ${connectionSteps}
-        `
+Flow Diagram:
+${flowDiagram}
+
+Connection Steps:
+${connectionSteps}
+      `.trim()
       };
       
+      // Save the task using the useWorkspaceTasks hook
       const savedTask = await saveDiagramTask(diagramData);
       
+      // Check if the task was saved successfully
       if (savedTask && Array.isArray(savedTask) && savedTask.length > 0) {
         const taskId = savedTask[0].task_id;
         toast.success(`Diagram task saved successfully with ID: ${taskId}`);
+        
         if (onSaveTask) onSaveTask(taskId);
+        
+        if (onTaskCreated) {
+          onTaskCreated({
+            id: taskId,
+            label: diagramTitle,
+            category: 'diagram',
+            icon: React.createElement('div'),
+            workspace_id: selectedWorkspaceId
+          });
+        }
       } else {
         toast.error('Failed to save diagram task.');
-      }
-      
-      if (onTaskCreated) {
-        onTaskCreated({
-          id: `diagram-${Date.now()}`,
-          label: taskName || 'Flow Diagram',
-          category: 'diagram',
-          icon: React.createElement('div'),
-          workspace_id: selectedWorkspaceId
-        });
       }
     } catch (err: any) {
       console.error('Error saving diagram task:', err);

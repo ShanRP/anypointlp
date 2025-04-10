@@ -243,6 +243,45 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     toast.success('Document copied to clipboard!');
   };
 
+  const saveGeneratedTask = async () => {
+    if (!selectedWorkspaceId || !user) {
+      toast.error('You must be logged in to save a task.');
+      return;
+    }
+    
+    try {
+      // Ensure we have a valid task name
+      const taskTitle = documentType === 'flow-implementation' 
+        ? 'Flow Implementation Document' 
+        : 'Flow Endpoints Document';
+      
+      const documentData = {
+        workspace_id: selectedWorkspaceId,
+        task_name: taskTitle,
+        user_id: user.id,
+        description: description || '',
+        document_type: documentType,
+        source_type: sourceType,
+        code: code || '',
+        result_content: result || ''
+      };
+      
+      // Save the task using the useWorkspaceTasks hook
+      const savedTask = await saveDocumentTask(documentData);
+      
+      // Check if the task was saved successfully
+      if (savedTask && savedTask.length > 0 && onSaveTask) {
+        onSaveTask(savedTask[0].task_id);
+        toast.success('Document saved to workspace!');
+      } else {
+        toast.error('Failed to save document task.');
+      }
+    } catch (err: any) {
+      console.error('Error saving document task:', err);
+      toast.error('Failed to save document task');
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <BackButton onBack={onBack} label="Back to Dashboard" />

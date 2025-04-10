@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Copy, Download, Code, Database } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Code, Database, FileText, FileCode } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { BackButton } from './ui/BackButton';
@@ -35,6 +35,10 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
       return 'xml';
     } else if (task.category === 'sampledata') {
       return task.source_format?.toLowerCase() === 'yaml' ? 'yaml' : task.source_format?.toLowerCase() || 'json';
+    } else if (task.category === 'document') {
+      return 'markdown';
+    } else if (task.category === 'diagram') {
+      return 'markdown';
     }
     return 'dataweave';
   };
@@ -427,6 +431,155 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
           </Tabs>
         </div>
       );
+    } else if (task.category === 'document') {
+      return (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Document Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-md font-medium mb-2">Document Type</h3>
+                  <p>{task.document_type || 'Not specified'}</p>
+                </div>
+                <div>
+                  <h3 className="text-md font-medium mb-2">Source Type</h3>
+                  <p>{task.source_type || 'Not specified'}</p>
+                </div>
+                <div className="col-span-2">
+                  <h3 className="text-md font-medium mb-2">Description</h3>
+                  <p>{task.description || 'No description available'}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Document Content</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="border rounded-md overflow-hidden">
+                  <MonacoEditor
+                    value={task.result_content || 'No document content available'}
+                    language="markdown"
+                    height="400px"
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      wordWrap: 'on'
+                    }}
+                    theme={editorTheme}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    className="flex items-center gap-2"
+                    onClick={() => handleCopyToClipboard(task.result_content || '')}
+                  >
+                    <Copy size={16} />
+                    Copy to Clipboard
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {task.code && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Source Code</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="border rounded-md overflow-hidden">
+                  <MonacoEditor
+                    value={task.code || ''}
+                    language="xml"
+                    height="300px"
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      wordWrap: 'on'
+                    }}
+                    theme={editorTheme}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </div>
+      );
+    } else if (task.category === 'diagram') {
+      return (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Flow Diagram</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-md overflow-auto bg-white p-4" style={{ minHeight: "250px" }}>
+                <pre className="whitespace-pre-wrap font-mono text-sm">
+                  {task.flow_diagram || 'No flow diagram available'}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Connection Steps</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-md bg-white p-4" style={{ minHeight: "250px" }}>
+                <div className="whitespace-pre-wrap">
+                  {task.connection_steps ? 
+                    task.connection_steps.split('\n').map((line, index) => (
+                      <div key={index} className="py-1">{line}</div>
+                    )) : 'No connection steps available'}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {task.raml_content && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">RAML Content</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="border rounded-md overflow-hidden">
+                  <MonacoEditor
+                    value={task.raml_content}
+                    language="yaml"
+                    height="300px"
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      wordWrap: 'on'
+                    }}
+                    theme={editorTheme}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={() => handleCopyToClipboard(task.result_content || '')}
+            >
+              <Copy size={16} />
+              Copy All Content
+            </Button>
+          </div>
+        </div>
+      );
     }
     
     return (
@@ -448,6 +601,10 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
         return <Code className="h-4 w-4" />;
       case 'sampledata':
         return <Database className="h-4 w-4" />;
+      case 'document':
+        return <FileText className="h-4 w-4" />;
+      case 'diagram':
+        return <FileCode className="h-4 w-4" />;
       default:
         return <Code className="h-4 w-4" />;
     }
@@ -470,7 +627,9 @@ const TaskDetailsView: React.FC<TaskDetailsViewProps> = ({ task, onBack }) => {
                  task.category === 'integration' ? 'Integration' : 
                  task.category === 'raml' ? 'RAML' : 
                  task.category === 'munit' ? 'MUnit' :
-                 task.category === 'sampledata' ? 'Sample Data' : task.category}
+                 task.category === 'sampledata' ? 'Sample Data' : 
+                 task.category === 'document' ? 'Document' :
+                 task.category === 'diagram' ? 'Diagram' : task.category}
               </Badge>
             </div>
             <div className="text-sm text-gray-500">

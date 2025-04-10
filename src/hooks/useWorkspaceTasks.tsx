@@ -1,6 +1,6 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,42 +19,30 @@ export interface TaskDetails {
   id: string;
   task_id: string;
   task_name: string;
+  category: string;
+  created_at: string;
+  description?: string;
   input_format?: string;
   input_samples?: any[];
   output_samples?: any[];
   notes?: string;
   generated_scripts?: any[];
-  created_at: string;
-  workspace_id: string;
-  category: string; // Category of the task
-  description?: string; // Optional description field
-  
-  // RAML specific properties
+  raml_content?: string;
   api_name?: string;
   api_version?: string;
   base_uri?: string;
-  endpoints?: any[];
-  raml_content?: string;
   documentation?: string;
-  
-  // MUnit specific properties
   flow_implementation?: string;
   flow_description?: string;
   munit_content?: string;
   runtime?: string;
   number_of_scenarios?: number;
-  
-  // Sample Data specific properties
   source_format?: string;
   schema_content?: string;
   result_content?: string;
-  
-  // Document specific properties
   document_type?: string;
   source_type?: string;
   code?: string;
-  
-  // Diagram specific properties
   flow_diagram?: string;
   connection_steps?: string;
 }
@@ -218,15 +206,11 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching Document tasks for workspace:', workspaceId);
       
-      // Use any for data type to avoid TypeScript errors with table names
-      const result = await supabase
+      const { data, error } = await supabase
         .from('apl_document_tasks')
         .select('*')
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: false });
-      
-      const data = result.data;
-      const error = result.error;
       
       if (error) {
         console.error('Error fetching Document tasks:', error);
@@ -257,15 +241,11 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     try {
       console.log('Fetching Diagram tasks for workspace:', workspaceId);
       
-      // Use any for data type to avoid TypeScript errors with table names
-      const result = await supabase
+      const { data, error } = await supabase
         .from('apl_diagram_tasks')
         .select('*')
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: false });
-      
-      const data = result.data;
-      const error = result.error;
       
       if (error) {
         console.error('Error fetching Diagram tasks:', error);
@@ -325,11 +305,9 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       const documentTasks = await fetchDocumentTasks();
       const diagramTasks = await fetchDiagramTasks();
       
-      // Create a Set to track unique task IDs
       const uniqueTaskIds = new Set<string>();
       const uniqueTasks: WorkspaceTask[] = [];
       
-      // Function to add unique tasks to the final array
       const addUniqueTasksToArray = (tasksArray: WorkspaceTask[]) => {
         tasksArray.forEach(task => {
           const uniqueKey = `${task.id}-${task.category}`;
@@ -340,7 +318,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         });
       };
       
-      // Add all task types to the uniqueTasks array
       addUniqueTasksToArray(workspaceTasks);
       addUniqueTasksToArray(integrationTasks);
       addUniqueTasksToArray(ramlTasks);
@@ -349,7 +326,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       addUniqueTasksToArray(documentTasks);
       addUniqueTasksToArray(diagramTasks);
       
-      // Sort by creation date
       const sortedTasks = uniqueTasks.sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -603,7 +579,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         
         const taskDetails: TaskDetails = {
           id: sampleDataTask.id,
-          task_id: sampleDataTask.task_id,
+          task_id: sampleDataTask.task_id || `SD-${sampleDataTask.id.substring(0, 8)}`,
           task_name: sampleDataTask.task_name || 'Sample Data',
           created_at: sampleDataTask.created_at,
           workspace_id: workspaceId,
@@ -641,7 +617,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       if (isUuid) {
         console.log('Using UUID for Document task lookup:', taskId);
-        // Use any type to avoid TypeScript errors
         const result: any = await supabase
           .from('apl_document_tasks')
           .select('*')
@@ -652,7 +627,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         error = result.error;
       } else {
         console.log('Using task_id for Document task lookup:', taskId);
-        // Use any type to avoid TypeScript errors
         const result: any = await supabase
           .from('apl_document_tasks')
           .select('*')
@@ -712,7 +686,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       if (isUuid) {
         console.log('Using UUID for Diagram task lookup:', taskId);
-        // Use any type to avoid TypeScript errors
         const result: any = await supabase
           .from('apl_diagram_tasks')
           .select('*')
@@ -723,7 +696,6 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         error = result.error;
       } else {
         console.log('Using task_id for Diagram task lookup:', taskId);
-        // Use any type to avoid TypeScript errors
         const result: any = await supabase
           .from('apl_diagram_tasks')
           .select('*')
@@ -871,122 +843,81 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     }
   }, [workspaceId, fetchIntegrationTaskDetails, fetchRamlTaskDetails, fetchMunitTaskDetails, fetchSampleDataTaskDetails, fetchDocumentTaskDetails, fetchDiagramTaskDetails]);
 
-  // Function to save document task
-  const saveDocumentTask = async (documentData: {
-    workspace_id: string;
-    task_name: string;
-    user_id: string;
-    description?: string;
-    document_type?: string;
-    source_type?: string;
-    code?: string;
-    result_content?: string;
-  }) => {
+  const saveDocumentTask = async (documentData: any) => {
     try {
-      console.log('Saving document task:', documentData);
-      
-      // Generate a unique task ID
-      const taskId = `DOC-${Date.now().toString(36).toUpperCase()}`;
+      const taskId = `DOC-${generateId()}`;
       
       const { data, error } = await supabase
         .from('apl_document_tasks')
-        .insert({
-          task_id: taskId,
-          task_name: documentData.task_name,
-          workspace_id: documentData.workspace_id,
-          user_id: documentData.user_id,
-          description: documentData.description || '',
-          document_type: documentData.document_type || '',
-          source_type: documentData.source_type || '',
-          code: documentData.code || '',
-          result_content: documentData.result_content || '',
-          category: 'document'
-        }).select();
+        .insert([
+          {
+            task_id: taskId,
+            task_name: documentData.task_name || 'Document Task',
+            workspace_id: workspaceId,
+            user_id: documentData.user_id,
+            description: documentData.description || '',
+            document_type: documentData.document_type || '',
+            source_type: documentData.source_type || '',
+            code: documentData.code || '',
+            result_content: documentData.result_content || '',
+            category: 'document'
+          }
+        ])
+        .select();
       
       if (error) {
-        console.error('Error saving document task:', error);
         throw error;
       }
       
-      console.log('Document task saved successfully:', data);
-      
-      // Refresh the task list
-      fetchWorkspaceTasks();
+      await fetchTasks();
       
       return data;
-    } catch (error) {
-      console.error('Error in saveDocumentTask:', error);
+    } catch (error: any) {
+      console.error('Error saving document task:', error);
       toast.error('Failed to save document task');
       throw error;
     }
   };
 
-  // Function to save diagram task
-  const saveDiagramTask = async (diagramData: {
-    workspace_id: string;
-    task_name: string;
-    user_id: string;
-    description?: string;
-    raml_content?: string;
-    flow_diagram?: string;
-    connection_steps?: string;
-    result_content?: string;
-  }) => {
+  const saveDiagramTask = async (diagramData: any) => {
     try {
-      console.log('Saving diagram task:', diagramData);
-      
-      // Generate a unique task ID
-      const taskId = `DIA-${Date.now().toString(36).toUpperCase()}`;
+      const taskId = `DIA-${generateId()}`;
       
       const { data, error } = await supabase
         .from('apl_diagram_tasks')
-        .insert({
-          task_id: taskId,
-          task_name: diagramData.task_name,
-          workspace_id: diagramData.workspace_id,
-          user_id: diagramData.user_id,
-          description: diagramData.description || '',
-          raml_content: diagramData.raml_content || '',
-          flow_diagram: diagramData.flow_diagram || '',
-          connection_steps: diagramData.connection_steps || '',
-          result_content: diagramData.result_content || '',
-          category: 'diagram'
-        }).select();
+        .insert([
+          {
+            task_id: taskId,
+            task_name: diagramData.task_name || 'Flow Diagram',
+            workspace_id: workspaceId,
+            user_id: diagramData.user_id,
+            description: diagramData.description || '',
+            raml_content: diagramData.raml_content || '',
+            flow_diagram: diagramData.flow_diagram || '',
+            connection_steps: diagramData.connection_steps || '',
+            result_content: diagramData.result_content || '',
+            category: 'diagram'
+          }
+        ])
+        .select();
       
       if (error) {
-        console.error('Error saving diagram task:', error);
         throw error;
       }
       
-      console.log('Diagram task saved successfully:', data);
-      
-      // Refresh the task list
-      fetchWorkspaceTasks();
+      await fetchTasks();
       
       return data;
-    } catch (error) {
-      console.error('Error in saveDiagramTask:', error);
+    } catch (error: any) {
+      console.error('Error saving diagram task:', error);
       toast.error('Failed to save diagram task');
       throw error;
     }
   };
 
-  // Function to save sample data task
-  const saveSampleDataTask = async (sampleDataInfo: {
-    workspace_id: string;
-    task_name: string;
-    user_id: string;
-    description?: string;
-    source_format?: string;
-    schema_content?: string;
-    result_content?: string;
-    notes?: string;
-  }) => {
+  const saveSampleDataTask = async (sampleDataInfo: any) => {
     try {
-      console.log('Saving sample data task:', sampleDataInfo);
-      
-      // Generate a unique task ID
-      const taskId = `SD-${Date.now().toString(36).toUpperCase()}`;
+      const taskId = `SD-${generateId()}`;
       
       const { data, error } = await supabase.rpc('apl_insert_sample_data_task', {
         workspace_id: sampleDataInfo.workspace_id,
@@ -1006,33 +937,17 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         throw error;
       }
       
-      console.log('Sample data task saved successfully:', data);
-      
-      // Refresh the task list
-      fetchWorkspaceTasks();
+      await fetchTasks();
       
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in saveSampleDataTask:', error);
       toast.error('Failed to save sample data task');
       throw error;
     }
   };
 
-  // Function to save RAML task
-  const saveRamlTask = async (ramlData: {
-    workspace_id: string;
-    task_id: string;
-    task_name: string;
-    user_id: string;
-    description?: string;
-    api_name?: string;
-    api_version?: string;
-    base_uri?: string;
-    endpoints?: any[];
-    raml_content?: string;
-    documentation?: string;
-  }) => {
+  const saveRamlTask = async (ramlData: any) => {
     try {
       console.log('Saving RAML task:', ramlData);
       
@@ -1060,30 +975,17 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       console.log('RAML task saved successfully:', data);
       
-      // Refresh the task list
-      fetchWorkspaceTasks();
+      await fetchTasks();
       
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in saveRamlTask:', error);
       toast.error('Failed to save RAML task');
       throw error;
     }
   };
 
-  // Function to save MUnit task
-  const saveMunitTask = async (munitData: {
-    workspace_id: string;
-    task_id: string;
-    task_name: string;
-    user_id: string;
-    description?: string;
-    flow_description?: string;
-    flow_implementation?: string;
-    munit_content?: string;
-    runtime?: string;
-    number_of_scenarios?: number;
-  }) => {
+  const saveMunitTask = async (munitData: any) => {
     try {
       console.log('Saving MUnit task:', munitData);
       
@@ -1108,15 +1010,186 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       
       console.log('MUnit task saved successfully:', data);
       
-      // Refresh the task list
-      fetchWorkspaceTasks();
+      await fetchTasks();
       
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in saveMunitTask:', error);
       toast.error('Failed to save MUnit task');
       throw error;
     }
+  };
+
+  const getTaskDetails = async (taskId: string, category: string) => {
+    try {
+      let data = null;
+      let error = null;
+      
+      if (category === 'dataweave') {
+        const response = await supabase
+          .from('apl_dataweave_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .single();
+        data = response.data;
+        error = response.error;
+      } else if (category === 'integration') {
+        const response = await supabase
+          .from('apl_integration_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .single();
+        data = response.data;
+        error = response.error;
+      } else if (category === 'raml') {
+        const response = await supabase
+          .from('apl_raml_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .single();
+        data = response.data;
+        error = response.error;
+      } else if (category === 'munit') {
+        const response = await supabase
+          .from('apl_munit_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .single();
+        data = response.data;
+        error = response.error;
+      } else if (category === 'sampledata') {
+        const response = await supabase
+          .from('apl_sample_data_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .single();
+        data = response.data;
+        error = response.error;
+      } else if (category === 'document') {
+        const response = await supabase
+          .from('apl_document_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .single();
+        data = response.data;
+        error = response.error;
+      } else if (category === 'diagram') {
+        const response = await supabase
+          .from('apl_diagram_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .single();
+        data = response.data;
+        error = response.error;
+      }
+      
+      if (error) {
+        throw error;
+      }
+      
+      return data;
+    } catch (error: any) {
+      console.error('Error fetching task details:', error);
+      toast.error('Failed to fetch task details');
+      return null;
+    }
+  };
+
+  const fetchTasks = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const { data, error } = await supabase.rpc('apl_get_workspace_tasks', { 
+        workspace_id_param: workspaceId 
+      });
+      
+      if (error) throw error;
+      
+      const workspaceTasks = (data as Array<{
+        id: string;
+        task_id: string;
+        task_name: string;
+        created_at: string;
+        description?: string;
+        category?: string;
+      }> || []).map(task => ({
+        ...task,
+        workspace_id: workspaceId,
+        description: task.description || '',
+        category: task.category || 'dataweave',
+        task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}`
+      }));
+      
+      const integrationTasks = await fetchIntegrationTasks();
+      const ramlTasks = await fetchRamlTasks();
+      const munitTasks = await fetchMunitTasks();
+      const sampleDataTasks = await fetchSampleDataTasks();
+      const documentTasks = await fetchDocumentTasks();
+      const diagramTasks = await fetchDiagramTasks();
+      
+      const uniqueTaskIds = new Set<string>();
+      const uniqueTasks: WorkspaceTask[] = [];
+      
+      const addUniqueTasksToArray = (tasksArray: WorkspaceTask[]) => {
+        tasksArray.forEach(task => {
+          const uniqueKey = `${task.id}-${task.category}`;
+          if (!uniqueTaskIds.has(uniqueKey)) {
+            uniqueTaskIds.add(uniqueKey);
+            uniqueTasks.push(task);
+          }
+        });
+      };
+      
+      addUniqueTasksToArray(workspaceTasks);
+      addUniqueTasksToArray(integrationTasks);
+      addUniqueTasksToArray(ramlTasks);
+      addUniqueTasksToArray(munitTasks);
+      addUniqueTasksToArray(sampleDataTasks);
+      addUniqueTasksToArray(documentTasks);
+      addUniqueTasksToArray(diagramTasks);
+      
+      const sortedTasks = uniqueTasks.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      setTasks(sortedTasks);
+      console.log('Total tasks loaded:', sortedTasks.length);
+    } catch (err: any) {
+      console.error('Error fetching workspace tasks:', err);
+      setError(err.message);
+      toast.error('Failed to load tasks');
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId, fetchIntegrationTasks, fetchRamlTasks, fetchMunitTasks, fetchSampleDataTasks, fetchDocumentTasks, fetchDiagramTasks]);
+
+  const deleteTask = useCallback(async (taskId: string) => {
+    try {
+      console.log('Deleting task:', taskId);
+      
+      const { data, error } = await supabase
+        .from('apl_tasks')
+        .delete()
+        .eq('task_id', taskId);
+      
+      if (error) {
+        console.error('Error deleting task:', error);
+        throw error;
+      }
+      
+      console.log('Task deleted successfully:', data);
+      
+      await fetchTasks();
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      toast.error('Failed to delete task');
+      throw error;
+    }
+  }, [workspaceId, fetchTasks]);
+
+  const generateId = () => {
+    return uuidv4();
   };
 
   useEffect(() => {
@@ -1136,6 +1209,9 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     saveDiagramTask,
     saveSampleDataTask,
     saveRamlTask,
-    saveMunitTask
+    saveMunitTask,
+    getTaskDetails,
+    fetchTasks,
+    deleteTask
   };
 };
