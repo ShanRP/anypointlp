@@ -899,7 +899,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
     if (!canUseCredit) {
       return;
     }
-    
+    setIsLoading(true);
     setIsGenerating(true);
     setError(null);
     
