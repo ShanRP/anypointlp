@@ -133,7 +133,7 @@ export const Hero = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link to="/dashboard">
-                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg font-semibold font-montserrat border-white/20 text-white hover:bg-white/10 hover:border-white/40 transition-all duration-300">
+                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg font-semibold font-montserrat bg-black text-white hover:bg-black hover:text-white relative overflow-hidden group">
                     Explore Features
                   </Button>
                 </Link>

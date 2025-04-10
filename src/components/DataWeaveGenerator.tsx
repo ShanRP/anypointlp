@@ -946,7 +946,7 @@ const DataWeaveGenerator: React.FC<IntegrationGeneratorProps> = ({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add any additional context or requirements for the DataWeave transformation..."
-                  className="h-24"
+                  className="h-24 resize-none"
                 />
               </div>
 

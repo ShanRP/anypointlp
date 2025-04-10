@@ -329,18 +329,18 @@ ${connectionSteps}
   }, [sourceType, repositories, fetchRepositories]);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen  max-w-7xl mx-auto bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <BackButton onBack={onBack} label="Back to Dashboard" />
         
         <h1 className="text-3xl font-semibold text-gray-800 mb-6">Diagram Generator</h1>
         
         <Card className="shadow-md">
-          <CardHeader>
+          {/* <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>Create MuleSoft Flow Diagram</CardTitle>
             </div>
-          </CardHeader>
+          </CardHeader> */}
           
           <CardContent className="p-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

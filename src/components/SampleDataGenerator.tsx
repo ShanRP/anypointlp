@@ -360,7 +360,7 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
             </TabsList>
             
             <TabsContent value="input" className="space-y-6">
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="task-name">Task Name</Label>
                 <input
                   id="task-name"
@@ -370,7 +370,7 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Enter a name for this task"
                 />
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">Source Type</label>
@@ -604,7 +604,7 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-medium text-gray-700">
-                    Schema <span className="text-red-500">*</span>
+                    Dataweave <span className="text-red-500">*</span>
                   </label>
                   {selectedFile && (
                     <div className="flex items-center text-sm text-purple-700 font-medium">
@@ -637,7 +637,7 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
                 </div>
                 
                 <div className="text-sm text-gray-500">
-                  Provide the schema for which you want to generate sample data
+                  Provide the Dataweave for which you want to generate sample data
                 </div>
               </div>
 
