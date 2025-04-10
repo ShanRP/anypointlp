@@ -20,7 +20,7 @@ export interface TaskDetails {
   task_name: string;
   category: string;
   created_at: string;
-  workspace_id: string; // Adding this property to fix the type error
+  workspace_id: string;
   description?: string;
   input_format?: string;
   input_samples?: any[];
@@ -807,27 +807,30 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        const taskDetails = data[0] as {
+        const taskDetailsData = data[0] as {
           id: string;
           task_id: string;
           task_name: string;
           input_format: string;
-          input_samples: JSON;
-          output_samples: JSON;
+          input_samples: any;
+          output_samples: any;
           notes: string;
-          generated_scripts: JSON;
+          generated_scripts: any;
           created_at: string;
           category?: string;
           description?: string;
         };
         
-        const taskWithWorkspace = {
-          ...taskDetails,
+        const taskWithWorkspace: TaskDetails = {
+          ...taskDetailsData,
           workspace_id: workspaceId,
-          category: taskDetails.category || 'dataweave',
-          description: taskDetails.description || '',
-          task_id: taskDetails.task_id || `T-${taskDetails.id.substring(0, 8).toUpperCase()}`
-        } as TaskDetails;
+          category: taskDetailsData.category || 'dataweave',
+          description: taskDetailsData.description || '',
+          task_id: taskDetailsData.task_id || `T-${taskDetailsData.id.substring(0, 8).toUpperCase()}`,
+          input_samples: Array.isArray(taskDetailsData.input_samples) ? taskDetailsData.input_samples : [],
+          output_samples: Array.isArray(taskDetailsData.output_samples) ? taskDetailsData.output_samples : [],
+          generated_scripts: Array.isArray(taskDetailsData.generated_scripts) ? taskDetailsData.generated_scripts : []
+        };
         
         setSelectedTask(taskWithWorkspace);
         console.log('Found task in regular tasks table');
