@@ -18,6 +18,7 @@ import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { useUserCredits } from '@/hooks/useUserCredits';
 import { motion } from 'framer-motion';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import LoadingSpinner from './ui/LoadingSpinner';
 
 type MUnitTestGeneratorProps = {
   onTaskCreated?: (task: any) => void;
@@ -91,6 +92,7 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
         numberOfScenarios: scenarioCount
       });
       
+      // Use fetch directly to better handle potential errors
       const response = await fetch('/api/supabase/functions/v1/generate-munit', {
         method: 'POST',
         headers: {
@@ -108,7 +110,8 @@ const MUnitTestGenerator: React.FC<MUnitTestGeneratorProps> = ({
       
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to generate MUnit tests: ${errorText}`);
+        console.error("Error response from generate-munit:", errorText);
+        throw new Error(`Failed to generate MUnit tests. Server responded with status: ${response.status}`);
       }
       
       const data = await response.json();
