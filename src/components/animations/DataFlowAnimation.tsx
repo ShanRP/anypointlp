@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 
@@ -27,6 +26,7 @@ export const DataFlowAnimation: React.FC = () => {
       color: string;
       progress: number;
       path: number;
+      label: string;
     }> = [];
 
     // Define path points
@@ -38,6 +38,9 @@ export const DataFlowAnimation: React.FC = () => {
       { x: canvas.width * 0.75, y: canvas.height * 0.6 }, // Point 4
       { x: canvas.width * 0.9, y: canvas.height * 0.5 },  // End
     ];
+
+    // Define packet labels
+    const packetLabels = ['API', 'Data', 'Flow', 'Transform', 'Sync'];
 
     // Calculate point on Bezier curve
     const calculateCurvePoint = (
@@ -91,6 +94,8 @@ export const DataFlowAnimation: React.FC = () => {
         'rgba(245, 158, 11, 0.8)',  // Orange
       ];
       
+      const labelIndex = dataPackets.length % packetLabels.length;
+      
       dataPackets.push({
         x: pathPoints[0].x,
         y: pathPoints[0].y,
@@ -98,7 +103,8 @@ export const DataFlowAnimation: React.FC = () => {
         speed: 0.001 + Math.random() * 0.001,
         color: colors[Math.floor(Math.random() * colors.length)],
         progress: 0,
-        path: 0
+        path: 0,
+        label: packetLabels[labelIndex]
       });
     };
 
@@ -184,6 +190,23 @@ export const DataFlowAnimation: React.FC = () => {
         ctx.fillStyle = gradient;
         ctx.arc(packet.x, packet.y, packet.radius * 3, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Draw label with background for better visibility
+        ctx.font = 'bold 10px Arial';
+        const labelWidth = ctx.measureText(packet.label).width + 6;
+        const labelHeight = 16;
+        const labelX = packet.x - labelWidth / 2;
+        const labelY = packet.y - packet.radius - labelHeight - 2;
+        
+        // Draw label background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
+        
+        // Draw label text
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(packet.label, packet.x, labelY + labelHeight/2);
       });
       
       frame = requestAnimationFrame(animate);
@@ -216,7 +239,7 @@ export const DataFlowAnimation: React.FC = () => {
   }, []);
 
   return (
-    <div className="relative w-full h-80">
+    <div className="relative w-[140%] -ml-[0%] h-80">
       <canvas
         ref={canvasRef}
         className="w-full h-full rounded-xl"

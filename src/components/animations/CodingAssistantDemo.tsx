@@ -14,7 +14,7 @@ const CodingAssistantDemo = () => {
       role: 'assistant',
       content: `Here's an example of error handling in a Mule flow:
 
-\`\`\`xml
+
 <error-handler>
     <on-error-propagate type="ANY">
         <ee:transform>
@@ -37,7 +37,7 @@ const CodingAssistantDemo = () => {
                 message="Error occurred: #[error.description]"/>
     </on-error-propagate>
 </error-handler>
-\`\`\``
+`
     }
   ];
 
