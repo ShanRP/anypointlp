@@ -18,6 +18,8 @@ import { Suspense, useEffect, useState } from "react";
 import { isWebGLAvailable } from "@/utils/webGLUtil";
 import { toast } from "sonner";
 import { useAnimations } from "@/utils/animationUtils";
+import CodingAssistantDemo from "@/components/animations/CodingAssistantDemo";
+import MUnitAnimation from "@/components/animations/MUnitAnimation";
 
 // Sample MuleSoft code for the animated code block
 const muleSoftSampleCode = `<mule xmlns="http://www.mulesoft.org/schema/mule/core"
@@ -80,20 +82,20 @@ export default function Index() {
             <Logo className="text-2xl text-white" />
           </Link>
           <div className="hidden md:flex gap-6">
-            <a href="#features" className="text-white/80 hover:text-white transition-colors">Features</a>
-            <a href="#security" className="text-white/80 hover:text-white transition-colors">Security</a>
-            <a href="#contact" className="text-white/80 hover:text-white transition-colors">Contact</a>
+            <a href="#features" className="text-white/80 hover:text-white transition-colors font-montserrat">Features</a>
+            <a href="#security" className="text-white/80 hover:text-white transition-colors font-montserrat">Security</a>
+            <a href="#contact" className="text-white/80 hover:text-white transition-colors font-montserrat">Contact</a>
           </div>
           <div className="flex gap-4 items-center">
             <Link 
               to="/auth" 
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-white/80 hover:text-white transition-colors font-montserrat"
             >
               Login
             </Link>
             <Link 
               to="/auth?signup=true" 
-              className="bg-white text-black px-4 py-2 rounded-md hover:bg-gray-200 transition-colors"
+              className="bg-white text-black px-4 py-2 rounded-md hover:bg-gray-200 transition-colors font-montserrat"
             >
               Sign up for Free
             </Link>
@@ -129,11 +131,11 @@ export default function Index() {
               transition={{ duration: 0.6 }}
               className="text-center mb-12"
             >
-              <div className="inline-block px-4 py-1 rounded-full bg-purple-900/30 text-purple-300 text-sm font-medium mb-4">
+              <div className="inline-block px-4 py-1 rounded-full bg-purple-900/30 text-purple-300 text-sm font-medium mb-4 font-montserrat">
                 Interactive Visualizations
               </div>
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">See Your Integrations in Action</h2>
-              <p className="text-gray-300 max-w-2xl mx-auto">
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 font-display">See Your Integrations in Action</h2>
+              <p className="text-gray-300 max-w-2xl mx-auto font-montserrat">
                 Watch how data flows through your MuleSoft integrations with our real-time visualizations
               </p>
             </motion.div>
@@ -176,8 +178,8 @@ export default function Index() {
                 transition={{ duration: 0.8 }}
                 className="flex flex-col justify-center"
               >
-                <h3 className="text-2xl font-bold text-white mb-4">Intelligent Flow Generation</h3>
-                <p className="text-gray-300 mb-6">
+                <h3 className="text-2xl font-bold text-white mb-4 font-display">Intelligent Flow Generation</h3>
+                <p className="text-gray-300 mb-6 font-montserrat">
                   Our AI-powered platform automatically generates MuleSoft flows based on your specifications, saving you hours of development time. Watch as your integrations come to life with just a few clicks.
                 </p>
                 <ul className="space-y-3">
@@ -200,7 +202,7 @@ export default function Index() {
                           <path d="M10 3L4.5 8.5L2 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </motion.span>
-                      <span className="text-white">{item}</span>
+                      <span className="text-white font-montserrat">{item}</span>
                     </motion.li>
                   ))}
                 </ul>
@@ -226,10 +228,41 @@ export default function Index() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
+              className="mb-16"
             >
               <ErrorBoundary suppressToast={true}>
                 <Suspense fallback={<div className="h-40 w-full bg-gray-800/50 rounded-xl animate-pulse" />}>
                   <ApiAnimation />
+                </Suspense>
+              </ErrorBoundary>
+            </motion.div>
+            
+            {/* Coding Assistant Demo Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="mb-16"
+            >
+              <ErrorBoundary suppressToast={true}>
+                <Suspense fallback={<div className="h-40 w-full bg-gray-800/50 rounded-xl animate-pulse" />}>
+                  <CodingAssistantDemo />
+                </Suspense>
+              </ErrorBoundary>
+            </motion.div>
+            
+            {/* MUnit Animation Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="mb-16"
+            >
+              <ErrorBoundary suppressToast={true}>
+                <Suspense fallback={<div className="h-40 w-full bg-gray-800/50 rounded-xl animate-pulse" />}>
+                  <MUnitAnimation />
                 </Suspense>
               </ErrorBoundary>
             </motion.div>

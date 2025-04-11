@@ -174,9 +174,16 @@ export const Hero = () => {
             <div className="grid grid-cols-2 gap-8">
               <motion.div 
                 className="stats-card text-center p-6 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 relative overflow-hidden group"
-                whileHover={{ y: -5 }}
+                whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(124, 58, 237, 0.5)" }}
+                transition={{ duration: 0.3 }}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-purple-700/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <motion.div 
+                  className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-purple-400 to-purple-600"
+                  initial={{ width: "0%" }}
+                  whileHover={{ width: "100%" }}
+                  transition={{ duration: 0.5 }}
+                />
                 <AnimatedNumber
                   value={10}
                   suffix="x"
@@ -190,9 +197,16 @@ export const Hero = () => {
               
               <motion.div 
                 className="stats-card text-center p-6 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 relative overflow-hidden group"
-                whileHover={{ y: -5 }}
+                whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(79, 70, 229, 0.5)" }}
+                transition={{ duration: 0.3 }}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/30 to-indigo-700/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <motion.div 
+                  className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-indigo-400 to-indigo-600"
+                  initial={{ width: "0%" }}
+                  whileHover={{ width: "100%" }}
+                  transition={{ duration: 0.5 }}
+                />
                 <AnimatedNumber
                   value={85}
                   suffix="%"
