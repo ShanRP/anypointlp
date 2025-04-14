@@ -31,6 +31,7 @@ const JoinWorkspaceDialog: React.FC<JoinWorkspaceDialogProps> = ({
       // Basic validation
       if (!inviteLink.trim()) {
         setError('Please enter an invite link');
+        setIsJoining(false);
         return;
       }
 
@@ -70,13 +71,13 @@ const JoinWorkspaceDialog: React.FC<JoinWorkspaceDialogProps> = ({
         .single();
 
       if (workspaceError || !workspace) {
+        console.error('Invalid workspace or invitation disabled:', workspaceError);
         setError('Invalid workspace or invitation has been disabled');
         setIsJoining(false);
         return;
       }
 
       // Call the function to add the user to the workspace
-      // Instead of using RPC, use the direct table insert approach
       const currentUser = (await supabase.auth.getUser()).data.user;
       
       if (!currentUser?.id) {
@@ -85,6 +86,21 @@ const JoinWorkspaceDialog: React.FC<JoinWorkspaceDialogProps> = ({
         return;
       }
       
+      // Check if user is already a member
+      const { data: existingMember, error: memberCheckError } = await supabase
+        .from('apl_workspace_members')
+        .select('id')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', currentUser.id)
+        .single();
+        
+      if (existingMember) {
+        setError('You are already a member of this workspace');
+        setIsJoining(false);
+        return;
+      }
+      
+      // Join the workspace
       const { data: memberData, error: memberError } = await supabase
         .from('apl_workspace_members')
         .insert([

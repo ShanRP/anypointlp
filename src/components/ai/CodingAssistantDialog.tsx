@@ -56,7 +56,7 @@ const CodingAssistantDialog: React.FC<CodingAssistantDialogProps> = ({
         )}
       >
         {/* Custom close button positioned at the top-right corner */}
-        <div className="absolute top-8 right-4 z-50">
+        <div className="absolute top-4 right-4 z-50">
           <Button
             variant="ghost"
             size="icon"

@@ -27,30 +27,24 @@ const WorkspaceInvite = () => {
       try {
         console.log('Checking workspace with ID:', workspaceId);
         
-        // First check if the workspace exists
+        // First check if the workspace exists and has invites enabled
         const { data: workspaceData, error: workspaceError } = await supabase
           .from('apl_workspaces')
           .select('*')
           .eq('id', workspaceId)
+          .eq('invite_enabled', true)
           .single();
 
         console.log('Workspace query result:', { workspaceData, workspaceError });
 
-        if (workspaceError) {
+        if (workspaceError || !workspaceData) {
           console.error('Error fetching workspace:', workspaceError);
           setError('Workspace not found or invitation link is invalid');
           setLoading(false);
           return;
         }
 
-        if (!workspaceData) {
-          console.error('No workspace data found');
-          setError('Workspace not found or invitation link is invalid');
-          setLoading(false);
-          return;
-        }
-
-        console.log('Found workspace:', workspaceData);
+        console.log('Found workspace with invites enabled:', workspaceData);
         setWorkspace(workspaceData);
 
         // If user is logged in, check if they're already a member
@@ -105,6 +99,17 @@ const WorkspaceInvite = () => {
     setLoading(true);
     try {
       console.log('Joining workspace', { workspaceId, userId: user.id });
+      
+      // Check if the workspace still has invites enabled before joining
+      const { data: workspaceData, error: workspaceError } = await supabase
+        .from('apl_workspaces')
+        .select('invite_enabled')
+        .eq('id', workspaceId)
+        .single();
+        
+      if (workspaceError || !workspaceData || !workspaceData.invite_enabled) {
+        throw new Error('Workspace not found or invitation has been disabled');
+      }
       
       // Add user as member directly with SQL insert
       const { data, error: insertError } = await supabase
