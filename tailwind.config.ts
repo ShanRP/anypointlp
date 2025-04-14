@@ -1,4 +1,3 @@
-
 import { type Config } from "tailwindcss";
 
 export default {
@@ -23,37 +22,13 @@ export default {
         sans: [
           '__GeistSans_3a0388',
           '__GeistSans_Fallback_3a0388',
-          'Montserrat',
-          'apple-system', 
           'system-ui', 
-          'BlinkMacSystemFont', 
-          '"Segoe UI"', 
-          'Roboto', 
-          '"Helvetica Neue"', 
-          '"Fira Sans"', 
-          'Ubuntu', 
-          'Oxygen', 
-          '"Oxygen Sans"', 
-          'Cantarell', 
-          '"Droid Sans"', 
-          '"Apple Color Emoji"', 
-          '"Segoe UI Emoji"', 
-          '"Segoe UI Symbol"', 
-          '"Lucida Grande"', 
-          'Helvetica', 
-          'Arial', 
           'sans-serif'
         ],
         display: [
           '__GeistMono_c1e5c9',
           'ui-monospace',
           'SFMono-Regular',
-          '"Roboto Mono"',
-          'Menlo',
-          'Monaco',
-          '"Liberation Mono"',
-          '"DejaVu Sans Mono"',
-          '"Courier New"',
           'monospace'
         ],
         geistSans: [
@@ -65,15 +40,8 @@ export default {
           '__GeistMono_c1e5c9',
           'ui-monospace',
           'SFMono-Regular',
-          '"Roboto Mono"',
-          'Menlo',
-          'Monaco',
-          '"Liberation Mono"',
-          '"DejaVu Sans Mono"',
-          '"Courier New"',
           'monospace'
         ],
-        montserrat: ['Montserrat', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
