@@ -25,6 +25,12 @@ export default {
           'system-ui', 
           'sans-serif'
         ],
+        mono: [
+          '__GeistMono_c1e5c9',
+          'ui-monospace',
+          'SFMono-Regular',
+          'monospace'
+        ],
         display: [
           '__GeistMono_c1e5c9',
           'ui-monospace',

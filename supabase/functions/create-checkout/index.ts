@@ -15,11 +15,18 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Starting checkout process");
+    
     // Create Supabase client using auth token
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Missing Supabase credentials");
+    }
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    console.log("Supabase client created");
 
     // Verify authentication
     const authHeader = req.headers.get("Authorization");
@@ -28,8 +35,14 @@ serve(async (req) => {
     }
     
     const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
+    const { data, error: authError } = await supabaseClient.auth.getUser(token);
+    
+    if (authError) {
+      throw new Error(`Authentication error: ${authError.message}`);
+    }
+    
     const user = data.user;
+    console.log("User authenticated:", user?.id);
     
     if (!user?.email) {
       throw new Error("User not authenticated or email not available");
@@ -44,13 +57,16 @@ serve(async (req) => {
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2023-10-16",
     });
+    console.log("Stripe initialized");
 
     // Check if the user already exists as a Stripe customer
+    console.log("Checking if customer exists for email:", user.email);
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId;
     
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
+      console.log("Found existing customer:", customerId);
     } else {
       // Create a new customer if they don't exist
       const newCustomer = await stripe.customers.create({
@@ -60,9 +76,11 @@ serve(async (req) => {
         }
       });
       customerId = newCustomer.id;
+      console.log("Created new customer:", customerId);
     }
 
     // Create a subscription checkout session
+    console.log("Creating checkout session");
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
@@ -89,6 +107,7 @@ serve(async (req) => {
         user_id: user.id,
       },
     });
+    console.log("Checkout session created:", session.id);
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

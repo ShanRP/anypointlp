@@ -77,7 +77,7 @@
   }
   
   h1, h2, h3, h4, h5 {
-    font-family: '__GeistMono_c1e5c9', ui-monospace, SFMono-Regular, monospace;
+    font-family: '__GeistMono_c1e5c9', '__GeistMono_Fallback_c1e5c9', ui-monospace, SFMono-Regular, monospace;
     letter-spacing: -0.02em;
     font-weight: 600;
   }
