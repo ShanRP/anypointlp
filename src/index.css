@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -70,7 +69,7 @@
 @layer base {
   * {
     @apply border-border;
-    font-family: 'Montserrat', system-ui, sans-serif;
+    font-family: '__GeistSans_3a0388', '__GeistSans_Fallback_3a0388', system-ui, sans-serif;
   }
   body {
     @apply bg-background text-foreground;
@@ -78,7 +77,9 @@
   }
   
   h1, h2, h3, h4, h5 {
-    font-family: 'Playfair Display', serif;
+    font-family: '__GeistMono_c1e5c9', ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: -0.02em;
+    font-weight: 600;
   }
   
   /* Focus styles */

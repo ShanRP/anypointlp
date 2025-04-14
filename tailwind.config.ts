@@ -21,6 +21,8 @@ export default {
     extend: {
       fontFamily: {
         sans: [
+          '__GeistSans_3a0388',
+          '__GeistSans_Fallback_3a0388',
           'Montserrat',
           'apple-system', 
           'system-ui', 
@@ -42,7 +44,35 @@ export default {
           'Arial', 
           'sans-serif'
         ],
-        display: ['Playfair Display', 'serif'],
+        display: [
+          '__GeistMono_c1e5c9',
+          'ui-monospace',
+          'SFMono-Regular',
+          '"Roboto Mono"',
+          'Menlo',
+          'Monaco',
+          '"Liberation Mono"',
+          '"DejaVu Sans Mono"',
+          '"Courier New"',
+          'monospace'
+        ],
+        geistSans: [
+          '__GeistSans_3a0388',
+          '__GeistSans_Fallback_3a0388',
+          'sans-serif'
+        ],
+        geistMono: [
+          '__GeistMono_c1e5c9',
+          'ui-monospace',
+          'SFMono-Regular',
+          '"Roboto Mono"',
+          'Menlo',
+          'Monaco',
+          '"Liberation Mono"',
+          '"DejaVu Sans Mono"',
+          '"Courier New"',
+          'monospace'
+        ],
         montserrat: ['Montserrat', 'sans-serif'],
       },
       colors: {

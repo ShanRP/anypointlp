@@ -62,6 +62,7 @@ export const Logo: React.FC<LogoProps> = ({ className = '' }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
+          className="font-geistMono"
         >
           <span className="text-gradient bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-500">Anypoint</span>
           <span className="ml-1">LP</span>
