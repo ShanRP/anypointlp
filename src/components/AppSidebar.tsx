@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -53,7 +52,6 @@ import { CreateWorkspaceDialog } from "@/components/CreateWorkspaceDialog";
 import WorkspaceDetailsDialog from "@/components/workspace/WorkspaceDetailsDialog";
 import { toast } from "sonner";
 
-// Define sidebar navigation item type
 interface SidebarItem {
   icon: LucideIcon;
   name: string;
@@ -64,7 +62,7 @@ interface SidebarItem {
 
 export const AppSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
   
@@ -83,12 +81,10 @@ export const AppSidebar = () => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Handle sign out
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -99,7 +95,6 @@ export const AppSidebar = () => {
     }
   };
 
-  // Handle workspace creation
   const handleCreateWorkspace = async (name: string) => {
     try {
       await createWorkspace(name);
@@ -111,7 +106,6 @@ export const AppSidebar = () => {
     }
   };
 
-  // Build navigation items
   const sidebarItems: SidebarItem[] = useMemo(() => [
     { icon: Home, name: "Home", path: "/dashboard" },
     {
@@ -141,15 +135,11 @@ export const AppSidebar = () => {
     { icon: Settings, name: "Settings", path: "/settings" },
   ], []);
 
-  // Create a callback for checking if a path is active
   const isPathActive = useCallback(
     (path: string) => {
-      // Handle special case for dashboard root
       if (path === "/dashboard" && location.pathname === "/dashboard") {
         return true;
       }
-      // For other paths, check if the current path starts with the item path
-      // but exclude dashboard root match for other items
       return (
         location.pathname.startsWith(path) &&
         (path !== "/dashboard" || location.pathname === "/dashboard")
@@ -158,12 +148,10 @@ export const AppSidebar = () => {
     [location.pathname]
   );
 
-  // Get active workspace initial
   const activeWorkspaceInitial = selectedWorkspace ? selectedWorkspace.initial : "W";
 
   return (
     <>
-      {/* Mobile menu toggle */}
       <div className="lg:hidden fixed top-0 left-0 z-40 flex items-center p-4">
         <Button
           variant="ghost"
@@ -175,11 +163,9 @@ export const AppSidebar = () => {
         </Button>
       </div>
 
-      {/* Mobile sidebar drawer */}
       <Drawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <DrawerContent className="h-[90vh] overflow-y-auto">
           <div className="p-4 flex flex-col h-full">
-            {/* Mobile Workspace Selector */}
             <div className="mb-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -222,7 +208,7 @@ export const AppSidebar = () => {
                     Create New Workspace
                   </DropdownMenuItem>
                   {selectedWorkspace && (
-                    <DropdownMenuItem onClick={() => setShowDetails(true)}>
+                    <DropdownMenuItem onClick={() => setShowDetailsDialog(true)}>
                       <Settings className="h-4 w-4 mr-2" />
                       Workspace Settings
                     </DropdownMenuItem>
@@ -231,7 +217,6 @@ export const AppSidebar = () => {
               </DropdownMenu>
             </div>
 
-            {/* Mobile Navigation */}
             <div className="flex-1 overflow-y-auto">
               <Accordion
                 type="multiple"
@@ -303,7 +288,6 @@ export const AppSidebar = () => {
               </Accordion>
             </div>
 
-            {/* Mobile User Controls */}
             <div className="mt-4 pt-4 border-t">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -334,10 +318,8 @@ export const AppSidebar = () => {
         </DrawerContent>
       </Drawer>
 
-      {/* Desktop sidebar */}
       <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-40 lg:w-72 lg:pb-4 lg:border-r bg-background">
         <div className="flex flex-col h-full">
-          {/* Workspace selector */}
           <div className="px-4 py-4 flex justify-between items-center">
             <DropdownMenu open={showWorkspaceMenu} onOpenChange={setShowWorkspaceMenu}>
               <DropdownMenuTrigger asChild>
@@ -380,7 +362,7 @@ export const AppSidebar = () => {
                   Create New Workspace
                 </DropdownMenuItem>
                 {selectedWorkspace && (
-                  <DropdownMenuItem onClick={() => setShowDetails(true)}>
+                  <DropdownMenuItem onClick={() => setShowDetailsDialog(true)}>
                     <Settings className="h-4 w-4 mr-2" />
                     Workspace Settings
                   </DropdownMenuItem>
@@ -394,7 +376,6 @@ export const AppSidebar = () => {
 
           <Separator />
 
-          {/* Navigation */}
           <div className="flex-1 overflow-y-auto">
             <div className="px-2 py-3">
               <Accordion
@@ -468,7 +449,6 @@ export const AppSidebar = () => {
             </div>
           </div>
 
-          {/* User controls */}
           <div className="mt-auto px-4 py-3 border-t">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -500,23 +480,21 @@ export const AppSidebar = () => {
         </div>
       </aside>
 
-      {/* Create workspace dialog */}
       <CreateWorkspaceDialog
         isOpen={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
         onCreate={handleCreateWorkspace}
       />
 
-      {/* Workspace details dialog */}
-      {selectedWorkspace && (
-        <WorkspaceDetailsDialog
-          isOpen={showDetails}
-          onClose={() => setShowDetails(false)}
-          workspace={selectedWorkspace}
-          onDelete={deleteWorkspace}
-          onUpdate={updateWorkspace}
-        />
-      )}
+      <WorkspaceDetailsDialog
+        isOpen={showDetailsDialog}
+        onClose={() => setShowDetailsDialog(false)}
+        workspace={selectedWorkspace}
+        onDelete={deleteWorkspace}
+        onUpdate={updateWorkspace}
+      />
     </>
   );
 };
+
+export default AppSidebar;

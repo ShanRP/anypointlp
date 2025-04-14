@@ -24,7 +24,7 @@ import { toast } from "sonner";
 
 // Components
 import { Button } from "@/components/ui/button";
-import { CreateWorkspaceDialog } from "@/components/CreateWorkspaceDialog";
+import CreateWorkspaceDialog from "@/components/CreateWorkspaceDialog";
 import WorkspaceDetailsDialog from "@/components/workspace/WorkspaceDetailsDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
