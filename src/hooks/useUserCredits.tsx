@@ -23,11 +23,12 @@ export const useUserCredits = () => {
   
   // Track if fetch has been performed to prevent multiple calls
   const [hasFetched, setHasFetched] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const fetchUserCredits = useCallback(async () => {
-    // Skip if already fetched or no user
-    if (hasFetched || !user) {
-      if (!user) setLoading(false);
+    // Skip if no user
+    if (!user) {
+      setLoading(false);
       return;
     }
 
@@ -95,7 +96,7 @@ export const useUserCredits = () => {
         }
       }
       
-      // Mark as fetched to prevent repeating
+      // Mark as fetched
       setHasFetched(true);
     } catch (err: any) {
       console.error('Error fetching user credits:', err);
@@ -103,7 +104,7 @@ export const useUserCredits = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, hasFetched]); // Only depend on user and hasFetched
+  }, [user]); // Only depend on user
 
   const useCredit = useCallback(async () => {
     if (!user || !credits) {
@@ -117,6 +118,8 @@ export const useUserCredits = () => {
     // Check if user has reached the limit
     if (credits.credits_used >= proLimit) {
       toast.error(`You've reached your daily credit limit of ${proLimit} tasks. Upgrade to Pro for more!`);
+      // Trigger the upgrade dialog
+      setShowUpgradeDialog(true);
       return false;
     }
 
@@ -141,6 +144,10 @@ export const useUserCredits = () => {
       // If this is their last credit, show a warning
       if (newCreditsUsed === proLimit) {
         toast.warning(`You've used your last credit for today. Credits will reset tomorrow.`);
+        // Also show upgrade dialog for non-pro users
+        if (!credits.is_pro) {
+          setShowUpgradeDialog(true);
+        }
       } else if (proLimit - newCreditsUsed <= 2) {
         toast.info(`You have ${proLimit - newCreditsUsed} credits remaining today.`);
       }
@@ -153,6 +160,7 @@ export const useUserCredits = () => {
     }
   }, [user, credits]);
 
+  // For test purposes only - the real upgrade will be through Stripe
   const upgradeToProPlan = useCallback(async () => {
     if (!user || !credits) {
       toast.error('You need to be logged in to upgrade');
@@ -160,22 +168,9 @@ export const useUserCredits = () => {
     }
 
     try {
-      // In a real app, we would handle payment processing here
-      // For now, we'll just update the is_pro flag
-      const { data, error } = await supabase
-        .from('apl_user_credits')
-        .update({ 
-          is_pro: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', credits.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setCredits(data as UserCredits);
-      toast.success('Successfully upgraded to Pro Plan! You now have 100 credits per month.');
+      // This function now just triggers the Stripe checkout
+      // The actual upgrade happens after webhook confirmation
+      // We don't modify the database here anymore
       return true;
     } catch (err: any) {
       console.error('Error upgrading to pro:', err);
@@ -183,6 +178,33 @@ export const useUserCredits = () => {
       return false;
     }
   }, [user, credits]);
+
+  // Set up realtime subscription to credit changes
+  useEffect(() => {
+    if (!user) return;
+    
+    const channel = supabase
+      .channel('credits-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'apl_user_credits',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('Credits updated in realtime:', payload);
+          // Update local state with the new data
+          setCredits(payload.new as UserCredits);
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   // Initialize credits only once when the user is set
   useEffect(() => {
@@ -208,6 +230,8 @@ export const useUserCredits = () => {
     error,
     useCredit,
     upgradeToProPlan,
-    refreshCredits
+    refreshCredits,
+    showUpgradeDialog,
+    setShowUpgradeDialog
   };
 };
