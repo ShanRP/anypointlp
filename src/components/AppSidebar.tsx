@@ -1,4 +1,3 @@
-
 /* 
   This is the dashboard sidebar component that includes:
   - User avatar and menu
@@ -54,8 +53,7 @@ const AppSidebar = () => {
     createWorkspace, 
     selectWorkspace, 
     deleteWorkspace,
-    updateWorkspace,
-    generateInviteLink
+    updateWorkspace
   } = useWorkspaces();
   
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
@@ -67,7 +65,6 @@ const AppSidebar = () => {
   
   const { tasks, loading, error } = useWorkspaceTasks(selectedWorkspace?.id || '');
 
-  // Handle responsive design
   useEffect(() => {
     const handleResize = () => {
       setMobileWidth(window.innerWidth < 1024);
@@ -81,10 +78,8 @@ const AppSidebar = () => {
     };
   }, []);
 
-  // Filter tasks for the current workspace
   useEffect(() => {
     if (tasks && selectedWorkspace) {
-      // Filter tasks to only include those for the selected workspace
       const filtered = tasks.filter(task => task.workspace_id === selectedWorkspace.id);
       setVisibleTasks(filtered);
     } else {
@@ -157,10 +152,8 @@ const AppSidebar = () => {
     }
   };
 
-  // Sidebar content (used both in desktop and mobile views)
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* User menu */}
       <div className="p-4 flex items-center justify-between">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -203,7 +196,6 @@ const AppSidebar = () => {
         )}
       </div>
       
-      {/* Workspace selector */}
       <div className="px-4 mb-4">
         <div className="text-xs font-medium uppercase text-muted-foreground mb-2 ml-1">
           Workspaces
@@ -246,7 +238,6 @@ const AppSidebar = () => {
         </div>
       </div>
       
-      {/* Navigation */}
       <ScrollArea className="flex-1">
         <div className="px-4 py-2">
           <div className="text-xs font-medium uppercase text-muted-foreground mb-2 ml-1">
@@ -384,7 +375,6 @@ const AppSidebar = () => {
         )}
       </ScrollArea>
       
-      {/* Footer */}
       <div className="p-4 mt-auto">
         <Button
           variant="outline"
@@ -401,7 +391,6 @@ const AppSidebar = () => {
     </div>
   );
 
-  // Desktop sidebar
   if (!mobileWidth) {
     return (
       <>
@@ -419,13 +408,11 @@ const AppSidebar = () => {
           workspace={selectedWorkspaceForDetails}
           onDelete={deleteWorkspace}
           onUpdate={updateWorkspace}
-          onGenerateInviteLink={generateInviteLink}
         />
       </>
     );
   }
 
-  // Mobile sidebar
   return (
     <>
       <div className="fixed top-0 left-0 right-0 z-40 h-14 border-b bg-background px-4 flex items-center">
@@ -497,7 +484,6 @@ const AppSidebar = () => {
         workspace={selectedWorkspaceForDetails}
         onDelete={deleteWorkspace}
         onUpdate={updateWorkspace}
-        onGenerateInviteLink={generateInviteLink}
       />
     </>
   );
