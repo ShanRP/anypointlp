@@ -20,7 +20,8 @@ import {
   Clock,
   X,
   Info,
-  MoreVertical
+  MoreVertical,
+  UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,6 +33,7 @@ import { useWorkspaceTasks, type WorkspaceTask } from '@/hooks/useWorkspaceTasks
 import { Button } from '@/components/ui/button';
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import WorkspaceDetailsDialog from './workspace/WorkspaceDetailsDialog';
+import JoinWorkspaceDialog from './workspace/JoinWorkspaceDialog';
 import CodingAssistantDialog from './ai/CodingAssistantDialog';
 import { useAnimations } from '@/utils/animationUtils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet";
@@ -153,10 +155,11 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const { t } = useLanguage();
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [isCreateWorkspaceDialogOpen, setIsCreateWorkspaceDialogOpen] = useState(false);
+  const [isJoinWorkspaceDialogOpen, setIsJoinWorkspaceDialogOpen] = useState(false);
   const [isWorkspaceDetailsOpen, setIsWorkspaceDetailsOpen] = useState(false);
   const [selectedWorkspaceForDetails, setSelectedWorkspaceForDetails] = useState<WorkspaceOption | null>(null);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
-  const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace, updateWorkspace, deleteWorkspace, generateInviteLink } = useWorkspaces();
+  const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace, updateWorkspace, deleteWorkspace, generateInviteLink, refreshWorkspaces } = useWorkspaces();
   const { tasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
   const { fadeIn } = useAnimations();
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
@@ -359,6 +362,21 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                     Create Workspace
                   </p>
                 </div>
+                
+                <div 
+                  className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => {
+                    setWorkspaceDropdownOpen(false);
+                    setIsJoinWorkspaceDialogOpen(true);
+                  }}
+                >
+                  <div className="w-8 h-8 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                    <UserPlus size={16} />
+                  </div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    Join Workspace
+                  </p>
+                </div>
               </motion.div>
             )}
           </div>
@@ -528,6 +546,14 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         onCreateWorkspace={(name) => {
           createWorkspace(name);
           toast.success(`${name} workspace has been created successfully.`);
+        }}
+      />
+      
+      <JoinWorkspaceDialog
+        isOpen={isJoinWorkspaceDialogOpen}
+        onClose={() => setIsJoinWorkspaceDialogOpen(false)}
+        onJoinSuccess={() => {
+          refreshWorkspaces();
         }}
       />
       

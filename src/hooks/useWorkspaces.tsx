@@ -19,7 +19,6 @@ export const useWorkspaces = () => {
   const [loading, setLoading] = useState(false);
   const [fetchComplete, setFetchComplete] = useState(false);
 
-  // Fetch workspaces when user is available
   const fetchWorkspaces = useCallback(async () => {
     if (!user) return;
     
@@ -44,21 +43,17 @@ export const useWorkspaces = () => {
         
         setWorkspaces(formattedWorkspaces);
         
-        // Set selected workspace if not already set or update it if it exists
         if (!selectedWorkspace) {
           setSelectedWorkspace(formattedWorkspaces[0]);
         } else {
-          // Find and update the currently selected workspace with fresh data
           const updatedSelected = formattedWorkspaces.find(w => w.id === selectedWorkspace.id);
           if (updatedSelected) {
             setSelectedWorkspace(updatedSelected);
           } else {
-            // If previously selected workspace doesn't exist anymore, select first one
             setSelectedWorkspace(formattedWorkspaces[0]);
           }
         }
       } else {
-        // If no workspaces, set empty array
         setWorkspaces([]);
         setSelectedWorkspace(null);
       }
@@ -71,15 +66,12 @@ export const useWorkspaces = () => {
     }
   }, [user, selectedWorkspace]);
 
-  // Reset state when user changes or logs out
   useEffect(() => {
     if (user) {
-      // Only fetch if we haven't fetched yet or user changed
       if (!fetchComplete) {
         fetchWorkspaces();
       }
     } else {
-      // Clear workspaces when user logs out
       setWorkspaces([]);
       setSelectedWorkspace(null);
       setFetchComplete(false);
@@ -117,10 +109,8 @@ export const useWorkspaces = () => {
         invite_link: data.invite_link
       };
       
-      // Update workspaces array with new workspace
       setWorkspaces(prev => [...prev, newWorkspace]);
       
-      // Set as selected workspace
       setSelectedWorkspace(newWorkspace);
       
       return newWorkspace;
@@ -144,7 +134,6 @@ export const useWorkspaces = () => {
       
       if (error) throw error;
       
-      // Fetch updated workspace data to ensure we have the latest
       const { data: refreshedData, error: refreshError } = await supabase
         .from('apl_workspaces')
         .select('*')
@@ -162,12 +151,10 @@ export const useWorkspaces = () => {
         invite_link: refreshedData.invite_link
       };
       
-      // Update local state
       setWorkspaces(prev => prev.map(w => 
         w.id === workspaceId ? updatedWorkspace : w
       ));
       
-      // Update selected workspace if it's the one being updated
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace(updatedWorkspace);
       }
@@ -184,7 +171,6 @@ export const useWorkspaces = () => {
     if (!user) return false;
     
     try {
-      // Don't allow deletion if it's the only workspace
       if (workspaces.length <= 1) {
         toast.error('Cannot delete the only workspace. Please create another workspace first.');
         return false;
@@ -198,11 +184,9 @@ export const useWorkspaces = () => {
       
       if (error) throw error;
       
-      // Update the workspaces list
       const updatedWorkspaces = workspaces.filter(w => w.id !== workspaceId);
       setWorkspaces(updatedWorkspaces);
       
-      // If the deleted workspace was selected, select another one
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace(updatedWorkspaces[0]);
       }
@@ -221,7 +205,6 @@ export const useWorkspaces = () => {
     try {
       console.log('Generating invite link for workspace:', workspaceId);
       
-      // Use invite path for the invite link
       const inviteLink = `${window.location.origin}/invite/${workspaceId}`;
       
       console.log('Generated invite link:', inviteLink);
@@ -240,9 +223,6 @@ export const useWorkspaces = () => {
         throw error;
       }
       
-      console.log('Workspace updated:', data);
-      
-      // Fetch the updated workspace to ensure we have the latest data
       const { data: refreshedData, error: refreshError } = await supabase
         .from('apl_workspaces')
         .select('*')
@@ -254,9 +234,6 @@ export const useWorkspaces = () => {
         throw refreshError;
       }
       
-      console.log('Refreshed workspace data:', refreshedData);
-      
-      // Update the workspaces list with the refreshed data
       const updatedWorkspace = {
         id: refreshedData.id,
         name: refreshedData.name,
@@ -266,12 +243,10 @@ export const useWorkspaces = () => {
         invite_link: refreshedData.invite_link
       };
       
-      // Update local state
       setWorkspaces(prev => prev.map(w => 
         w.id === workspaceId ? updatedWorkspace : w
       ));
       
-      // Update selected workspace if it's the one being updated
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace(updatedWorkspace);
       }
@@ -288,9 +263,8 @@ export const useWorkspaces = () => {
     setSelectedWorkspace(workspace);
   };
 
-  // Manually refetch workspaces (useful when we need to refresh the list)
   const refreshWorkspaces = () => {
-    setFetchComplete(false); // This will trigger a refetch in the useEffect
+    setFetchComplete(false);
   };
 
   return {
