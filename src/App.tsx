@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -15,6 +14,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import SettingsPage from "./components/SettingsPage";
 import WorkspaceInvite from "./pages/WorkspaceInvite";
+import AcceptInvitation from "./pages/AcceptInvitation";
 
 const queryClient = new QueryClient({
   defaultOptions: {

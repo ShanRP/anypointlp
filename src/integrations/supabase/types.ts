@@ -735,6 +735,50 @@ export type Database = {
         }
         Relationships: []
       }
+      apl_workspace_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string
+          email: string
+          expires_at: string | null
+          id: string
+          status: string
+          workspace_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by: string
+          email: string
+          expires_at?: string | null
+          id?: string
+          status: string
+          workspace_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string
+          expires_at?: string | null
+          id?: string
+          status?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apl_workspace_invitations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "apl_workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       apl_workspace_members: {
         Row: {
           created_at: string
@@ -808,6 +852,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apl_accept_workspace_invitation: {
+        Args: { workspace_id_param: string; user_id_param: string }
+        Returns: boolean
+      }
       apl_get_integration_task_details: {
         Args: { task_id_param: string }
         Returns: {
@@ -1054,6 +1102,10 @@ export type Database = {
           category?: string
         }
         Returns: string
+      }
+      apl_invite_user_to_workspace: {
+        Args: { workspace_id_param: string; email_param: string }
+        Returns: boolean
       }
       apl_upsert_peer_connection: {
         Args: {

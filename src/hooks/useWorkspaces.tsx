@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
@@ -9,7 +10,6 @@ export interface WorkspaceOption {
   initial: string;
   session_timeout?: string;
   invite_enabled?: boolean;
-  invite_link?: string;
 }
 
 export const useWorkspaces = () => {
@@ -39,7 +39,6 @@ export const useWorkspaces = () => {
           initial: workspace.initial,
           session_timeout: workspace.session_timeout,
           invite_enabled: workspace.invite_enabled,
-          invite_link: workspace.invite_link,
         }));
         
         setWorkspaces(formattedWorkspaces);
@@ -113,8 +112,7 @@ export const useWorkspaces = () => {
         name: data.name,
         initial: data.initial,
         session_timeout: data.session_timeout,
-        invite_enabled: data.invite_enabled,
-        invite_link: data.invite_link
+        invite_enabled: data.invite_enabled
       };
       
       // Update workspaces array with new workspace
@@ -158,8 +156,7 @@ export const useWorkspaces = () => {
         name: refreshedData.name,
         initial: refreshedData.initial,
         session_timeout: refreshedData.session_timeout,
-        invite_enabled: refreshedData.invite_enabled,
-        invite_link: refreshedData.invite_link
+        invite_enabled: refreshedData.invite_enabled
       };
       
       // Update local state
@@ -215,75 +212,6 @@ export const useWorkspaces = () => {
     }
   };
 
-  const generateInviteLink = async (workspaceId: string) => {
-    if (!user) return false;
-    
-    try {
-      console.log('Generating invite link for workspace:', workspaceId);
-      
-      // Use invite path for the invite link
-      const inviteLink = `${window.location.origin}/invite/${workspaceId}`;
-      
-      console.log('Generated invite link:', inviteLink);
-      
-      const { data, error } = await supabase
-        .from('apl_workspaces')
-        .update({ 
-          invite_link: inviteLink,
-          invite_enabled: true
-        })
-        .eq('id', workspaceId)
-        .select();
-      
-      if (error) {
-        console.error('Error updating workspace:', error);
-        throw error;
-      }
-      
-      console.log('Workspace updated:', data);
-      
-      // Fetch the updated workspace to ensure we have the latest data
-      const { data: refreshedData, error: refreshError } = await supabase
-        .from('apl_workspaces')
-        .select('*')
-        .eq('id', workspaceId)
-        .single();
-        
-      if (refreshError) {
-        console.error('Error fetching refreshed data:', refreshError);
-        throw refreshError;
-      }
-      
-      console.log('Refreshed workspace data:', refreshedData);
-      
-      // Update the workspaces list with the refreshed data
-      const updatedWorkspace = {
-        id: refreshedData.id,
-        name: refreshedData.name,
-        initial: refreshedData.initial,
-        session_timeout: refreshedData.session_timeout,
-        invite_enabled: refreshedData.invite_enabled,
-        invite_link: refreshedData.invite_link
-      };
-      
-      // Update local state
-      setWorkspaces(prev => prev.map(w => 
-        w.id === workspaceId ? updatedWorkspace : w
-      ));
-      
-      // Update selected workspace if it's the one being updated
-      if (selectedWorkspace?.id === workspaceId) {
-        setSelectedWorkspace(updatedWorkspace);
-      }
-      
-      return inviteLink;
-    } catch (error) {
-      console.error('Error generating invite link:', error);
-      toast.error('Failed to generate invite link');
-      return false;
-    }
-  };
-
   const selectWorkspace = (workspace: WorkspaceOption) => {
     setSelectedWorkspace(workspace);
   };
@@ -301,7 +229,6 @@ export const useWorkspaces = () => {
     updateWorkspace,
     deleteWorkspace,
     selectWorkspace,
-    generateInviteLink,
     refreshWorkspaces
   };
 };

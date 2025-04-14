@@ -7,9 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Clipboard, Check, Copy, Trash, Edit, Save, Link, Share2 } from 'lucide-react';
+import { Clipboard, Check, Copy, Trash, Edit, Save, Link, Share2, Mail, Send } from 'lucide-react';
 import { WorkspaceOption } from '@/hooks/useWorkspaces';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 type WorkspaceDetailsDialogProps = {
   isOpen: boolean;
@@ -17,7 +19,6 @@ type WorkspaceDetailsDialogProps = {
   workspace: WorkspaceOption | null;
   onDelete: (id: string) => Promise<boolean>;
   onUpdate: (id: string, updates: Partial<WorkspaceOption>) => Promise<boolean>;
-  onGenerateInviteLink: (id: string) => Promise<string | boolean>;
 };
 
 const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
@@ -25,17 +26,16 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
   onClose,
   workspace,
   onDelete,
-  onUpdate,
-  onGenerateInviteLink
+  onUpdate
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
   const [inviteEnabled, setInviteEnabled] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const { user } = useAuth();
 
   // Reset states when dialog opens
   useEffect(() => {
@@ -44,21 +44,11 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
       setInviteEnabled(workspace.invite_enabled || false);
       setIsEditing(false);
       setIsDeleting(false);
-      setIsCopied(false);
-      setInviteLink(workspace.invite_link || '');
+      setInviteEmail('');
     }
   }, [isOpen, workspace]);
 
   if (!workspace) return null;
-
-  const appUrl = `${window.location.origin}/workspace/${workspace.id}`;
-
-  const handleCopyUrl = (url: string) => {
-    navigator.clipboard.writeText(url);
-    setIsCopied(true);
-    toast.success('Link copied to clipboard!');
-    setTimeout(() => setIsCopied(false), 2000);
-  };
 
   const handleDelete = async () => {
     if (!workspace) return;
@@ -104,24 +94,44 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
     }
   };
 
-  const handleGenerateInviteLink = async () => {
-    if (!workspace) return;
+  const validateEmail = (email: string): boolean => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
+  const sendInvitation = async () => {
+    if (!workspace || !validateEmail(inviteEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
     
-    setIsGeneratingLink(true);
+    setIsSendingInvite(true);
     try {
-      const result = await onGenerateInviteLink(workspace.id);
+      // Call edge function to send invitation
+      const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
+        body: {
+          workspaceId: workspace.id,
+          email: inviteEmail,
+          inviterName: user?.user_metadata?.username || user?.email
+        }
+      });
       
-      if (typeof result === 'string') {
-        setInviteLink(result);
-        toast.success("Invite link generated successfully");
-      } else {
-        toast.error("Failed to generate invite link");
+      if (error) {
+        throw error;
       }
+      
+      toast.success("Invitation sent successfully");
+      setInviteEmail(''); // Clear the input field
     } catch (error) {
-      console.error("Error generating invite link:", error);
-      toast.error("An error occurred while generating the invite link");
+      console.error("Error sending invitation:", error);
+      
+      if (error.message && error.message.includes("already a member")) {
+        toast.error("User is already a member of this workspace");
+      } else {
+        toast.error("Failed to send invitation");
+      }
     } finally {
-      setIsGeneratingLink(false);
+      setIsSendingInvite(false);
     }
   };
 
@@ -186,58 +196,48 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Invite Link
+                Invite via Email
               </label>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex items-center gap-1" 
-                onClick={handleGenerateInviteLink}
-                disabled={isGeneratingLink}
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Input 
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="user@example.com"
+                type="email"
+                className="flex-1"
+                disabled={!inviteEnabled}
+              />
+              <Button 
+                onClick={sendInvitation}
+                disabled={isSendingInvite || !inviteEnabled || !inviteEmail.trim()}
+                className="whitespace-nowrap"
               >
-                {isGeneratingLink ? (
+                {isSendingInvite ? (
                   <>
-                    <Clipboard className="h-4 w-4 animate-spin" />
-                    Generating...
+                    <Mail className="h-4 w-4 mr-2 animate-pulse" />
+                    Sending...
                   </>
                 ) : (
                   <>
-                    <Link className="h-4 w-4" />
-                    Generate Link
+                    <Send className="h-4 w-4 mr-2" />
+                    Send
                   </>
                 )}
               </Button>
             </div>
             
-            {inviteLink ? (
-              <div className="flex items-center space-x-2">
-                <Input 
-                  value={inviteLink}
-                  readOnly 
-                  className="flex-1 bg-gray-50 dark:bg-gray-800 text-sm"
-                />
-                <Button 
-                  size="icon" 
-                  variant="outline" 
-                  onClick={() => handleCopyUrl(inviteLink)}
-                >
-                  {isCopied ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            ) : (
+            {!inviteEnabled && (
               <Alert variant="default" className="bg-muted">
                 <AlertDescription className="text-sm">
-                  Generate an invite link to allow others to join this workspace
+                  Enable workspace invitations to invite users
                 </AlertDescription>
               </Alert>
             )}
             
             <div className="text-xs text-muted-foreground mt-1">
-              Anyone with this link can join your workspace after authentication
+              {inviteEnabled ? "Enter an email address to send an invitation" : ""}
             </div>
           </div>
           

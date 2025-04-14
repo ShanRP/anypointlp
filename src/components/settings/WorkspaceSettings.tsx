@@ -6,22 +6,25 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clipboard, Check } from 'lucide-react';
+import { Edit, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 export const WorkspaceSettings: React.FC = () => {
-  const { selectedWorkspace, updateWorkspace, generateInviteLink, refreshWorkspaces } = useWorkspaces();
+  const { selectedWorkspace, updateWorkspace, refreshWorkspaces } = useWorkspaces();
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
-  const [isCopied, setIsCopied] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
   
   // Reset edited name when workspace changes
   useEffect(() => {
     if (selectedWorkspace) {
       setEditedName(selectedWorkspace.name);
       setIsEditing(false);
-      setIsCopied(false);
     }
   }, [selectedWorkspace]);
   
@@ -67,23 +70,12 @@ export const WorkspaceSettings: React.FC = () => {
   };
 
   const handleInviteToggle = async (checked: boolean) => {
-    let inviteLink = selectedWorkspace.invite_link;
-    
-    // If enabling invites and no link exists, generate one
-    if (checked && !inviteLink) {
-      const generatedLink = await generateInviteLink(selectedWorkspace.id);
-      if (typeof generatedLink === 'string') {
-        inviteLink = generatedLink;
-      }
-    }
-    
     const success = await updateWorkspace(selectedWorkspace.id, {
-      invite_enabled: checked,
-      invite_link: inviteLink
+      invite_enabled: checked
     });
     
     if (success) {
-      toast.success(`Invite link ${checked ? 'enabled' : 'disabled'}`);
+      toast.success(`Invite functionality ${checked ? 'enabled' : 'disabled'}`);
       // Refresh workspaces to ensure UI is updated
       refreshWorkspaces();
     }
@@ -101,15 +93,44 @@ export const WorkspaceSettings: React.FC = () => {
     }
   };
   
-  const copyInviteLink = () => {
-    if (selectedWorkspace.invite_link) {
-      navigator.clipboard.writeText(selectedWorkspace.invite_link);
-      setIsCopied(true);
-      toast.success('Invite link copied to clipboard');
+  const validateEmail = (email: string): boolean => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
+  const sendInvitation = async () => {
+    if (!validateEmail(inviteEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    
+    setIsSendingInvite(true);
+    try {
+      // Call edge function to send invitation
+      const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
+        body: {
+          workspaceId: selectedWorkspace.id,
+          email: inviteEmail,
+          inviterName: user?.user_metadata?.username || user?.email
+        }
+      });
       
-      setTimeout(() => {
-        setIsCopied(false);
-      }, 2000);
+      if (error) {
+        throw error;
+      }
+      
+      toast.success("Invitation sent successfully");
+      setInviteEmail(''); // Clear the input field
+    } catch (error) {
+      console.error("Error sending invitation:", error);
+      
+      if (error.message && error.message.includes("already a member")) {
+        toast.error("User is already a member of this workspace");
+      } else {
+        toast.error("Failed to send invitation");
+      }
+    } finally {
+      setIsSendingInvite(false);
     }
   };
 
@@ -176,11 +197,11 @@ export const WorkspaceSettings: React.FC = () => {
         
         <Separator className="my-8" />
         
-        {/* Enable Invite Link Section */}
+        {/* Invite Users Section */}
         <div className="space-y-4 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-lg font-semibold">Enable Invite Link</h2>
+              <h2 className="text-lg font-semibold">Enable Workspace Invitations</h2>
               <p className="text-sm text-gray-500">Allow others to join this workspace</p>
             </div>
             <Switch 
@@ -189,30 +210,42 @@ export const WorkspaceSettings: React.FC = () => {
             />
           </div>
           
-          {selectedWorkspace.invite_enabled && selectedWorkspace.invite_link && (
+          {selectedWorkspace.invite_enabled && (
             <motion.div 
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="flex items-center mt-4 bg-white dark:bg-gray-700 p-3 rounded-md"
+              className="flex flex-col space-y-4 mt-4"
             >
-              <Input 
-                value={selectedWorkspace.invite_link} 
-                readOnly 
-                className="flex-1 mr-2" 
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={copyInviteLink}
-                className="h-10 w-10"
-              >
-                {isCopied ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Clipboard className="h-4 w-4" />
-                )}
-              </Button>
+              <h3 className="text-md font-medium">Invite User by Email</h3>
+              <div className="flex items-center space-x-2">
+                <Input 
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  type="email"
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={sendInvitation}
+                  disabled={isSendingInvite || !inviteEmail.trim()}
+                >
+                  {isSendingInvite ? (
+                    <span className="flex items-center">
+                      <div className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                      Sending...
+                    </span>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-sm text-gray-500">
+                The user will receive an email with a link to join this workspace.
+              </p>
             </motion.div>
           )}
         </div>
