@@ -70,10 +70,7 @@ const HeroScene = ({ isAnimating = false }) => {
       <pointLight position={[10, 10, 10]} intensity={1} />
       <Stars radius={50} depth={50} count={500} factor={4} fade />
       <FloatingLogo isAnimating={isAnimating} />
-      <OrbitControls
-        autoRotate={isAnimating}
-        autoRotateSpeed={0.5}
-      />
+      <OrbitControls />
     </>
   );
 };
