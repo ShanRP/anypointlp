@@ -111,18 +111,39 @@ const WorkspaceInvite = () => {
         throw new Error('Workspace not found or invitation has been disabled');
       }
       
-      // Add user as member directly with SQL insert
+      // Check if user is already a member (double-check)
+      const { data: existingMember, error: memberCheckError } = await supabase
+        .from('apl_workspace_members')
+        .select('id')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user.id)
+        .single();
+      
+      if (existingMember) {
+        toast.info('You are already a member of this workspace');
+        navigate('/dashboard');
+        return;
+      }
+
+      console.log('Attempting to insert membership record:', {
+        workspace_id: workspaceId,
+        user_id: user.id,
+        role: 'member'
+      });
+      
+      // Add user as member - modified to include better logging and error reporting
       const { data, error: insertError } = await supabase
         .from('apl_workspace_members')
         .insert({
           workspace_id: workspaceId,
           user_id: user.id,
           role: 'member'
-        });
+        })
+        .select();
 
       if (insertError) {
         console.error('Error joining workspace:', insertError);
-        throw insertError;
+        throw new Error(`Failed to join workspace: ${insertError.message}`);
       }
 
       console.log('Successfully joined workspace:', data);

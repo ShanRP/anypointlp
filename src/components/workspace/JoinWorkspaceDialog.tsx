@@ -77,7 +77,7 @@ const JoinWorkspaceDialog: React.FC<JoinWorkspaceDialogProps> = ({
         return;
       }
 
-      // Call the function to add the user to the workspace
+      // Get the current user
       const currentUser = (await supabase.auth.getUser()).data.user;
       
       if (!currentUser?.id) {
@@ -100,6 +100,12 @@ const JoinWorkspaceDialog: React.FC<JoinWorkspaceDialogProps> = ({
         return;
       }
       
+      console.log('Attempting to join workspace:', {
+        workspace_id: workspaceId,
+        user_id: currentUser.id,
+        role: 'member'
+      });
+      
       // Join the workspace
       const { data: memberData, error: memberError } = await supabase
         .from('apl_workspace_members')
@@ -109,16 +115,16 @@ const JoinWorkspaceDialog: React.FC<JoinWorkspaceDialogProps> = ({
             user_id: currentUser.id,
             role: 'member'
           }
-        ])
-        .select();
+        ]);
 
       if (memberError) {
         console.error('Error joining workspace:', memberError);
-        setError('Failed to join workspace');
+        setError(`Failed to join workspace: ${memberError.message}`);
         setIsJoining(false);
         return;
       }
 
+      console.log('Successfully joined workspace:', memberData);
       toast.success(`Successfully joined workspace: ${workspace.name}`);
       onJoinSuccess();
       onClose();
