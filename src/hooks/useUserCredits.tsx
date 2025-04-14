@@ -141,7 +141,7 @@ export const useUserCredits = () => {
 
       setCredits(data as UserCredits);
       
-      // If this is their last credit, show a warning
+      // If this is their last credit, show a warning and open upgrade dialog for non-pro users
       if (newCreditsUsed === proLimit) {
         toast.warning(`You've used your last credit for today. Credits will reset tomorrow.`);
         // Also show upgrade dialog for non-pro users

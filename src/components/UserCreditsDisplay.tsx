@@ -18,8 +18,7 @@ import { toast } from 'sonner';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export function UserCreditsDisplay() {
-  const { credits, loading, refreshCredits } = useUserCredits();
-  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const { credits, loading, refreshCredits, showUpgradeDialog, setShowUpgradeDialog } = useUserCredits();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,7 +79,7 @@ export function UserCreditsDisplay() {
       console.error('Error creating checkout session:', error);
       toast.error('Failed to start checkout process. Please try again.');
     } finally {
-      setIsUpgradeDialogOpen(false);
+      setShowUpgradeDialog(false);
       setIsUpgrading(false);
     }
   };
@@ -107,7 +106,7 @@ export function UserCreditsDisplay() {
       </Badge>
 
       {!isPro() && (
-        <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+        <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="text-xs font-geistSans">
               Upgrade
@@ -136,7 +135,7 @@ export function UserCreditsDisplay() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsUpgradeDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>
                 Cancel
               </Button>
               <Button onClick={handleUpgrade} disabled={isUpgrading}>
