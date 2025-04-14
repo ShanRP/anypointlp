@@ -71,7 +71,13 @@ export const ThreeDContainer: React.FC<ThreeDContainerProps> = ({
   const container = (
     <Canvas ref={canvasRef}>
       <SceneWithAnimationProp />
-      <OrbitControls />
+      <OrbitControls
+        enableZoom={false}
+        enablePan={false}
+        rotateSpeed={0.5}
+        autoRotate={isAnimating}
+        autoRotateSpeed={1}
+      />
     </Canvas>
   );
   
