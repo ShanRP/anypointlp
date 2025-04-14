@@ -38,6 +38,8 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Processing invitation for ${email} to workspace ${workspaceId}`);
+
     // Create Supabase client with service role key
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -56,22 +58,53 @@ serve(async (req) => {
       );
     }
 
-    // Create the invitation in the database
-    const { data: invitation, error: inviteError } = await supabase.rpc(
-      "apl_invite_user_to_workspace",
-      {
-        workspace_id_param: workspaceId,
-        email_param: email
-      }
-    );
+    console.log("Workspace found:", workspace.name);
 
-    if (inviteError || !invitation) {
-      console.error("Error creating invitation:", inviteError);
+    // First check if the user with this email already exists in auth.users
+    const { data: existingUser, error: userCheckError } = await supabase.auth.admin.listUsers({
+      perPage: 1,
+      page: 1,
+      filter: {
+        email: email
+      }
+    });
+
+    if (userCheckError) {
+      console.error("Error checking user existence:", userCheckError);
+    }
+
+    // Create the invitation record directly if needed
+    const { data: inviteData, error: inviteError } = await supabase
+      .from("apl_workspace_invitations")
+      .insert([
+        {
+          workspace_id: workspaceId,
+          email: email,
+          status: "pending",
+          created_by: workspace.user_id // The owner of the workspace
+        }
+      ])
+      .select()
+      .single();
+
+    if (inviteError) {
+      console.error("Error creating invitation record:", inviteError);
+      
+      // Check if it's a unique constraint violation (already invited)
+      if (inviteError.code === '23505') {
+        return new Response(
+          JSON.stringify({ error: "User has already been invited to this workspace" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: inviteError?.message || "Failed to create invitation" }),
+        JSON.stringify({ error: inviteError.message || "Failed to create invitation" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("Invitation record created successfully:", inviteData?.id);
 
     // Generate a magic link using Supabase Auth
     const { data: tokenData, error: tokenError } = await supabase.auth.admin.generateLink({
@@ -90,11 +123,12 @@ serve(async (req) => {
       );
     }
 
-    // Send email using Supabase Auth Admin API
+    console.log("Magic link generated successfully");
+
+    // Send email using Supabase's email service
     const inviteLink = tokenData.properties.action_link;
     const inviterDisplay = inviterName || "A user";
     
-    // Instead of using external SMTP, use Supabase's email service
     const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: inviteLink,
       data: {
@@ -107,10 +141,12 @@ serve(async (req) => {
     if (emailError) {
       console.error("Error sending invitation email:", emailError);
       return new Response(
-        JSON.stringify({ error: "Failed to send invitation email" }),
+        JSON.stringify({ error: "Failed to send invitation email: " + emailError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("Invitation email sent successfully to:", email);
 
     return new Response(
       JSON.stringify({ success: true, message: "Invitation sent successfully" }),
@@ -119,7 +155,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error sending invitation:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || "An unexpected error occurred" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
