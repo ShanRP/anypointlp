@@ -156,9 +156,9 @@ const SettingsPage = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.2 }}
         >
-          <Badge variant="outline" className="text-sm px-3 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/30">
+          {/* <Badge variant="outline" className="text-sm px-3 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/30">
             {selectedWorkspace?.name || 'Personal Workspace'}
-          </Badge>
+          </Badge> */}
         </motion.div>
       </div>
       
