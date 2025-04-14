@@ -12,7 +12,8 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === 'development' && componentTagger(),
+    mode === 'development' &&
+    componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -23,13 +24,5 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       external: ['react-native-web'],
     }
-  },
-  optimizeDeps: {
-    esbuildOptions: {
-      target: 'es2020'
-    }
-  },
-  esbuild: {
-    logOverride: { 'this-is-undefined-in-esm': 'silent' }
   }
 }));

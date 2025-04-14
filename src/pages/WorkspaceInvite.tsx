@@ -27,24 +27,30 @@ const WorkspaceInvite = () => {
       try {
         console.log('Checking workspace with ID:', workspaceId);
         
-        // First check if the workspace exists and has invites enabled
+        // First check if the workspace exists
         const { data: workspaceData, error: workspaceError } = await supabase
           .from('apl_workspaces')
           .select('*')
           .eq('id', workspaceId)
-          .eq('invite_enabled', true)
           .single();
 
         console.log('Workspace query result:', { workspaceData, workspaceError });
 
-        if (workspaceError || !workspaceData) {
+        if (workspaceError) {
           console.error('Error fetching workspace:', workspaceError);
           setError('Workspace not found or invitation link is invalid');
           setLoading(false);
           return;
         }
 
-        console.log('Found workspace with invites enabled:', workspaceData);
+        if (!workspaceData) {
+          console.error('No workspace data found');
+          setError('Workspace not found or invitation link is invalid');
+          setLoading(false);
+          return;
+        }
+
+        console.log('Found workspace:', workspaceData);
         setWorkspace(workspaceData);
 
         // If user is logged in, check if they're already a member
@@ -100,50 +106,18 @@ const WorkspaceInvite = () => {
     try {
       console.log('Joining workspace', { workspaceId, userId: user.id });
       
-      // Check if the workspace still has invites enabled before joining
-      const { data: workspaceData, error: workspaceError } = await supabase
-        .from('apl_workspaces')
-        .select('invite_enabled')
-        .eq('id', workspaceId)
-        .single();
-        
-      if (workspaceError || !workspaceData || !workspaceData.invite_enabled) {
-        throw new Error('Workspace not found or invitation has been disabled');
-      }
-      
-      // Check if user is already a member (double-check)
-      const { data: existingMember, error: memberCheckError } = await supabase
-        .from('apl_workspace_members')
-        .select('id')
-        .eq('workspace_id', workspaceId)
-        .eq('user_id', user.id)
-        .single();
-      
-      if (existingMember) {
-        toast.info('You are already a member of this workspace');
-        navigate('/dashboard');
-        return;
-      }
-
-      console.log('Attempting to insert membership record:', {
-        workspace_id: workspaceId,
-        user_id: user.id,
-        role: 'member'
-      });
-      
-      // Add user as member - modified to include better logging and error reporting
+      // Add user as member directly with SQL insert
       const { data, error: insertError } = await supabase
         .from('apl_workspace_members')
         .insert({
           workspace_id: workspaceId,
           user_id: user.id,
           role: 'member'
-        })
-        .select();
+        });
 
       if (insertError) {
         console.error('Error joining workspace:', insertError);
-        throw new Error(`Failed to join workspace: ${insertError.message}`);
+        throw insertError;
       }
 
       console.log('Successfully joined workspace:', data);
