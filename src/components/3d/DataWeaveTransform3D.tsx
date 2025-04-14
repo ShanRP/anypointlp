@@ -202,13 +202,10 @@ const DataWeaveTransform3D = () => {
       <Canvas ref={canvasRef}>
         <DataWeaveTransformScene isAnimating={isAnimating} />
         <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          rotateSpeed={0.5}
+          /* Remove unsupported props */
           autoRotate={isAnimating}
           autoRotateSpeed={1}
           makeDefault
-          enableDamping
         />
       </Canvas>
     </motion.div>

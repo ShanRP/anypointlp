@@ -76,14 +76,25 @@ const JoinWorkspaceDialog: React.FC<JoinWorkspaceDialogProps> = ({
       }
 
       // Call the function to add the user to the workspace
-      const { data: memberData, error: memberError } = await supabase.rpc(
-        'add_workspace_member',
-        { 
-          workspace_id_param: workspaceId, 
-          user_id_param: (await supabase.auth.getUser()).data.user?.id,
-          role_param: 'member'
-        }
-      );
+      // Instead of using RPC, use the direct table insert approach
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      
+      if (!currentUser?.id) {
+        setError('You must be logged in to join a workspace');
+        setIsJoining(false);
+        return;
+      }
+      
+      const { data: memberData, error: memberError } = await supabase
+        .from('apl_workspace_members')
+        .insert([
+          {
+            workspace_id: workspaceId,
+            user_id: currentUser.id,
+            role: 'member'
+          }
+        ])
+        .select();
 
       if (memberError) {
         console.error('Error joining workspace:', memberError);

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from "framer-motion";
 import { Canvas, useFrame } from "@react-three/fiber";
@@ -72,8 +71,6 @@ const HeroScene = ({ isAnimating = false }) => {
       <Stars radius={50} depth={50} count={500} factor={4} fade />
       <FloatingLogo isAnimating={isAnimating} />
       <OrbitControls
-        enableZoom={false}
-        enablePan={false}
         autoRotate={isAnimating}
         autoRotateSpeed={0.5}
       />
