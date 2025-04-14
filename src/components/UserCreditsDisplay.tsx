@@ -108,9 +108,14 @@ export function UserCreditsDisplay() {
       {!isPro() && (
         <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs font-geistSans">
-              Upgrade
-            </Button>
+          <Button 
+  variant="outline" 
+  size="sm" 
+  className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
+>
+  PRO PLAN
+</Button>
+
           </DialogTrigger>
           <DialogContent className="font-geistSans">
             <DialogHeader>
