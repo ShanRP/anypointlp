@@ -10,13 +10,13 @@ import { motion } from "framer-motion";
 type CreateWorkspaceDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onCreateWorkspace: (name: string) => void;
+  onCreate: (name: string) => Promise<void>;
 };
 
 const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   isOpen,
   onClose,
-  onCreateWorkspace
+  onCreate
 }) => {
   const [workspaceName, setWorkspaceName] = useState('');
   const { t } = useLanguage();
@@ -29,7 +29,7 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       return;
     }
     
-    onCreateWorkspace(workspaceName);
+    onCreate(workspaceName);
     setWorkspaceName('');
     onClose();
   };

@@ -45,6 +45,15 @@ interface SidebarItem {
   expanded?: boolean;
 }
 
+// Dashboard sidebar props
+interface DashboardSidebarProps {
+  onNavigate: (page: string) => void;
+  currentPage: string;
+  onTaskSelect: (taskId: string) => void;
+  selectedWorkspaceId: string | undefined;
+  onWorkspaceChange: (workspace: WorkspaceOption) => void;
+}
+
 // SidebarItem component for rendering individual nav items
 const SidebarItem: React.FC<{
   item: SidebarItem;
@@ -148,7 +157,13 @@ const SubItemsList: React.FC<{
 };
 
 // Main DashboardSidebar component
-export const DashboardSidebar = () => {
+export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
+  onNavigate,
+  currentPage,
+  onTaskSelect,
+  selectedWorkspaceId,
+  onWorkspaceChange
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();

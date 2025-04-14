@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -48,7 +49,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspaces, WorkspaceOption } from "@/hooks/useWorkspaces";
 import { Drawer, DrawerTrigger, DrawerContent } from "@/components/ui/drawer";
-import { CreateWorkspaceDialog } from "@/components/CreateWorkspaceDialog";
+import CreateWorkspaceDialog from "@/components/CreateWorkspaceDialog";
 import WorkspaceDetailsDialog from "@/components/workspace/WorkspaceDetailsDialog";
 import { toast } from "sonner";
 
