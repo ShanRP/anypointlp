@@ -1,506 +1,522 @@
 
-/* 
-  This is the dashboard sidebar component that includes:
-  - User avatar and menu
-  - Workspace selector
-  - Navigation menu
-*/
-
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { 
-  Settings, 
-  LogOut, 
-  Plus,
-  Code,
-  FileJson,
-  PanelLeft,
-  ChevronDown,
-  User,
-  Database,
+import React, { useState, useCallback, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
   FileText,
+  Home,
+  LogOut,
+  Menu,
+  Settings,
+  PlusCircle,
+  ChevronDown,
+  ChevronRight,
+  Check,
+  Users,
+  Database,
+  Layers,
+  LucideIcon,
+  Workflow,
   FileCode,
-  MoreHorizontal
-} from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useAuth } from '@/hooks/useAuth';
-import { useWorkspaces, WorkspaceOption } from '@/hooks/useWorkspaces';
-import { useWorkspaceTasks, WorkspaceTask } from '@/hooks/useWorkspaceTasks';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import CreateWorkspaceDialog from './CreateWorkspaceDialog';
-import WorkspaceDetailsDialog from './workspace/WorkspaceDetailsDialog';
+  BarChart3,
+  MessageSquare,
+  Plus,
+  Cpu,
+  RefreshCw,
+  AlertCircle,
+  HelpCircle,
+  Box,
+  Network,
+  FastForward
+} from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const AppSidebar = () => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
+import { useWorkspaces, WorkspaceOption } from "@/hooks/useWorkspaces";
+import { Drawer, DrawerTrigger, DrawerContent } from "@/components/ui/drawer";
+import { CreateWorkspaceDialog } from "@/components/CreateWorkspaceDialog";
+import WorkspaceDetailsDialog from "@/components/workspace/WorkspaceDetailsDialog";
+import { toast } from "sonner";
+
+// Define sidebar navigation item type
+interface SidebarItem {
+  icon: LucideIcon;
+  name: string;
+  path: string;
+  subitems?: SidebarItem[];
+  expanded?: boolean;
+}
+
+export const AppSidebar = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
+  
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const { 
     workspaces, 
     selectedWorkspace, 
     createWorkspace, 
-    selectWorkspace, 
-    deleteWorkspace,
-    updateWorkspace,
-    generateInviteLink
+    updateWorkspace, 
+    deleteWorkspace, 
+    selectWorkspace,
+    refreshWorkspaces
   } = useWorkspaces();
-  
-  const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
-  const [isWorkspaceDetailsOpen, setIsWorkspaceDetailsOpen] = useState(false);
-  const [selectedWorkspaceForDetails, setSelectedWorkspaceForDetails] = useState<WorkspaceOption | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [mobileWidth, setMobileWidth] = useState(false);
-  const [visibleTasks, setVisibleTasks] = useState<WorkspaceTask[]>([]);
-  
-  const { tasks, loading, error } = useWorkspaceTasks(selectedWorkspace?.id || '');
 
-  // Handle responsive design
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu when route changes
   useEffect(() => {
-    const handleResize = () => {
-      setMobileWidth(window.innerWidth < 1024);
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
-  // Filter tasks for the current workspace
-  useEffect(() => {
-    if (tasks && selectedWorkspace) {
-      // Filter tasks to only include those for the selected workspace
-      const filtered = tasks.filter(task => task.workspace_id === selectedWorkspace.id);
-      setVisibleTasks(filtered);
-    } else {
-      setVisibleTasks([]);
-    }
-  }, [tasks, selectedWorkspace]);
-
+  // Handle sign out
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
+    try {
+      await signOut();
+      navigate("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast.error("Failed to sign out. Please try again.");
+    }
   };
 
+  // Handle workspace creation
   const handleCreateWorkspace = async (name: string) => {
-    await createWorkspace(name);
-    setIsCreateWorkspaceOpen(false);
-  };
-
-  const handleWorkspaceClick = (workspace: WorkspaceOption) => {
-    selectWorkspace(workspace);
-    setIsMobileMenuOpen(false);
-  };
-
-  const handleWorkspaceDetailsClick = (e: React.MouseEvent, workspace: WorkspaceOption) => {
-    e.stopPropagation();
-    setSelectedWorkspaceForDetails(workspace);
-    setIsWorkspaceDetailsOpen(true);
-  };
-
-  const userInitials = user?.email ? user.email.substring(0, 2).toUpperCase() : 'US';
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'dataweave':
-        return <Code className="h-4 w-4" />;
-      case 'integration':
-        return <Code className="h-4 w-4" />;
-      case 'raml':
-        return <Code className="h-4 w-4" />;
-      case 'munit':
-        return <Code className="h-4 w-4" />;
-      case 'sampledata':
-        return <Database className="h-4 w-4" />;
-      case 'document':
-        return <FileText className="h-4 w-4" />;
-      case 'diagram':
-        return <FileCode className="h-4 w-4" />;
-      default:
-        return <FileJson className="h-4 w-4" />;
+    try {
+      await createWorkspace(name);
+      toast.success(`Workspace "${name}" created successfully`);
+      setShowCreateDialog(false);
+    } catch (error) {
+      console.error("Error creating workspace:", error);
+      toast.error("Failed to create workspace");
     }
   };
 
-  const getTaskCategoryName = (category: string) => {
-    switch (category) {
-      case 'dataweave':
-        return 'DataWeave';
-      case 'integration':
-        return 'Integration';
-      case 'raml':
-        return 'RAML';
-      case 'munit':
-        return 'MUnit';
-      case 'sampledata':
-        return 'Sample Data';
-      case 'document':
-        return 'Document';
-      case 'diagram':
-        return 'Diagram';
-      default:
-        return category;
-    }
-  };
+  // Build navigation items
+  const sidebarItems: SidebarItem[] = useMemo(() => [
+    { icon: Home, name: "Home", path: "/dashboard" },
+    {
+      icon: Database,
+      name: "Exchange",
+      path: "/dashboard/exchange",
+      subitems: [
+        { icon: Box, name: "Explore Items", path: "/dashboard/exchange" },
+        { icon: Plus, name: "Publish Item", path: "/dashboard/exchange/publish" },
+      ],
+    },
+    {
+      icon: FileCode,
+      name: "AI Tools",
+      path: "/dashboard/ai-tools",
+      subitems: [
+        { icon: Workflow, name: "Integration Flow", path: "/dashboard/integration" },
+        { icon: Network, name: "API Spec Generator", path: "/dashboard/raml" },
+        { icon: FastForward, name: "DataWeave Transform", path: "/dashboard/dw" },
+        { icon: Cpu, name: "MUnit Test Generator", path: "/dashboard/munit" },
+        { icon: BarChart3, name: "Sample Data Generator", path: "/dashboard/sample-data" },
+        { icon: FileText, name: "Document Generator", path: "/dashboard/document" },
+        { icon: Layers, name: "Diagram Generator", path: "/dashboard/diagram" },
+      ],
+    },
+    { icon: MessageSquare, name: "Help & Feedback", path: "/dashboard/help" },
+    { icon: Settings, name: "Settings", path: "/settings" },
+  ], []);
 
-  // Sidebar content (used both in desktop and mobile views)
-  const sidebarContent = (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* User menu */}
-      <div className="p-4 flex items-center justify-between">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-              <Avatar className="h-10 w-10 border">
-                <AvatarImage src="" />
-                <AvatarFallback className="bg-primary text-white">{userInitials}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link to="/settings" className="cursor-pointer flex items-center">
-                <Settings className="mr-2 h-4 w-4" /> Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer" onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" /> Sign Out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        
-        <Link 
-          to="/dashboard" 
-          className="font-semibold text-primary hidden md:block"
-        >
-          Anypoint LP
-        </Link>
-        
-        {mobileWidth && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <PanelLeft className="h-5 w-5" />
-          </Button>
-        )}
-      </div>
-      
-      {/* Workspace selector */}
-      <div className="px-4 mb-4">
-        <div className="text-xs font-medium uppercase text-muted-foreground mb-2 ml-1">
-          Workspaces
-        </div>
-        <div className="space-y-1">
-          {workspaces.map(workspace => (
-            <Button
-              key={workspace.id}
-              variant={selectedWorkspace?.id === workspace.id ? "secondary" : "ghost"}
-              className="w-full justify-between"
-              onClick={() => handleWorkspaceClick(workspace)}
-            >
-              <div className="flex items-center">
-                <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 text-xs font-semibold">
-                  {workspace.initial}
-                </div>
-                <span className="text-sm font-medium truncate max-w-[120px]">
-                  {workspace.name}
-                </span>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6"
-                onClick={(e) => handleWorkspaceDetailsClick(e, workspace)}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </Button>
-          ))}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="w-full mt-2 text-xs"
-            onClick={() => setIsCreateWorkspaceOpen(true)}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            New Workspace
-          </Button>
-        </div>
-      </div>
-      
-      {/* Navigation */}
-      <ScrollArea className="flex-1">
-        <div className="px-4 py-2">
-          <div className="text-xs font-medium uppercase text-muted-foreground mb-2 ml-1">
-            Dashboard
-          </div>
-          <div className="space-y-1">
-            <Button 
-              variant={location.pathname === '/dashboard' ? "secondary" : "ghost"}
-              className="w-full justify-start text-sm"
-              asChild
-            >
-              <Link to="/dashboard">
-                <FileJson className="mr-2 h-4 w-4" />
-                Data Transformations
-              </Link>
-            </Button>
-            
-            <Button 
-              variant={location.pathname.includes('/dashboard/exchange') ? "secondary" : "ghost"}
-              className="w-full justify-start text-sm"
-              asChild
-            >
-              <Link to="/dashboard/exchange">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
-                  <path d="M3.75 4.5H20.25C20.6642 4.5 21 4.83579 21 5.25V18.75C21 19.1642 20.6642 19.5 20.25 19.5H3.75C3.33579 19.5 3 19.1642 3 18.75V5.25C3 4.83579 3.33579 4.5 3.75 4.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M9 9.75C9 10.5784 8.32843 11.25 7.5 11.25C6.67157 11.25 6 10.5784 6 9.75C6 8.92157 6.67157 8.25 7.5 8.25C8.32843 8.25 9 8.92157 9 9.75Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M15 15.75L11.25 12L8.25 15L6 12.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M13.5 12.75H18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Exchange
-              </Link>
-            </Button>
-            
-            <Button 
-              variant={location.pathname.includes('/dashboard/munit') ? "secondary" : "ghost"}
-              className="w-full justify-start text-sm"
-              asChild
-            >
-              <Link to="/dashboard/munit">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
-                  <path d="M21 7.5V6.75C21 5.50736 19.9926 4.5 18.75 4.5H5.25C4.00736 4.5 3 5.50736 3 6.75V17.25C3 18.4926 4.00736 19.5 5.25 19.5H18.75C19.9926 19.5 21 18.4926 21 17.25V16.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M18 12L21 9M21 9L18 6M21 9H8.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                MUnit Tests
-              </Link>
-            </Button>
-            
-            <Button 
-              variant={location.pathname.includes('/dashboard/sample-data') ? "secondary" : "ghost"}
-              className="w-full justify-start text-sm"
-              asChild
-            >
-              <Link to="/dashboard/sample-data">
-                <Database className="mr-2 h-4 w-4" />
-                Sample Data
-              </Link>
-            </Button>
-            
-            <Button 
-              variant={location.pathname.includes('/dashboard/document') ? "secondary" : "ghost"}
-              className="w-full justify-start text-sm"
-              asChild
-            >
-              <Link to="/dashboard/document">
-                <FileText className="mr-2 h-4 w-4" />
-                Documentation
-              </Link>
-            </Button>
-            
-            <Button 
-              variant={location.pathname.includes('/dashboard/diagram') ? "secondary" : "ghost"}
-              className="w-full justify-start text-sm"
-              asChild
-            >
-              <Link to="/dashboard/diagram">
-                <FileCode className="mr-2 h-4 w-4" />
-                Flow Diagrams
-              </Link>
-            </Button>
-          </div>
-        </div>
-        
-        {selectedWorkspace && visibleTasks.length > 0 && (
-          <div className="mt-4 px-4 py-2">
-            <div className="text-xs font-medium uppercase text-muted-foreground mb-2 ml-1 flex items-center justify-between">
-              <span>Recent Tasks</span>
-              <Badge variant="outline" className="text-xs font-normal">{visibleTasks.length}</Badge>
-            </div>
-            
-            <div className="space-y-1.5">
-              {visibleTasks.slice(0, 10).map(task => (
-                <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Link 
-                    to={`/dashboard/task/${task.task_id}`}
-                    className={cn(
-                      "group flex items-center justify-between w-full rounded-md px-2 py-1.5 text-sm hover:bg-accent/50",
-                      location.pathname === `/dashboard/task/${task.task_id}` ? "bg-accent" : "transparent"
-                    )}
-                  >
-                    <div className="flex items-center max-w-[85%]">
-                      <div className="flex-shrink-0 mr-2 text-muted-foreground">
-                        {getCategoryIcon(task.category)}
-                      </div>
-                      <div className="truncate">
-                        <div className="font-medium truncate">{task.task_name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {getTaskCategoryName(task.category)}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-              
-              {visibleTasks.length > 10 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-xs text-muted-foreground"
-                  asChild
-                >
-                  <Link to="/dashboard">
-                    View all tasks
-                    <ChevronDown className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </ScrollArea>
-      
-      {/* Footer */}
-      <div className="p-4 mt-auto">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          asChild
-        >
-          <Link to="/settings" className="flex items-center justify-center">
-            <Settings className="mr-2 h-3.5 w-3.5" />
-            <span className="text-xs">Settings</span>
-          </Link>
-        </Button>
-      </div>
-    </div>
+  // Create a callback for checking if a path is active
+  const isPathActive = useCallback(
+    (path: string) => {
+      // Handle special case for dashboard root
+      if (path === "/dashboard" && location.pathname === "/dashboard") {
+        return true;
+      }
+      // For other paths, check if the current path starts with the item path
+      // but exclude dashboard root match for other items
+      return (
+        location.pathname.startsWith(path) &&
+        (path !== "/dashboard" || location.pathname === "/dashboard")
+      );
+    },
+    [location.pathname]
   );
 
-  // Desktop sidebar
-  if (!mobileWidth) {
-    return (
-      <>
-        <aside className="w-64 h-screen border-r bg-background flex flex-col">
-          {sidebarContent}
-        </aside>
-        <CreateWorkspaceDialog 
-          isOpen={isCreateWorkspaceOpen}
-          onClose={() => setIsCreateWorkspaceOpen(false)}
-          onCreateWorkspace={handleCreateWorkspace}
-        />
-        <WorkspaceDetailsDialog
-          isOpen={isWorkspaceDetailsOpen}
-          onClose={() => setIsWorkspaceDetailsOpen(false)}
-          workspace={selectedWorkspaceForDetails}
-          onDelete={deleteWorkspace}
-          onUpdate={updateWorkspace}
-          onGenerateInviteLink={generateInviteLink}
-        />
-      </>
-    );
-  }
+  // Get active workspace initial
+  const activeWorkspaceInitial = selectedWorkspace ? selectedWorkspace.initial : "W";
 
-  // Mobile sidebar
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-40 h-14 border-b bg-background px-4 flex items-center">
-        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <PanelLeft className="h-5 w-5" />
-              <span className="sr-only">Toggle menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-[280px]">
-            {sidebarContent}
-          </SheetContent>
-        </Sheet>
-        
-        <Link 
-          to="/dashboard" 
-          className="ml-3 font-semibold text-primary"
+      {/* Mobile menu toggle */}
+      <div className="lg:hidden fixed top-0 left-0 z-40 flex items-center p-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Menu"
         >
-          Anypoint LP
-        </Link>
-        
-        <div className="ml-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 rounded-full">
+          <Menu className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Mobile sidebar drawer */}
+      <Drawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <DrawerContent className="h-[90vh] overflow-y-auto">
+          <div className="p-4 flex flex-col h-full">
+            {/* Mobile Workspace Selector */}
+            <div className="mb-4">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                    disabled={!workspaces.length}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-7 h-7 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-semibold mr-2">
+                        {activeWorkspaceInitial}
+                      </div>
+                      <span className="truncate max-w-[150px]">
+                        {selectedWorkspace?.name || "No Workspace"}
+                      </span>
+                    </div>
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[280px]">
+                  {workspaces.map((workspace) => (
+                    <DropdownMenuItem
+                      key={workspace.id}
+                      onClick={() => selectWorkspace(workspace)}
+                      className="flex items-center justify-between py-2"
+                    >
+                      <div className="flex items-center">
+                        <div className="w-7 h-7 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-semibold mr-2">
+                          {workspace.initial}
+                        </div>
+                        <span className="truncate max-w-[180px]">{workspace.name}</span>
+                      </div>
+                      {selectedWorkspace?.id === workspace.id && (
+                        <Check className="h-4 w-4 text-primary" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Create New Workspace
+                  </DropdownMenuItem>
+                  {selectedWorkspace && (
+                    <DropdownMenuItem onClick={() => setShowDetails(true)}>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Workspace Settings
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Mobile Navigation */}
+            <div className="flex-1 overflow-y-auto">
+              <Accordion
+                type="multiple"
+                defaultValue={sidebarItems
+                  .filter((item) => item.subitems && isPathActive(item.path))
+                  .map((item) => item.path)}
+                className="space-y-1"
+              >
+                {sidebarItems.map((item) => {
+                  const isActive = isPathActive(item.path);
+                  const Icon = item.icon;
+                  
+                  if (item.subitems) {
+                    return (
+                      <AccordionItem
+                        key={item.path}
+                        value={item.path}
+                        className="border-none"
+                      >
+                        <AccordionTrigger
+                          className={`flex items-center p-2 rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                            isActive ? "bg-accent text-accent-foreground" : ""
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <Icon className="h-4 w-4 mr-2" />
+                            <span>{item.name}</span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pl-6 pt-1">
+                          <div className="space-y-1">
+                            {item.subitems.map((subitem) => {
+                              const SubIcon = subitem.icon;
+                              const isSubActive = isPathActive(subitem.path);
+                              return (
+                                <Link
+                                  key={subitem.path}
+                                  to={subitem.path}
+                                  className={`flex items-center p-2 rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                                    isSubActive
+                                      ? "bg-accent text-accent-foreground"
+                                      : ""
+                                  }`}
+                                >
+                                  <SubIcon className="h-4 w-4 mr-2" />
+                                  <span>{subitem.name}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  }
+                  
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center p-2 rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                        isActive ? "bg-accent text-accent-foreground" : ""
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 mr-2" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </Accordion>
+            </div>
+
+            {/* Mobile User Controls */}
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src="" />
+                    <AvatarFallback>
+                      {user?.email?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="overflow-hidden">
+                    <p className="text-sm font-medium truncate">
+                      {user?.email || "User"}
+                    </p>
+                  </div>
+                </div>
+                <ThemeToggle />
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-40 lg:w-72 lg:pb-4 lg:border-r bg-background">
+        <div className="flex flex-col h-full">
+          {/* Workspace selector */}
+          <div className="px-4 py-4 flex justify-between items-center">
+            <DropdownMenu open={showWorkspaceMenu} onOpenChange={setShowWorkspaceMenu}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex-1 justify-between"
+                  disabled={!workspaces.length}
+                >
+                  <div className="flex items-center">
+                    <div className="w-7 h-7 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-semibold mr-2">
+                      {activeWorkspaceInitial}
+                    </div>
+                    <span className="truncate max-w-[150px]">
+                      {selectedWorkspace?.name || "No Workspace"}
+                    </span>
+                  </div>
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[280px]">
+                {workspaces.map((workspace) => (
+                  <DropdownMenuItem
+                    key={workspace.id}
+                    onClick={() => selectWorkspace(workspace)}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <div className="flex items-center">
+                      <div className="w-7 h-7 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-semibold mr-2">
+                        {workspace.initial}
+                      </div>
+                      <span className="truncate max-w-[180px]">{workspace.name}</span>
+                    </div>
+                    {selectedWorkspace?.id === workspace.id && (
+                      <Check className="h-4 w-4 text-primary" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Create New Workspace
+                </DropdownMenuItem>
+                {selectedWorkspace && (
+                  <DropdownMenuItem onClick={() => setShowDetails(true)}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Workspace Settings
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="ghost" size="icon" onClick={() => refreshWorkspaces()} title="Refresh workspaces">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Navigation */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-2 py-3">
+              <Accordion
+                type="multiple"
+                defaultValue={sidebarItems
+                  .filter((item) => item.subitems && isPathActive(item.path))
+                  .map((item) => item.path)}
+                className="space-y-1"
+              >
+                {sidebarItems.map((item) => {
+                  const isActive = isPathActive(item.path);
+                  const Icon = item.icon;
+                  
+                  if (item.subitems) {
+                    return (
+                      <AccordionItem
+                        key={item.path}
+                        value={item.path}
+                        className="border-none"
+                      >
+                        <AccordionTrigger
+                          className={`flex items-center p-2 rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                            isActive ? "bg-accent text-accent-foreground" : ""
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <Icon className="h-4 w-4 mr-2" />
+                            <span>{item.name}</span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pl-6 pt-1">
+                          <div className="space-y-1">
+                            {item.subitems.map((subitem) => {
+                              const SubIcon = subitem.icon;
+                              const isSubActive = isPathActive(subitem.path);
+                              return (
+                                <Link
+                                  key={subitem.path}
+                                  to={subitem.path}
+                                  className={`flex items-center p-2 rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                                    isSubActive
+                                      ? "bg-accent text-accent-foreground"
+                                      : ""
+                                  }`}
+                                >
+                                  <SubIcon className="h-4 w-4 mr-2" />
+                                  <span>{subitem.name}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  }
+                  
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center p-2 rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                        isActive ? "bg-accent text-accent-foreground" : ""
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 mr-2" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </Accordion>
+            </div>
+          </div>
+
+          {/* User controls */}
+          <div className="mt-auto px-4 py-3 border-t">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src="" />
-                  <AvatarFallback className="bg-primary text-white text-xs">{userInitials}</AvatarFallback>
+                  <AvatarFallback>
+                    {user?.email?.charAt(0).toUpperCase() || "U"}
+                  </AvatarFallback>
                 </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user?.email}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {selectedWorkspace?.name || 'No workspace selected'}
+                <div className="overflow-hidden">
+                  <p className="text-sm font-medium truncate">
+                    {user?.email || "User"}
                   </p>
                 </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/settings" className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" /> Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleSignOut}
-                className="cursor-pointer"
-              >
-                <LogOut className="mr-2 h-4 w-4" /> Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </div>
+              <div className="flex gap-1">
+                <ThemeToggle />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSignOut}
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <CreateWorkspaceDialog 
-        isOpen={isCreateWorkspaceOpen}
-        onClose={() => setIsCreateWorkspaceOpen(false)}
-        onCreateWorkspace={handleCreateWorkspace}
+      </aside>
+
+      {/* Create workspace dialog */}
+      <CreateWorkspaceDialog
+        isOpen={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        onCreate={handleCreateWorkspace}
       />
-      
-      <WorkspaceDetailsDialog
-        isOpen={isWorkspaceDetailsOpen}
-        onClose={() => setIsWorkspaceDetailsOpen(false)}
-        workspace={selectedWorkspaceForDetails}
-        onDelete={deleteWorkspace}
-        onUpdate={updateWorkspace}
-        onGenerateInviteLink={generateInviteLink}
-      />
+
+      {/* Workspace details dialog */}
+      {selectedWorkspace && (
+        <WorkspaceDetailsDialog
+          isOpen={showDetails}
+          onClose={() => setShowDetails(false)}
+          workspace={selectedWorkspace}
+          onDelete={deleteWorkspace}
+          onUpdate={updateWorkspace}
+        />
+      )}
     </>
   );
 };
-
-export default AppSidebar;
