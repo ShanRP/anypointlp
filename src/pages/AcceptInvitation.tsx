@@ -83,7 +83,7 @@ const AcceptInvitationPage = () => {
         
         console.log('Successfully accepted invitation:', data);
         
-        // Update invitation status explicitly if the RPC didn't do it
+        // Update invitation status explicitly
         const { error: updateError } = await supabase
           .from('apl_workspace_invitations')
           .update({

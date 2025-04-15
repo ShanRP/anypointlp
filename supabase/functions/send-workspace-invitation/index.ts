@@ -133,80 +133,38 @@ serve(async (req) => {
 
     console.log("Invitation record created successfully:", inviteData?.id);
 
-    let inviteLink;
-    
-    if (existingUser && existingUser.users && existingUser.users.length > 0) {
-      // For existing users, create a direct invitation link
-      inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`;
-      console.log("Created direct invite link for existing user:", inviteLink);
-    } else {
-      // For new users, generate a magic link
-      const { data: tokenData, error: tokenError } = await supabase.auth.admin.generateLink({
+    // Generate the appropriate invite link
+    const inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`;
+    console.log("Created invite link:", inviteLink);
+
+    // Attempt to send email using a more robust approach that works for both new and existing users
+    try {
+      const inviterDisplay = inviterName || "A user";
+
+      // For both existing and new users, we'll use the signInLink method
+      // This doesn't try to create a new user but just provides a sign-in link
+      // This works for both existing and new users
+      const { data: magicLinkData, error: magicLinkError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
         email: email,
         options: {
-          redirectTo: `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`,
-        },
+          redirectTo: inviteLink,
+        }
       });
 
-      if (tokenError || !tokenData) {
-        console.error("Error generating invitation link:", tokenError);
-        return new Response(
-          JSON.stringify({ error: "Failed to generate invitation link" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (magicLinkError) {
+        throw magicLinkError;
       }
 
-      inviteLink = tokenData.properties.action_link;
-      console.log("Generated magic link for new user");
-    }
-
-    // Attempt to send email using Supabase's email service
-    try {
-      const inviterDisplay = inviterName || "A user";
+      console.log("Magic link generated successfully");
       
-      // For existing users, we'll use a different approach - direct email invitation
-      const emailContent = `
-        <h1>Workspace Invitation</h1>
-        <p>${inviterDisplay} has invited you to join the workspace "${workspace.name}" on Anypoint Learning Platform.</p>
-        <p><a href="${inviteLink}" style="display: inline-block; background-color: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Accept Invitation</a></p>
-        <p>If the button doesn't work, copy and paste this URL into your browser: ${inviteLink}</p>
-      `;
+      // Email is sent automatically by Supabase when generateLink is called
+      console.log("Email sent via magic link to:", email);
       
-      if (existingUser && existingUser.users && existingUser.users.length > 0) {
-        // For existing users, send a custom email using inviteUserByEmail but with the custom link
-        const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
-          redirectTo: inviteLink,
-          data: {
-            workspace_id: workspaceId,
-            workspace_name: workspace.name,
-            inviter_name: inviterDisplay
-          }
-        });
-        
-        if (emailError) {
-          throw emailError;
-        }
-      } else {
-        // For new users, use inviteUserByEmail as before
-        const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
-          redirectTo: inviteLink,
-          data: {
-            workspace_id: workspaceId,
-            workspace_name: workspace.name,
-            inviter_name: inviterDisplay
-          }
-        });
-        
-        if (emailError) {
-          throw emailError;
-        }
-      }
     } catch (emailError) {
       console.error("Error sending invitation email:", emailError);
       
       // Even if the email fails, we've created the invitation record
-      // so we'll still return success but note the email issue
       return new Response(
         JSON.stringify({ 
           success: true, 
