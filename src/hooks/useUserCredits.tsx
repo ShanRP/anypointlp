@@ -190,7 +190,7 @@ export const useUserCredits = () => {
   useEffect(() => {
     if (!user) return;
     
-    console.log("Setting up realtime subscription for user credits");
+    // console.log("Setting up realtime subscription for user credits");
     const channel = supabase
       .channel('credits-changes')
       .on(
@@ -210,7 +210,7 @@ export const useUserCredits = () => {
       .subscribe();
       
     return () => {
-      console.log("Cleaning up realtime subscription");
+      // console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
   }, [user]);
