@@ -2,9 +2,32 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
+// Define CORS headers for cross-origin requests
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// Model Context Protocol middleware to securely handle service role key
+const getSecureContext = () => {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const APP_URL = Deno.env.get("APP_URL") || "http://localhost:8080";
+  
+  // Validate required environment variables
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing required environment variables");
+  }
+  
+  // Create Supabase client with service role key
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+  
+  return { supabase, SUPABASE_URL, APP_URL };
 };
 
 serve(async (req) => {
@@ -14,19 +37,9 @@ serve(async (req) => {
   }
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const APP_URL = Deno.env.get("APP_URL") || "http://localhost:8080";
-
-    // Validate required environment variables
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.error("Missing required environment variables");
-      return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    // Get secure context using the Model Context Protocol
+    const { supabase, SUPABASE_URL, APP_URL } = getSecureContext();
+    
     // Parse request
     const { workspaceId, email, inviterName } = await req.json();
 
@@ -39,14 +52,6 @@ serve(async (req) => {
     }
 
     console.log(`Processing invitation for ${email} to workspace ${workspaceId}`);
-
-    // Create Supabase client with service role key
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
 
     // Get the workspace details
     const { data: workspace, error: workspaceError } = await supabase
@@ -160,23 +165,20 @@ serve(async (req) => {
 
     try {
       if (existingUserId) {
-        // For existing users, use a custom email instead of sendEmail (which doesn't exist)
-        console.log("Sending email to existing user using raw email");
+        // For existing users, use the password reset flow (which doesn't require the user to set a password)
+        console.log("Sending email to existing user using password reset flow");
         
-        // Use the createEmailLink method with the service role client to get a magic link
-        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-          type: "magiclink",
-          email: email,
-          options: {
-            redirectTo: inviteLink
-          }
-        });
+        // Send a password reset email with a redirect to the invitation acceptance page
+        const { error: resetError } = await supabase.auth.admin.updateUserById(
+          existingUserId,
+          { email_confirm: true }
+        );
         
-        if (linkError) {
-          throw linkError;
+        if (resetError) {
+          console.error("Error confirming user email:", resetError);
         }
         
-        // Now use the emailPasswordReset function to send a custom email
+        // Now send the reset password email with our custom redirect
         const { error: emailError } = await supabase.auth.resetPasswordForEmail(
           email,
           {
