@@ -1,54 +1,60 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.6';
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Create a Supabase client with the Service Role Key
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
   try {
-    // This endpoint should be restricted to cron jobs or admin access
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing Authorization header' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      );
-    }
-
-    // Execute the reset_user_credits function
-    const { data, error } = await supabase.rpc('reset_user_credits');
+    // Create a Supabase client with the service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
-    if (error) {
-      console.error('Error resetting user credits:', error);
+    if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
-        JSON.stringify({ error: 'Failed to reset credits' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ error: 'Missing environment variables' }),
+        { headers: { 'Content-Type': 'application/json' }, status: 500 }
       );
     }
-
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Get current time
+    const now = new Date();
+    
+    // Reset credits for users whose reset_date has passed
+    const { data, error } = await supabase
+      .from('apl_user_credits')
+      .update({
+        credits_used: 0,
+        reset_date: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1
+        ).toISOString()
+      })
+      .lt('reset_date', now.toISOString())
+      .select();
+      
+    if (error) {
+      console.error('Error resetting credits:', error);
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { headers: { 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ success: true, message: 'User credits reset successfully' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({ 
+        success: true, 
+        message: 'Credits reset successfully',
+        usersAffected: data?.length || 0
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in reset-credits:', error);
+    console.error('Error in reset-credits function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { headers: { 'Content-Type': 'application/json' }, status: 500 }
     );
   }
-});
+})

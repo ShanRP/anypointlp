@@ -1,117 +1,102 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.6';
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+// Create a Supabase client for getting API keys
+const supabaseClient = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Create a Supabase client with the Service Role Key
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
+/**
+ * This is a secure API proxy edge function
+ * Instead of exposing API keys in frontend code, we use this proxy
+ * to make authenticated API requests with server-side keys
+ */
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  // Get the JWT token from the request
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    return new Response(
-      JSON.stringify({ error: 'Missing Authorization header' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-    );
-  }
-
   try {
-    // Extract the token from the header
-    const token = authHeader.replace('Bearer ', '');
+    // Get the request details
+    const url = new URL(req.url);
+    const path = url.searchParams.get("path");
     
-    // Verify the token
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
+    // Authenticate the request
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
-
-    // Get the query parameters
-    const url = new URL(req.url);
-    const path = url.searchParams.get('path');
-
+    
+    // Verify the user is authenticated through Supabase
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid token" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    
     if (!path) {
       return new Response(
-        JSON.stringify({ error: 'Missing path parameter' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ error: "Missing API path" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
-
-    // Get the request body if present
-    let body = null;
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      const contentType = req.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        body = await req.json();
-      } else {
-        body = await req.text();
-      }
-    }
-
-    // Get the API key for the requested API
-    const apiType = path.includes('openai') ? 'OPENAI_API_KEY' : 
-                     path.includes('github') ? 'GITHUB_API_KEY' : 
-                     path.includes('anthropic') ? 'ANTHROPIC_API_KEY' : 
-                     'API_KEY';
-
-    const { data: apiKey, error: apiKeyError } = await supabase.rpc('apl_get_api_key', { key_name: apiType });
     
-    if (apiKeyError || !apiKey) {
-      console.error('Error fetching API key:', apiKeyError);
+    // Determine which API key to use based on the path
+    let apiKeyName = "DEFAULT_API_KEY";
+    if (path.includes("openai")) {
+      apiKeyName = "OPENAI_API_KEY";
+    } else if (path.includes("github")) {
+      apiKeyName = "GITHUB_API_KEY";
+    }
+    
+    // Get the API key from Supabase
+    const { data: apiKey, error: keyError } = await supabaseClient.rpc("get_api_key", { key_name: apiKeyName });
+    
+    if (keyError || !apiKey) {
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve API key' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ error: "Could not retrieve API key" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
-
-    // Prepare request headers
-    const headers = new Headers();
-    headers.set('Content-Type', 'application/json');
     
-    // Set the appropriate Authorization header based on the API type
-    if (apiType === 'OPENAI_API_KEY') {
-      headers.set('Authorization', `Bearer ${apiKey}`);
-    } else if (apiType === 'GITHUB_API_KEY') {
-      headers.set('Authorization', `token ${apiKey}`);
-    } else if (apiType === 'ANTHROPIC_API_KEY') {
-      headers.set('x-api-key', apiKey);
+    // Get the request body, if any
+    let requestBody = null;
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      requestBody = await req.json().catch(() => null);
     }
-
-    // Make the request to the external API
+    
+    // Forward the request to the actual API
     const response = await fetch(path, {
       method: req.method,
-      headers,
-      body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: requestBody ? JSON.stringify(requestBody) : null,
     });
-
-    // Get the response data
+    
+    // Return the API response
     const responseData = await response.json();
-
+    
     return new Response(
       JSON.stringify(responseData),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
+      { 
+        status: response.status, 
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*", 
+        } 
+      }
     );
   } catch (error) {
-    console.error('Error in secure-api-proxy:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 });
