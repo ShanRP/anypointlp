@@ -60,7 +60,7 @@ serve(async (req) => {
 
     console.log("Workspace found:", workspace.name);
 
-    // First check if the user with this email already exists in auth.users
+    // Check if the user already exists
     const { data: existingUser, error: userCheckError } = await supabase.auth.admin.listUsers({
       perPage: 1,
       page: 1,
@@ -73,7 +73,34 @@ serve(async (req) => {
       console.error("Error checking user existence:", userCheckError);
     }
 
-    // Create the invitation record directly if needed
+    let existingUserId = null;
+    if (existingUser && existingUser.users && existingUser.users.length > 0) {
+      existingUserId = existingUser.users[0].id;
+      console.log("User already exists with ID:", existingUserId);
+      
+      // Check if user is already a member of this workspace
+      if (existingUserId) {
+        const { data: membershipCheck, error: membershipError } = await supabase
+          .from("apl_workspace_members")
+          .select("id")
+          .eq("workspace_id", workspaceId)
+          .eq("user_id", existingUserId)
+          .maybeSingle();
+          
+        if (membershipError) {
+          console.error("Error checking workspace membership:", membershipError);
+        }
+        
+        if (membershipCheck) {
+          return new Response(
+            JSON.stringify({ error: "User is already a member of this workspace" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+    // Create the invitation record
     const { data: inviteData, error: inviteError } = await supabase
       .from("apl_workspace_invitations")
       .insert([
@@ -81,7 +108,7 @@ serve(async (req) => {
           workspace_id: workspaceId,
           email: email,
           status: "pending",
-          created_by: workspace.user_id // The owner of the workspace
+          created_by: workspace.user_id
         }
       ])
       .select()
@@ -106,43 +133,92 @@ serve(async (req) => {
 
     console.log("Invitation record created successfully:", inviteData?.id);
 
-    // Generate a magic link using Supabase Auth
-    const { data: tokenData, error: tokenError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: email,
-      options: {
-        redirectTo: `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`,
-      },
-    });
+    let inviteLink;
+    
+    if (existingUser && existingUser.users && existingUser.users.length > 0) {
+      // For existing users, create a direct invitation link
+      inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`;
+      console.log("Created direct invite link for existing user:", inviteLink);
+    } else {
+      // For new users, generate a magic link
+      const { data: tokenData, error: tokenError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: email,
+        options: {
+          redirectTo: `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`,
+        },
+      });
 
-    if (tokenError || !tokenData) {
-      console.error("Error generating invitation link:", tokenError);
-      return new Response(
-        JSON.stringify({ error: "Failed to generate invitation link" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (tokenError || !tokenData) {
+        console.error("Error generating invitation link:", tokenError);
+        return new Response(
+          JSON.stringify({ error: "Failed to generate invitation link" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      inviteLink = tokenData.properties.action_link;
+      console.log("Generated magic link for new user");
     }
 
-    console.log("Magic link generated successfully");
-
-    // Send email using Supabase's email service
-    const inviteLink = tokenData.properties.action_link;
-    const inviterDisplay = inviterName || "A user";
-    
-    const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo: inviteLink,
-      data: {
-        workspace_id: workspaceId,
-        workspace_name: workspace.name,
-        inviter_name: inviterDisplay
+    // Attempt to send email using Supabase's email service
+    try {
+      const inviterDisplay = inviterName || "A user";
+      
+      // For existing users, we'll use a different approach - custom email
+      const emailContent = `
+        <h1>Workspace Invitation</h1>
+        <p>${inviterDisplay} has invited you to join the workspace "${workspace.name}" on Anypoint Learning Platform.</p>
+        <p><a href="${inviteLink}" style="display: inline-block; background-color: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Accept Invitation</a></p>
+        <p>If the button doesn't work, copy and paste this URL into your browser: ${inviteLink}</p>
+      `;
+      
+      // For existing users, we'll use admin.sendEmail instead of inviteUserByEmail
+      if (existingUser && existingUser.users && existingUser.users.length > 0) {
+        const { error: emailError } = await supabase.auth.admin.sendEmail(
+          email,
+          {
+            subject: `You're invited to join ${workspace.name}`,
+            template_name: 'invite',
+            template_values: {
+              content: emailContent,
+              workspace_name: workspace.name,
+              inviter_name: inviterDisplay,
+              url: inviteLink
+            }
+          }
+        );
+        
+        if (emailError) {
+          throw emailError;
+        }
+      } else {
+        // For new users, use inviteUserByEmail as before
+        const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
+          redirectTo: inviteLink,
+          data: {
+            workspace_id: workspaceId,
+            workspace_name: workspace.name,
+            inviter_name: inviterDisplay
+          }
+        });
+        
+        if (emailError) {
+          throw emailError;
+        }
       }
-    });
-
-    if (emailError) {
+    } catch (emailError) {
       console.error("Error sending invitation email:", emailError);
+      
+      // Even if the email fails, we've created the invitation record
+      // so we'll still return success but note the email issue
       return new Response(
-        JSON.stringify({ error: "Failed to send invitation email: " + emailError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          success: true, 
+          warning: "Invitation created but email could not be sent",
+          message: "The invitation has been created, but we couldn't send the email. The user can still access it through the workspace page."
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
