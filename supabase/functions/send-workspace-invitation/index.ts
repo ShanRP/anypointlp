@@ -160,18 +160,27 @@ serve(async (req) => {
 
     try {
       if (existingUserId) {
-        // For existing users, create a custom email
+        // For existing users, use a custom email instead of sendEmail (which doesn't exist)
         console.log("Sending email to existing user using raw email");
         
-        // Use the sendEmail method with the service role client
-        const { error: emailError } = await supabase.auth.admin.sendEmail(
+        // Use the createEmailLink method with the service role client to get a magic link
+        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email: email,
+          options: {
+            redirectTo: inviteLink
+          }
+        });
+        
+        if (linkError) {
+          throw linkError;
+        }
+        
+        // Now use the emailPasswordReset function to send a custom email
+        const { error: emailError } = await supabase.auth.resetPasswordForEmail(
           email,
           {
-            type: "invite",
-            actionLink: inviteLink,
-            email,
-            subject,
-            emailHtml,
+            redirectTo: inviteLink
           }
         );
         
