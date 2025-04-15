@@ -41,7 +41,12 @@ serve(async (req) => {
     console.log(`Processing invitation for ${email} to workspace ${workspaceId}`);
 
     // Create Supabase client with service role key
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
     // Get the workspace details
     const { data: workspace, error: workspaceError } = await supabase
@@ -61,7 +66,7 @@ serve(async (req) => {
     console.log("Workspace found:", workspace.name);
 
     // Check if the user already exists
-    const { data: existingUser, error: userCheckError } = await supabase.auth.admin.listUsers({
+    const { data: existingUsers, error: userCheckError } = await supabase.auth.admin.listUsers({
       perPage: 1,
       page: 1,
       filter: {
@@ -74,8 +79,8 @@ serve(async (req) => {
     }
 
     let existingUserId = null;
-    if (existingUser && existingUser.users && existingUser.users.length > 0) {
-      existingUserId = existingUser.users[0].id;
+    if (existingUsers && existingUsers.users && existingUsers.users.length > 0) {
+      existingUserId = existingUsers.users[0].id;
       console.log("User already exists with ID:", existingUserId);
       
       // Check if user is already a member of this workspace
@@ -137,29 +142,64 @@ serve(async (req) => {
     const inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`;
     console.log("Created invite link:", inviteLink);
 
-    // Attempt to send email using a more robust approach that works for both new and existing users
+    const inviterDisplay = inviterName || "A user";
+    const subject = `Invitation to join workspace "${workspace.name}"`;
+    const emailHtml = `
+      <h1>Workspace Invitation</h1>
+      <p>${inviterDisplay} has invited you to join the workspace "${workspace.name}".</p>
+      <p>Click the button below to accept the invitation:</p>
+      <p>
+        <a href="${inviteLink}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
+          Accept Invitation
+        </a>
+      </p>
+      <p>If the button doesn't work, copy and paste this URL into your browser:</p>
+      <p>${inviteLink}</p>
+      <p>This invitation will expire in 7 days.</p>
+    `;
+
     try {
-      const inviterDisplay = inviterName || "A user";
-
-      // For both existing and new users, we'll use the signInLink method
-      // This doesn't try to create a new user but just provides a sign-in link
-      // This works for both existing and new users
-      const { data: magicLinkData, error: magicLinkError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: email,
-        options: {
-          redirectTo: inviteLink,
+      if (existingUserId) {
+        // For existing users, create a custom email
+        console.log("Sending email to existing user using raw email");
+        
+        // Use the sendEmail method with the service role client
+        const { error: emailError } = await supabase.auth.admin.sendEmail(
+          email,
+          {
+            type: "invite",
+            actionLink: inviteLink,
+            email,
+            subject,
+            emailHtml,
+          }
+        );
+        
+        if (emailError) {
+          throw emailError;
         }
-      });
-
-      if (magicLinkError) {
-        throw magicLinkError;
+      } else {
+        // For new users, use invite user
+        console.log("Inviting new user with email invite");
+        
+        const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+          email,
+          {
+            redirectTo: inviteLink,
+            data: {
+              workspace_id: workspaceId,
+              workspace_name: workspace.name,
+              inviter_name: inviterDisplay
+            }
+          }
+        );
+        
+        if (inviteError) {
+          throw inviteError;
+        }
       }
-
-      console.log("Magic link generated successfully");
       
-      // Email is sent automatically by Supabase when generateLink is called
-      console.log("Email sent via magic link to:", email);
+      console.log("Invitation email sent successfully to:", email);
       
     } catch (emailError) {
       console.error("Error sending invitation email:", emailError);
@@ -174,8 +214,6 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    console.log("Invitation email sent successfully to:", email);
 
     return new Response(
       JSON.stringify({ success: true, message: "Invitation sent successfully" }),
