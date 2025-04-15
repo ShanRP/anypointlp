@@ -72,36 +72,23 @@ const AcceptInvitationPage = () => {
         console.log('Found valid invitation:', invitationData.id);
         setInvitationId(invitationData.id);
         
-        // Accept the invitation and add user to workspace
-        const { data, error } = await supabase.rpc('apl_accept_workspace_invitation', {
-          workspace_id_param: workspaceId,
-          user_id_param: user.id
-        });
-        
-        if (error) {
-          console.error('Error accepting invitation:', error);
-          throw error;
-        }
-        
-        console.log('Successfully accepted invitation:', data);
-        
-        // If the RPC function failed silently, ensure we add the user manually
-        // This is a backup in case the RPC didn't work
-        const { error: membershipCheckError, data: membershipExists } = await supabase
+        // Step 1: First check if the user is already a member
+        const { data: existingMembership, error: membershipError } = await supabase
           .from('apl_workspace_members')
           .select('id')
           .eq('workspace_id', workspaceId)
           .eq('user_id', user.id)
           .maybeSingle();
           
-        if (membershipCheckError) {
-          console.error('Error checking workspace membership:', membershipCheckError);
+        if (membershipError) {
+          console.error('Error checking membership:', membershipError);
         }
         
-        // If the user is not yet a member, add them directly
-        if (!membershipExists) {
-          console.log('Adding user to workspace manually as backup...');
+        // If user is not already a member, add them
+        if (!existingMembership) {
+          console.log('User is not a member yet, adding them to workspace');
           
+          // Add the user as a member directly
           const { error: addMemberError } = await supabase
             .from('apl_workspace_members')
             .insert({
@@ -111,12 +98,14 @@ const AcceptInvitationPage = () => {
             });
             
           if (addMemberError) {
-            console.error('Error manually adding member:', addMemberError);
+            console.error('Error adding member:', addMemberError);
             throw new Error('Failed to add you to the workspace');
           }
+        } else {
+          console.log('User is already a member of this workspace');
         }
         
-        // Update invitation status explicitly
+        // Step 2: Update the invitation status
         const { error: updateError } = await supabase
           .from('apl_workspace_invitations')
           .update({
@@ -131,7 +120,7 @@ const AcceptInvitationPage = () => {
           // Don't throw error here, as the membership has been created already
         }
         
-        // Make sure to refresh workspaces list
+        // Refresh the workspaces list to include the newly added workspace
         await refreshWorkspaces();
         toast.success(`You've been added to the workspace: ${workspace.name}`);
         
