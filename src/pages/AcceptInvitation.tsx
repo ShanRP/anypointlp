@@ -9,6 +9,7 @@ import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CustomButton } from '@/components/ui/CustomButton';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { toast } from 'sonner';
 
 const AcceptInvitationPage = () => {
   const [searchParams] = useSearchParams();
@@ -82,8 +83,24 @@ const AcceptInvitationPage = () => {
         
         console.log('Successfully accepted invitation:', data);
         
+        // Update invitation status explicitly if the RPC didn't do it
+        const { error: updateError } = await supabase
+          .from('apl_workspace_invitations')
+          .update({
+            status: 'accepted',
+            accepted_at: new Date().toISOString(),
+            accepted_by: user.id
+          })
+          .eq('id', invitationData.id);
+          
+        if (updateError) {
+          console.error('Error updating invitation status:', updateError);
+          // Don't throw error here, as the membership has been created already
+        }
+        
         // Make sure to refresh workspaces list
-        refreshWorkspaces();
+        await refreshWorkspaces();
+        toast.success(`You've been added to the workspace: ${workspace.name}`);
         
         setStatus('accepted');
       } catch (error) {

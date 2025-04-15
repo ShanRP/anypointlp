@@ -165,7 +165,7 @@ serve(async (req) => {
     try {
       const inviterDisplay = inviterName || "A user";
       
-      // For existing users, we'll use a different approach - custom email
+      // For existing users, we'll use a different approach - direct email invitation
       const emailContent = `
         <h1>Workspace Invitation</h1>
         <p>${inviterDisplay} has invited you to join the workspace "${workspace.name}" on Anypoint Learning Platform.</p>
@@ -173,21 +173,16 @@ serve(async (req) => {
         <p>If the button doesn't work, copy and paste this URL into your browser: ${inviteLink}</p>
       `;
       
-      // For existing users, we'll use admin.sendEmail instead of inviteUserByEmail
       if (existingUser && existingUser.users && existingUser.users.length > 0) {
-        const { error: emailError } = await supabase.auth.admin.sendEmail(
-          email,
-          {
-            subject: `You're invited to join ${workspace.name}`,
-            template_name: 'invite',
-            template_values: {
-              content: emailContent,
-              workspace_name: workspace.name,
-              inviter_name: inviterDisplay,
-              url: inviteLink
-            }
+        // For existing users, send a custom email using inviteUserByEmail but with the custom link
+        const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
+          redirectTo: inviteLink,
+          data: {
+            workspace_id: workspaceId,
+            workspace_name: workspace.name,
+            inviter_name: inviterDisplay
           }
-        );
+        });
         
         if (emailError) {
           throw emailError;

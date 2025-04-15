@@ -217,8 +217,10 @@ export const useWorkspaces = () => {
   };
 
   // Manually refetch workspaces (useful when we need to refresh the list)
-  const refreshWorkspaces = () => {
+  const refreshWorkspaces = async () => {
+    console.log('Refreshing workspaces...');
     setFetchComplete(false); // This will trigger a refetch in the useEffect
+    return fetchWorkspaces(); // Return the promise for cases where we want to await the refresh
   };
 
   return {
