@@ -24,15 +24,23 @@ const AcceptInvitationPage = () => {
   const workspaceId = searchParams.get('workspaceId');
 
   useEffect(() => {
+    console.log("AcceptInvitationPage mounted with workspaceId:", workspaceId);
+    console.log("User:", user);
+    
     const acceptInvitation = async () => {
-      if (loading) return;
+      if (loading) {
+        console.log("Auth is still loading, waiting...");
+        return;
+      }
       
       if (!user) {
+        console.log("No authenticated user found, setting unauthorized status");
         setStatus('unauthorized');
         return;
       }
       
       if (!workspaceId) {
+        console.log("No workspaceId found in URL params");
         setStatus('error');
         setErrorMessage('Invalid invitation link. Missing workspace ID.');
         return;
@@ -53,6 +61,7 @@ const AcceptInvitationPage = () => {
           throw new Error('Workspace not found');
         }
         
+        console.log('Found workspace:', workspace.name);
         setWorkspaceName(workspace.name);
         
         // Check if invitation exists for user's email
@@ -66,7 +75,20 @@ const AcceptInvitationPage = () => {
           
         if (invitationError || !invitationData) {
           console.error('Invitation not found:', invitationError);
-          throw new Error('Invitation not found or already used');
+          
+          // Check if there's any invitation regardless of status
+          const { data: anyInvitation } = await supabase
+            .from('apl_workspace_invitations')
+            .select('status')
+            .eq('workspace_id', workspaceId)
+            .eq('email', user.email)
+            .single();
+            
+          if (anyInvitation && anyInvitation.status === 'accepted') {
+            throw new Error('Invitation has already been accepted');
+          } else {
+            throw new Error('Invitation not found or expired');
+          }
         }
         
         console.log('Found valid invitation:', invitationData.id);
@@ -101,6 +123,41 @@ const AcceptInvitationPage = () => {
             console.error('Error adding member:', addMemberError);
             throw new Error('Failed to add you to the workspace');
           }
+          
+          // Duplicate the workspace for this user
+          console.log('Creating a workspace record for the invited user');
+          
+          // First get the original workspace details for replication
+          const { data: sourceWorkspace, error: sourceWorkspaceError } = await supabase
+            .from('apl_workspaces')
+            .select('name, initial, session_timeout, invite_enabled')
+            .eq('id', workspaceId)
+            .single();
+            
+          if (sourceWorkspaceError) {
+            console.error('Error fetching source workspace:', sourceWorkspaceError);
+          } else {
+            // Create a new workspace record for this user that references the same workspace
+            const { error: workspaceCreateError } = await supabase
+              .from('apl_workspaces')
+              .insert({
+                id: workspaceId, // Use the same ID to ensure it's the same workspace
+                user_id: user.id, // But assign to the invited user
+                name: sourceWorkspace.name,
+                initial: sourceWorkspace.initial,
+                session_timeout: sourceWorkspace.session_timeout,
+                invite_enabled: sourceWorkspace.invite_enabled,
+                is_invited_workspace: true // Flag to indicate this is a shared workspace record
+              });
+              
+            if (workspaceCreateError) {
+              // This error may occur if the workspace already exists for the user, which is fine
+              console.error('Error creating workspace record:', workspaceCreateError);
+              console.log('This error might be expected if the workspace record already exists');
+            } else {
+              console.log('Successfully created workspace record for invited user');
+            }
+          }
         } else {
           console.log('User is already a member of this workspace');
         }
@@ -121,6 +178,7 @@ const AcceptInvitationPage = () => {
         }
         
         // Refresh the workspaces list to include the newly added workspace
+        console.log('Refreshing workspaces list...');
         await refreshWorkspaces();
         toast.success(`You've been added to the workspace: ${workspace.name}`);
         
