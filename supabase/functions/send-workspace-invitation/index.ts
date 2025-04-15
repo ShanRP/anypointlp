@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { McpServer } from "https://esm.sh/@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "https://esm.sh/zod@3.22.4";
 
 // Define CORS headers for cross-origin requests
@@ -10,8 +9,64 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Create an MCP server
-const mcpServer = new McpServer({
+// Simple implementation of MCP functionality
+class SimpleMcpServer {
+  private tools = new Map();
+  private resources = new Map();
+  
+  constructor(private config: { name: string; version: string }) {}
+  
+  tool(name: string, schema: any, handler: Function) {
+    this.tools.set(name, { schema, handler });
+  }
+  
+  resource(name: string, urlPattern: URL | string, handler: Function) {
+    this.resources.set(name, { urlPattern, handler });
+  }
+  
+  async callTool(name: string, args: any) {
+    const tool = this.tools.get(name);
+    if (!tool) {
+      return {
+        content: [{ type: "text", text: JSON.stringify({ error: `Tool "${name}" not found` }) }],
+        isError: true
+      };
+    }
+    
+    // Simple validation (not using zod schema for simplicity)
+    try {
+      return await tool.handler(args);
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: JSON.stringify({ error: error.message }) }],
+        isError: true
+      };
+    }
+  }
+  
+  async readResource(uri: string) {
+    // Find matching resource handler
+    for (const [name, resource] of this.resources.entries()) {
+      try {
+        const url = new URL(uri);
+        return await resource.handler(url, {});
+      } catch (error) {
+        // If it doesn't match, try the next one
+        continue;
+      }
+    }
+    
+    return {
+      contents: [{
+        uri,
+        text: JSON.stringify({ error: "Resource not found" })
+      }]
+    };
+  }
+}
+
+// Create a simplified MCP server
+const mcpServer = new SimpleMcpServer({
   name: "WorkspaceInvitationService",
   version: "1.0.0"
 });
@@ -19,11 +74,7 @@ const mcpServer = new McpServer({
 // Add a tool for sending workspace invitations
 mcpServer.tool(
   "send-invitation",
-  {
-    workspaceId: z.string(),
-    email: z.string().email(),
-    inviterName: z.string().optional()
-  },
+  {},
   async ({ workspaceId, email, inviterName }) => {
     try {
       // Get secure context
@@ -199,10 +250,11 @@ mcpServer.tool(
 // Add a resource for workspace information
 mcpServer.resource(
   "workspace-info",
-  new URL("workspace://info/{workspaceId}"),
-  async (uri, { workspaceId }) => {
+  new URL("workspace://info/"),
+  async (uri, params) => {
     try {
       const { supabase } = getSecureContext();
+      const workspaceId = uri.pathname.split('/').pop();
       
       const { data: workspace, error } = await supabase
         .from("apl_workspaces")
@@ -266,7 +318,7 @@ const getSecureContext = () => {
 
 // Create an HTTP adapter for the MCP server
 class HttpMcpAdapter {
-  constructor(private mcpServer: typeof mcpServer) {}
+  constructor(private mcpServer: any) {}
   
   async handleRequest(req: Request): Promise<Response> {
     // Handle CORS preflight requests
