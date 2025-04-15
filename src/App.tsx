@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -53,6 +54,7 @@ const App = () => (
                   {/* Workspace invite routes */}
                   <Route path="/workspace/:workspaceId" element={<WorkspaceInvite />} />
                   <Route path="/invite/:workspaceId" element={<WorkspaceInvite />} />
+                  <Route path="/workspace/accept-invitation" element={<AcceptInvitation />} />
                   
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />

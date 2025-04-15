@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CustomButton } from '@/components/ui/CustomButton';
+import { useWorkspaces } from '@/hooks/useWorkspaces';
 
 const AcceptInvitationPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { refreshWorkspaces } = useWorkspaces();
   const [status, setStatus] = useState<'loading' | 'accepted' | 'error' | 'unauthorized'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [workspaceName, setWorkspaceName] = useState<string>('');
@@ -35,6 +37,8 @@ const AcceptInvitationPage = () => {
       }
       
       try {
+        console.log('Accepting invitation for workspace:', workspaceId, 'User:', user.id);
+        
         // Get workspace details first
         const { data: workspace, error: workspaceError } = await supabase
           .from('apl_workspaces')
@@ -43,10 +47,27 @@ const AcceptInvitationPage = () => {
           .single();
         
         if (workspaceError) {
+          console.error('Workspace not found:', workspaceError);
           throw new Error('Workspace not found');
         }
         
         setWorkspaceName(workspace.name);
+        
+        // Check if invitation exists for user's email
+        const { data: invitationData, error: invitationError } = await supabase
+          .from('apl_workspace_invitations')
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .eq('email', user.email)
+          .eq('status', 'pending')
+          .single();
+          
+        if (invitationError || !invitationData) {
+          console.error('Invitation not found:', invitationError);
+          throw new Error('Invitation not found or already used');
+        }
+        
+        console.log('Found valid invitation:', invitationData.id);
         
         // Accept the invitation
         const { data, error } = await supabase.rpc('apl_accept_workspace_invitation', {
@@ -55,8 +76,14 @@ const AcceptInvitationPage = () => {
         });
         
         if (error) {
+          console.error('Error accepting invitation:', error);
           throw error;
         }
+        
+        console.log('Successfully accepted invitation:', data);
+        
+        // Make sure to refresh workspaces list
+        refreshWorkspaces();
         
         setStatus('accepted');
       } catch (error) {
@@ -67,7 +94,7 @@ const AcceptInvitationPage = () => {
     };
     
     acceptInvitation();
-  }, [workspaceId, user, loading, navigate]);
+  }, [workspaceId, user, loading, navigate, refreshWorkspaces]);
   
   const renderContent = () => {
     switch (status) {

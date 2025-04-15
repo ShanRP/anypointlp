@@ -19,6 +19,10 @@ const AuthCallback = () => {
                              searchParams.get('type') === 'signup' || 
                              searchParams.get('type') === 'recovery';
 
+  // Check if this is a workspace invitation callback
+  const workspaceId = searchParams.get('workspaceId');
+  const isWorkspaceInvitation = !!workspaceId;
+
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
@@ -82,12 +86,31 @@ const AuthCallback = () => {
         
         if (!data.session) {
           console.error('No session found');
+          
+          // If this is a workspace invitation but no session, redirect to auth with return URL
+          if (isWorkspaceInvitation) {
+            console.log('Workspace invitation detected, redirecting to auth with return URL');
+            navigate(`/auth`, { 
+              replace: true,
+              state: { returnUrl: `/workspace/accept-invitation?workspaceId=${workspaceId}` }
+            });
+            return;
+          }
+          
           setError('No session found. Please try logging in again.');
           navigate('/auth', { replace: true });
           return;
         }
         
         console.log('Authentication successful', data.session);
+        
+        // If this is a workspace invitation, redirect to accept invitation page
+        if (isWorkspaceInvitation) {
+          console.log('Redirecting to accept invitation page with workspaceId:', workspaceId);
+          navigate(`/workspace/accept-invitation?workspaceId=${workspaceId}`, { replace: true });
+          return;
+        }
+        
         navigate('/dashboard', { replace: true });
       } catch (error) {
         console.error('Error during auth callback:', error);
@@ -99,7 +122,7 @@ const AuthCallback = () => {
     };
 
     handleAuthCallback();
-  }, [navigate, toast, isEmailVerification, searchParams, location.pathname]);
+  }, [navigate, toast, isEmailVerification, isWorkspaceInvitation, workspaceId, searchParams, location.pathname]);
 
   // Show a loading indicator while processing
   return (
