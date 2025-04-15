@@ -113,7 +113,7 @@ export function UserCreditsDisplay() {
   size="sm" 
   className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
 >
-  PRO PLAN
+  Updrade
 </Button>
 
           </DialogTrigger>
