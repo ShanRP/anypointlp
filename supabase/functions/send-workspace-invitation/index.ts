@@ -1,412 +1,172 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { z } from "https://esm.sh/zod@3.22.4";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.6';
+import { Resend } from 'npm:resend@2.0.0';
 
-// Define CORS headers for cross-origin requests
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const resendApiKey = Deno.env.get('RESEND_API_KEY') || '';
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple implementation of MCP functionality
-class SimpleMcpServer {
-  private tools = new Map();
-  private resources = new Map();
-  
-  constructor(private config: { name: string; version: string }) {}
-  
-  tool(name: string, schema: any, handler: Function) {
-    this.tools.set(name, { schema, handler });
+// Create a Supabase client with the Service Role Key
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Initialize Resend
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
-  
-  resource(name: string, urlPattern: URL | string, handler: Function) {
-    this.resources.set(name, { urlPattern, handler });
+
+  // Get the JWT token from the request
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(
+      JSON.stringify({ error: 'Missing Authorization header' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+    );
   }
-  
-  async callTool(name: string, args: any) {
-    const tool = this.tools.get(name);
-    if (!tool) {
-      return {
-        content: [{ type: "text", text: JSON.stringify({ error: `Tool "${name}" not found` }) }],
-        isError: true
-      };
-    }
+
+  try {
+    // Extract the token from the header
+    const token = authHeader.replace('Bearer ', '');
     
-    // Simple validation (not using zod schema for simplicity)
-    try {
-      return await tool.handler(args);
-    } catch (error) {
-      return {
-        content: [{ type: "text", text: JSON.stringify({ error: error.message }) }],
-        isError: true
-      };
-    }
-  }
-  
-  async readResource(uri: string) {
-    // Find matching resource handler
-    for (const [name, resource] of this.resources.entries()) {
-      try {
-        const url = new URL(uri);
-        return await resource.handler(url, {});
-      } catch (error) {
-        // If it doesn't match, try the next one
-        continue;
-      }
-    }
+    // Verify the token
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
-    return {
-      contents: [{
-        uri,
-        text: JSON.stringify({ error: "Resource not found" })
-      }]
-    };
-  }
-}
-
-// Create a simplified MCP server
-const mcpServer = new SimpleMcpServer({
-  name: "WorkspaceInvitationService",
-  version: "1.0.0"
-});
-
-// Add a tool for sending workspace invitations
-mcpServer.tool(
-  "send-invitation",
-  {},
-  async ({ workspaceId, email, inviterName }) => {
-    try {
-      // Get secure context
-      const { supabase, APP_URL } = getSecureContext();
-      
-      // Get the workspace details
-      const { data: workspace, error: workspaceError } = await supabase
-        .from("apl_workspaces")
-        .select("name, user_id")
-        .eq("id", workspaceId)
-        .single();
-
-      if (workspaceError || !workspace) {
-        console.error("Error fetching workspace:", workspaceError);
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: "Workspace not found" }) }],
-          isError: true
-        };
-      }
-
-      console.log("Workspace found:", workspace.name);
-
-      // Check if the user already exists
-      const { data: existingUsers, error: userCheckError } = await supabase.auth.admin.listUsers({
-        perPage: 1,
-        page: 1,
-        filter: {
-          email: email
-        }
-      });
-
-      if (userCheckError) {
-        console.error("Error checking user existence:", userCheckError);
-      }
-
-      let existingUserId = null;
-      if (existingUsers && existingUsers.users && existingUsers.users.length > 0) {
-        existingUserId = existingUsers.users[0].id;
-        console.log("User already exists with ID:", existingUserId);
-        
-        // Check if user is already a member of this workspace
-        if (existingUserId) {
-          const { data: membershipCheck, error: membershipError } = await supabase
-            .from("apl_workspace_members")
-            .select("id")
-            .eq("workspace_id", workspaceId)
-            .eq("user_id", existingUserId)
-            .maybeSingle();
-            
-          if (membershipError) {
-            console.error("Error checking workspace membership:", membershipError);
-          }
-          
-          if (membershipCheck) {
-            return {
-              content: [{ type: "text", text: JSON.stringify({ error: "User is already a member of this workspace" }) }],
-              isError: true
-            };
-          }
-        }
-      }
-
-      // Create the invitation record
-      const { data: inviteData, error: inviteError } = await supabase
-        .from("apl_workspace_invitations")
-        .insert([
-          {
-            workspace_id: workspaceId,
-            email: email,
-            status: "pending",
-            created_by: workspace.user_id
-          }
-        ])
-        .select()
-        .single();
-
-      if (inviteError) {
-        console.error("Error creating invitation record:", inviteError);
-        
-        // Check if it's a unique constraint violation (already invited)
-        if (inviteError.code === '23505') {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ error: "User has already been invited to this workspace" }) }],
-            isError: true
-          };
-        }
-        
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: inviteError.message || "Failed to create invitation" }) }],
-          isError: true
-        };
-      }
-
-      console.log("Invitation record created successfully:", inviteData?.id);
-
-      // Generate the appropriate invite link
-      const inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`;
-      console.log("Created invite link:", inviteLink);
-
-      const inviterDisplay = inviterName || "A user";
-      const subject = `Invitation to join workspace "${workspace.name}"`;
-      const emailHtml = `
-        <h1>Workspace Invitation</h1>
-        <p>${inviterDisplay} has invited you to join the workspace "${workspace.name}".</p>
-        <p>Click the button below to accept the invitation:</p>
-        <p>
-          <a href="${inviteLink}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
-            Accept Invitation
-          </a>
-        </p>
-        <p>If the button doesn't work, copy and paste this URL into your browser:</p>
-        <p>${inviteLink}</p>
-        <p>This invitation will expire in 7 days.</p>
-      `;
-
-      try {
-        // Use inviteUserByEmail for all users (both new and existing)
-        console.log("Sending invitation email to:", email);
-        
-        const { data, error: emailError } = await supabase.auth.admin.inviteUserByEmail(
-          email,
-          {
-            redirectTo: inviteLink,
-            data: {
-              workspace_id: workspaceId,
-              workspace_name: workspace.name,
-              inviter_name: inviterDisplay
-            }
-          }
-        );
-        
-        if (emailError) {
-          throw emailError;
-        }
-        
-        console.log("Invitation email sent successfully to:", email);
-        
-        return {
-          content: [{ 
-            type: "text", 
-            text: JSON.stringify({ 
-              success: true, 
-              message: "Invitation sent successfully" 
-            }) 
-          }]
-        };
-        
-      } catch (emailError) {
-        console.error("Error sending invitation email:", emailError);
-        
-        // Even if the email fails, we've created the invitation record
-        return {
-          content: [{ 
-            type: "text", 
-            text: JSON.stringify({ 
-              success: true, 
-              warning: "Invitation created but email could not be sent",
-              message: "The invitation has been created, but we couldn't send the email. The user can still access it through the workspace page."
-            }) 
-          }]
-        };
-      }
-    } catch (error) {
-      console.error("Error sending invitation:", error);
-      return {
-        content: [{ type: "text", text: JSON.stringify({ error: error.message || "An unexpected error occurred" }) }],
-        isError: true
-      };
-    }
-  }
-);
-
-// Add a resource for workspace information
-mcpServer.resource(
-  "workspace-info",
-  new URL("workspace://info/"),
-  async (uri, params) => {
-    try {
-      const { supabase } = getSecureContext();
-      const workspaceId = uri.pathname.split('/').pop();
-      
-      const { data: workspace, error } = await supabase
-        .from("apl_workspaces")
-        .select("id, name, created_at")
-        .eq("id", workspaceId)
-        .single();
-        
-      if (error || !workspace) {
-        return {
-          contents: [{
-            uri: uri.href,
-            text: JSON.stringify({ error: "Workspace not found" })
-          }]
-        };
-      }
-      
-      return {
-        contents: [{
-          uri: uri.href,
-          text: JSON.stringify(workspace)
-        }]
-      };
-    } catch (error) {
-      return {
-        contents: [{
-          uri: uri.href,
-          text: JSON.stringify({ error: error.message || "An unexpected error occurred" })
-        }]
-      };
-    }
-  }
-);
-
-// Model Context Protocol middleware to securely handle service role key
-const getSecureContext = () => {
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const APP_URL = Deno.env.get("APP_URL") || "http://localhost:8080";
-  
-  // Validate required environment variables
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Missing required environment variables");
-  }
-  
-  // Create Supabase client with service role key
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-  
-  return { 
-    supabase, 
-    SUPABASE_URL, 
-    APP_URL,
-    timestamp: new Date().toISOString(),
-    environment: Deno.env.get("ENVIRONMENT") || "development"
-  };
-};
-
-// Create an HTTP adapter for the MCP server
-class HttpMcpAdapter {
-  constructor(private mcpServer: any) {}
-  
-  async handleRequest(req: Request): Promise<Response> {
-    // Handle CORS preflight requests
-    if (req.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
-    }
-    
-    try {
-      const body = await req.json();
-      
-      if (body.type === "tool") {
-        const { name, arguments: args } = body;
-        
-        // Call the MCP tool
-        const result = await this.mcpServer.callTool(name, args);
-        
-        return new Response(
-          JSON.stringify(result),
-          { 
-            status: 200, 
-            headers: { 
-              ...corsHeaders, 
-              "Content-Type": "application/json" 
-            } 
-          }
-        );
-      } else if (body.type === "resource") {
-        const { uri } = body;
-        
-        // Read the MCP resource
-        const result = await this.mcpServer.readResource(uri);
-        
-        return new Response(
-          JSON.stringify(result),
-          { 
-            status: 200, 
-            headers: { 
-              ...corsHeaders, 
-              "Content-Type": "application/json" 
-            } 
-          }
-        );
-      } else {
-        // Legacy support for the original API
-        const { workspaceId, email, inviterName } = body;
-        
-        // Call the send-invitation tool
-        const result = await this.mcpServer.callTool("send-invitation", {
-          workspaceId,
-          email,
-          inviterName
-        });
-        
-        // Parse the JSON from the text content
-        const responseData = JSON.parse(result.content[0].text);
-        
-        return new Response(
-          JSON.stringify(responseData),
-          { 
-            status: result.isError ? 400 : 200, 
-            headers: { 
-              ...corsHeaders, 
-              "Content-Type": "application/json" 
-            } 
-          }
-        );
-      }
-    } catch (error) {
-      console.error("Error processing request:", error);
-      
+    if (userError || !user) {
       return new Response(
-        JSON.stringify({ error: error.message || "An unexpected error occurred" }),
-        { 
-          status: 500, 
-          headers: { 
-            ...corsHeaders, 
-            "Content-Type": "application/json" 
-          } 
-        }
+        JSON.stringify({ error: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
+
+    const { workspaceId, email, inviteUrl } = await req.json();
+    
+    if (!workspaceId || !email || !inviteUrl) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: workspaceId, email, and inviteUrl are required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    // Check if Resend API key is configured
+    if (!resend) {
+      return new Response(
+        JSON.stringify({ error: 'Email service not configured' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+
+    // Get workspace details
+    const { data: workspace, error: workspaceError } = await supabase
+      .from('apl_workspaces')
+      .select('name, user_id')
+      .eq('id', workspaceId)
+      .eq('user_id', user.id)
+      .single();
+    
+    if (workspaceError || !workspace) {
+      console.error('Error fetching workspace:', workspaceError);
+      return new Response(
+        JSON.stringify({ error: 'Workspace not found or access denied' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      );
+    }
+
+    // Create the invitation record
+    const { data: invitation, error: invitationError } = await supabase
+      .from('apl_workspace_invitations')
+      .insert([
+        {
+          workspace_id: workspaceId,
+          email: email,
+          status: 'pending',
+          created_by: user.id
+        }
+      ])
+      .select()
+      .single();
+    
+    if (invitationError) {
+      console.error('Error creating invitation:', invitationError);
+      
+      // Check if it's a duplicate invitation
+      if (invitationError.message.includes('unique constraint')) {
+        return new Response(
+          JSON.stringify({ error: 'An invitation has already been sent to this email address' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'Failed to create invitation' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+
+    // Get inviter details
+    const { data: profile } = await supabase
+      .from('apl_profiles')
+      .select('username, full_name')
+      .eq('user_id', user.id)
+      .single();
+    
+    const inviterName = profile?.full_name || profile?.username || user.email || 'A user';
+
+    // Send the invitation email
+    try {
+      const { data: emailResponse, error: emailError } = await resend.emails.send({
+        from: 'Anypoint Learning Platform <noreply@anypointlearningplatform.com>',
+        to: [email],
+        subject: `Invitation to join ${workspace.name} workspace`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #5a67d8;">Workspace Invitation</h2>
+            <p>${inviterName} has invited you to join the <strong>${workspace.name}</strong> workspace on Anypoint Learning Platform.</p>
+            <p>Use the link below to accept the invitation:</p>
+            <p>
+              <a href="${inviteUrl}" style="background-color: #5a67d8; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0;">
+                Accept Invitation
+              </a>
+            </p>
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              If you didn't expect this invitation, you can safely ignore this email.
+            </p>
+          </div>
+        `
+      });
+
+      if (emailError) {
+        console.error('Error sending email:', emailError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to send invitation email', invitation }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, invitation, email: emailResponse }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    } catch (emailError) {
+      console.error('Error sending email:', emailError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to send invitation email', invitation }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+  } catch (error) {
+    console.error('Error in send-workspace-invitation:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+    );
   }
-}
-
-// Create the HTTP adapter
-const httpAdapter = new HttpMcpAdapter(mcpServer);
-
-// Serve the function
-serve(async (req) => {
-  return await httpAdapter.handleRequest(req);
 });
