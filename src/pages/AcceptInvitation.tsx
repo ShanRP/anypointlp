@@ -19,6 +19,7 @@ const AcceptInvitationPage = () => {
   const [status, setStatus] = useState<'loading' | 'accepted' | 'error' | 'unauthorized'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [workspaceName, setWorkspaceName] = useState<string>('');
+  const [invitationId, setInvitationId] = useState<string>('');
   
   const workspaceId = searchParams.get('workspaceId');
 
@@ -69,6 +70,7 @@ const AcceptInvitationPage = () => {
         }
         
         console.log('Found valid invitation:', invitationData.id);
+        setInvitationId(invitationData.id);
         
         // Accept the invitation
         const { data, error } = await supabase.rpc('apl_accept_workspace_invitation', {

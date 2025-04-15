@@ -164,50 +164,23 @@ serve(async (req) => {
     `;
 
     try {
-      if (existingUserId) {
-        // For existing users, use the password reset flow (which doesn't require the user to set a password)
-        console.log("Sending email to existing user using password reset flow");
-        
-        // Send a password reset email with a redirect to the invitation acceptance page
-        const { error: resetError } = await supabase.auth.admin.updateUserById(
-          existingUserId,
-          { email_confirm: true }
-        );
-        
-        if (resetError) {
-          console.error("Error confirming user email:", resetError);
-        }
-        
-        // Now send the reset password email with our custom redirect
-        const { error: emailError } = await supabase.auth.resetPasswordForEmail(
-          email,
-          {
-            redirectTo: inviteLink
+      // Use inviteUserByEmail for all users (both new and existing)
+      console.log("Sending invitation email to:", email);
+      
+      const { data, error: emailError } = await supabase.auth.admin.inviteUserByEmail(
+        email,
+        {
+          redirectTo: inviteLink,
+          data: {
+            workspace_id: workspaceId,
+            workspace_name: workspace.name,
+            inviter_name: inviterDisplay
           }
-        );
-        
-        if (emailError) {
-          throw emailError;
         }
-      } else {
-        // For new users, use invite user
-        console.log("Inviting new user with email invite");
-        
-        const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-          email,
-          {
-            redirectTo: inviteLink,
-            data: {
-              workspace_id: workspaceId,
-              workspace_name: workspace.name,
-              inviter_name: inviterDisplay
-            }
-          }
-        );
-        
-        if (inviteError) {
-          throw inviteError;
-        }
+      );
+      
+      if (emailError) {
+        throw emailError;
       }
       
       console.log("Invitation email sent successfully to:", email);
