@@ -1,1 +1,12 @@
+
 project_id = "psnxemxahxqmcsvkfkmf"
+
+[functions.reset-credits]
+verify_jwt = false
+no_public_access = true
+schedule = "0 0 * * *"
+
+[functions.monthly-credit-topup]
+verify_jwt = false
+no_public_access = true
+schedule = "0 0 1 * *"
