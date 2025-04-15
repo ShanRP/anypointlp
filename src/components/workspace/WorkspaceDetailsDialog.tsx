@@ -107,12 +107,16 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
     
     setIsSendingInvite(true);
     try {
-      // Call edge function to send invitation
+      // Use MCP approach to call the send-invitation tool
       const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
         body: {
-          workspaceId: workspace.id,
-          email: inviteEmail,
-          inviterName: user?.user_metadata?.username || user?.email
+          type: "tool",
+          name: "send-invitation",
+          arguments: {
+            workspaceId: workspace.id,
+            email: inviteEmail,
+            inviterName: user?.user_metadata?.username || user?.email
+          }
         }
       });
       
@@ -120,13 +124,28 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
         throw error;
       }
       
-      toast.success("Invitation sent successfully");
+      // Handle possible MCP error responses
+      if (data.isError) {
+        const errorData = JSON.parse(data.content[0].text);
+        throw new Error(errorData.error || "Failed to send invitation");
+      }
+      
+      const responseData = JSON.parse(data.content[0].text);
+      
+      if (responseData.warning) {
+        toast.warning(responseData.message || "Invitation created but email could not be sent");
+      } else {
+        toast.success(responseData.message || "Invitation sent successfully");
+      }
+      
       setInviteEmail(''); // Clear the input field
     } catch (error) {
       console.error("Error sending invitation:", error);
       
       if (error.message && error.message.includes("already a member")) {
         toast.error("User is already a member of this workspace");
+      } else if (error.message && error.message.includes("already been invited")) {
+        toast.error("User has already been invited to this workspace");
       } else {
         toast.error("Failed to send invitation");
       }

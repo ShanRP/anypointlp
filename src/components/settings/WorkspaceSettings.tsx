@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,6 @@ export const WorkspaceSettings: React.FC = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   
-  // Reset edited name when workspace changes
   useEffect(() => {
     if (selectedWorkspace) {
       setEditedName(selectedWorkspace.name);
@@ -28,7 +26,6 @@ export const WorkspaceSettings: React.FC = () => {
     }
   }, [selectedWorkspace]);
   
-  // Early return if no workspace is selected
   if (!selectedWorkspace) {
     return (
       <div className="flex flex-col items-center justify-center h-64 bg-gray-50 dark:bg-gray-800 rounded-lg p-8">
@@ -56,7 +53,6 @@ export const WorkspaceSettings: React.FC = () => {
       if (success) {
         setIsEditing(false);
         toast.success('Workspace name updated successfully');
-        // Refresh workspaces to ensure UI is updated
         refreshWorkspaces();
       }
     } else {
@@ -76,7 +72,6 @@ export const WorkspaceSettings: React.FC = () => {
     
     if (success) {
       toast.success(`Invite functionality ${checked ? 'enabled' : 'disabled'}`);
-      // Refresh workspaces to ensure UI is updated
       refreshWorkspaces();
     }
   };
@@ -88,7 +83,6 @@ export const WorkspaceSettings: React.FC = () => {
     
     if (success) {
       toast.success(`Session timeout updated to ${value}`);
-      // Refresh workspaces to ensure UI is updated
       refreshWorkspaces();
     }
   };
@@ -106,12 +100,15 @@ export const WorkspaceSettings: React.FC = () => {
     
     setIsSendingInvite(true);
     try {
-      // Call edge function to send invitation
       const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
         body: {
-          workspaceId: selectedWorkspace.id,
-          email: inviteEmail,
-          inviterName: user?.user_metadata?.username || user?.email
+          type: "tool",
+          name: "send-invitation",
+          arguments: {
+            workspaceId: selectedWorkspace.id,
+            email: inviteEmail,
+            inviterName: user?.user_metadata?.username || user?.email
+          }
         }
       });
       
@@ -119,13 +116,27 @@ export const WorkspaceSettings: React.FC = () => {
         throw error;
       }
       
-      toast.success("Invitation sent successfully");
-      setInviteEmail(''); // Clear the input field
+      if (data.isError) {
+        const errorData = JSON.parse(data.content[0].text);
+        throw new Error(errorData.error || "Failed to send invitation");
+      }
+      
+      const responseData = JSON.parse(data.content[0].text);
+      
+      if (responseData.warning) {
+        toast.warning(responseData.message || "Invitation created but email could not be sent");
+      } else {
+        toast.success(responseData.message || "Invitation sent successfully");
+      }
+      
+      setInviteEmail('');
     } catch (error) {
       console.error("Error sending invitation:", error);
       
       if (error.message && error.message.includes("already a member")) {
         toast.error("User is already a member of this workspace");
+      } else if (error.message && error.message.includes("already been invited")) {
+        toast.error("User has already been invited to this workspace");
       } else {
         toast.error("Failed to send invitation");
       }
@@ -137,14 +148,13 @@ export const WorkspaceSettings: React.FC = () => {
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        key={selectedWorkspace.id} // Add key to force re-render when workspace changes
+        key={selectedWorkspace.id}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
         className="space-y-8"
       >
-        {/* Workspace Name Section */}
         <div className="flex justify-between items-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div>
             <h2 className="text-lg font-semibold">Workspace Name</h2>
@@ -197,7 +207,6 @@ export const WorkspaceSettings: React.FC = () => {
         
         <Separator className="my-8" />
         
-        {/* Invite Users Section */}
         <div className="space-y-4 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div className="flex justify-between items-center">
             <div>
@@ -252,7 +261,6 @@ export const WorkspaceSettings: React.FC = () => {
         
         <Separator className="my-8" />
         
-        {/* Session Timeout Section */}
         <div className="flex justify-between items-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div>
             <h2 className="text-lg font-semibold">Session Timeout</h2>
