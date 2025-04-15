@@ -39,6 +39,12 @@ const AuthCallback = () => {
         const tokenType = searchParams.get('type');
         console.log('Token type:', tokenType);
         
+        // Handle invitation - store the workspace ID so we can redirect back after auth completes
+        if (isWorkspaceInvitation) {
+          console.log('Storing invitation workspaceId for post-auth redirect:', workspaceId);
+          localStorage.setItem('pendingInviteWorkspaceId', workspaceId);
+        }
+        
         if (isEmailVerification) {
           console.log('Email verification detected:', tokenType);
           
@@ -104,10 +110,19 @@ const AuthCallback = () => {
         
         console.log('Authentication successful', data.session);
         
-        // If this is a workspace invitation, redirect to accept invitation page
-        if (isWorkspaceInvitation) {
-          console.log('Redirecting to accept invitation page with workspaceId:', workspaceId);
-          navigate(`/workspace/accept-invitation?workspaceId=${workspaceId}`, { replace: true });
+        // Check for pending workspace invitation redirect
+        const pendingInviteWorkspaceId = localStorage.getItem('pendingInviteWorkspaceId');
+        
+        if (pendingInviteWorkspaceId || isWorkspaceInvitation) {
+          const redirectWorkspaceId = pendingInviteWorkspaceId || workspaceId;
+          console.log('Redirecting to accept invitation page with workspaceId:', redirectWorkspaceId);
+          
+          // Clear the stored workspace ID
+          if (pendingInviteWorkspaceId) {
+            localStorage.removeItem('pendingInviteWorkspaceId');
+          }
+          
+          navigate(`/workspace/accept-invitation?workspaceId=${redirectWorkspaceId}`, { replace: true });
           return;
         }
         
