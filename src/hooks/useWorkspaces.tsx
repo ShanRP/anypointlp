@@ -1,9 +1,8 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
-import { clearTableCache } from '@/utils/supabaseOptimizer';
 
 export interface WorkspaceOption {
   id: string;
@@ -19,34 +18,13 @@ export const useWorkspaces = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState<WorkspaceOption | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchComplete, setFetchComplete] = useState(false);
-  
-  // Use refs to track changes to reduce unnecessary effects
-  const prevUserId = useRef<string | null>(null);
-  const prevSelectedWorkspaceId = useRef<string | null>(null);
-  
-  // Debounce fetch to prevent multiple calls
-  let fetchTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   // Fetch workspaces when user is available
   const fetchWorkspaces = useCallback(async () => {
     if (!user) return;
     
-    // Cancel any existing fetch timeout
-    if (fetchTimeoutId) {
-      clearTimeout(fetchTimeoutId);
-      fetchTimeoutId = null;
-    }
-    
-    // Clear any stale cache for workspaces
-    clearTableCache('apl_workspaces');
-    
-    // Update the previous user ID
-    prevUserId.current = user.id;
-    
     setLoading(true);
     try {
-      console.log('Fetching workspaces for user:', user.id);
-      
       const { data, error } = await supabase
         .rpc('apl_get_user_workspaces', { 
           user_id_param: user.id 
@@ -68,24 +46,20 @@ export const useWorkspaces = () => {
         // Set selected workspace if not already set or update it if it exists
         if (!selectedWorkspace) {
           setSelectedWorkspace(formattedWorkspaces[0]);
-          prevSelectedWorkspaceId.current = formattedWorkspaces[0].id;
         } else {
           // Find and update the currently selected workspace with fresh data
           const updatedSelected = formattedWorkspaces.find(w => w.id === selectedWorkspace.id);
           if (updatedSelected) {
             setSelectedWorkspace(updatedSelected);
-            prevSelectedWorkspaceId.current = updatedSelected.id;
           } else {
             // If previously selected workspace doesn't exist anymore, select first one
             setSelectedWorkspace(formattedWorkspaces[0]);
-            prevSelectedWorkspaceId.current = formattedWorkspaces[0].id;
           }
         }
       } else {
         // If no workspaces, set empty array
         setWorkspaces([]);
         setSelectedWorkspace(null);
-        prevSelectedWorkspaceId.current = null;
       }
       setFetchComplete(true);
     } catch (error) {
@@ -99,11 +73,8 @@ export const useWorkspaces = () => {
   // Reset state when user changes or logs out
   useEffect(() => {
     if (user) {
-      // Check if user has changed
-      const userChanged = prevUserId.current !== user.id;
-      
-      // Only fetch if we haven't fetched yet, user changed, or we need a refresh
-      if (!fetchComplete || userChanged) {
+      // Only fetch if we haven't fetched yet or user changed
+      if (!fetchComplete) {
         fetchWorkspaces();
       }
     } else {
@@ -111,8 +82,6 @@ export const useWorkspaces = () => {
       setWorkspaces([]);
       setSelectedWorkspace(null);
       setFetchComplete(false);
-      prevUserId.current = null;
-      prevSelectedWorkspaceId.current = null;
     }
   }, [user, fetchWorkspaces, fetchComplete]);
 
@@ -151,10 +120,6 @@ export const useWorkspaces = () => {
       
       // Set as selected workspace
       setSelectedWorkspace(newWorkspace);
-      prevSelectedWorkspaceId.current = newWorkspace.id;
-      
-      // Clear cache to ensure fresh data on next fetch
-      clearTableCache('apl_workspaces');
       
       return newWorkspace;
     } catch (error) {
@@ -177,28 +142,31 @@ export const useWorkspaces = () => {
       
       if (error) throw error;
       
-      // Get the updated workspace directly from the update result
-      const updatedWorkspace = data[0] ? {
-        id: data[0].id,
-        name: data[0].name,
-        initial: data[0].initial,
-        session_timeout: data[0].session_timeout,
-        invite_enabled: data[0].invite_enabled
-      } : null;
+      // Fetch updated workspace data to ensure we have the latest
+      const { data: refreshedData, error: refreshError } = await supabase
+        .from('apl_workspaces')
+        .select('*')
+        .eq('id', workspaceId)
+        .single();
+        
+      if (refreshError) throw refreshError;
       
-      if (updatedWorkspace) {
-        // Update local state
-        setWorkspaces(prev => prev.map(w => 
-          w.id === workspaceId ? updatedWorkspace : w
-        ));
-        
-        // Update selected workspace if it's the one being updated
-        if (selectedWorkspace?.id === workspaceId) {
-          setSelectedWorkspace(updatedWorkspace);
-        }
-        
-        // Clear cache
-        clearTableCache('apl_workspaces');
+      const updatedWorkspace = {
+        id: refreshedData.id,
+        name: refreshedData.name,
+        initial: refreshedData.initial,
+        session_timeout: refreshedData.session_timeout,
+        invite_enabled: refreshedData.invite_enabled
+      };
+      
+      // Update local state
+      setWorkspaces(prev => prev.map(w => 
+        w.id === workspaceId ? updatedWorkspace : w
+      ));
+      
+      // Update selected workspace if it's the one being updated
+      if (selectedWorkspace?.id === workspaceId) {
+        setSelectedWorkspace(updatedWorkspace);
       }
       
       return true;
@@ -234,11 +202,7 @@ export const useWorkspaces = () => {
       // If the deleted workspace was selected, select another one
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace(updatedWorkspaces[0]);
-        prevSelectedWorkspaceId.current = updatedWorkspaces[0].id;
       }
-      
-      // Clear cache
-      clearTableCache('apl_workspaces');
       
       return true;
     } catch (error) {
@@ -249,28 +213,13 @@ export const useWorkspaces = () => {
   };
 
   const selectWorkspace = (workspace: WorkspaceOption) => {
-    // Only update if actually changing workspaces
-    if (selectedWorkspace?.id !== workspace.id) {
-      setSelectedWorkspace(workspace);
-      prevSelectedWorkspaceId.current = workspace.id;
-    }
+    setSelectedWorkspace(workspace);
   };
 
   // Manually refetch workspaces (useful when we need to refresh the list)
   const refreshWorkspaces = async () => {
     console.log('Refreshing workspaces...');
-    
-    // Don't trigger multiple fetches in quick succession
-    if (fetchTimeoutId) {
-      clearTimeout(fetchTimeoutId);
-    }
-    
-    // Debounce refresh requests
-    fetchTimeoutId = setTimeout(() => {
-      setFetchComplete(false); // This will trigger a refetch in the useEffect
-      fetchTimeoutId = null;
-    }, 300);
-    
+    setFetchComplete(false); // This will trigger a refetch in the useEffect
     return fetchWorkspaces(); // Return the promise for cases where we want to await the refresh
   };
 

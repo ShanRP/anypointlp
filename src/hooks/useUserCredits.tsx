@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -24,24 +24,12 @@ export const useUserCredits = () => {
   // Track if fetch has been performed to prevent multiple calls
   const [hasFetched, setHasFetched] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-  
-  // Add a subscription ref to track if we're already subscribed
-  const subscriptionActive = useRef(false);
-  
-  // Add a fetch debounce timeout
-  const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchUserCredits = useCallback(async () => {
     // Skip if no user
     if (!user) {
       setLoading(false);
       return;
-    }
-
-    // Cancel any pending fetch
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-      fetchTimeoutRef.current = null;
     }
 
     setLoading(true);
@@ -198,13 +186,11 @@ export const useUserCredits = () => {
     }
   }, [user, credits]);
 
-  // Set up realtime subscription to credit changes - use a ref to prevent multiple subscriptions
+  // Set up realtime subscription to credit changes
   useEffect(() => {
-    if (!user || subscriptionActive.current) return;
+    if (!user) return;
     
-    console.log("Setting up realtime subscription for user credits");
-    subscriptionActive.current = true;
-    
+    // console.log("Setting up realtime subscription for user credits");
     const channel = supabase
       .channel('credits-changes')
       .on(
@@ -224,9 +210,8 @@ export const useUserCredits = () => {
       .subscribe();
       
     return () => {
-      console.log("Cleaning up realtime subscription");
+      // console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
-      subscriptionActive.current = false;
     };
   }, [user]);
 
@@ -234,50 +219,20 @@ export const useUserCredits = () => {
   useEffect(() => {
     if (user && !hasFetched) {
       console.log("Initializing user credits");
-      // Debounce the fetch to avoid multiple calls
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-      
-      fetchTimeoutRef.current = setTimeout(() => {
-        fetchUserCredits();
-        fetchTimeoutRef.current = null;
-      }, 300);
+      fetchUserCredits();
     } else if (!user) {
       // Reset state when user logs out
       setCredits(null);
       setLoading(false);
       setHasFetched(false);
-      
-      // Clear any pending fetch
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-        fetchTimeoutRef.current = null;
-      }
     }
-    
-    return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-        fetchTimeoutRef.current = null;
-      }
-    };
   }, [user, fetchUserCredits, hasFetched]);
 
   // Refresh function that can be called externally
   const refreshCredits = useCallback(() => {
     console.log("Manually refreshing credits");
-    
-    // Prevent multiple rapid refreshes
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-    }
-    
-    fetchTimeoutRef.current = setTimeout(() => {
-      setHasFetched(false);
-      fetchUserCredits();
-      fetchTimeoutRef.current = null;
-    }, 300);
+    setHasFetched(false);
+    fetchUserCredits();
   }, [fetchUserCredits]);
 
   return {

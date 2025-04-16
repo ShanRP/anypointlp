@@ -18,48 +18,30 @@ import { toast } from 'sonner';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export function UserCreditsDisplay() {
-  const { 
-    credits, 
-    loading, 
-    refreshCredits, 
-    showUpgradeDialog, 
-    setShowUpgradeDialog 
-  } = useUserCredits();
+  const { credits, loading, refreshCredits, showUpgradeDialog, setShowUpgradeDialog } = useUserCredits();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Store dialog state in session storage to prevent reopening on tab change
+  // Check for payment success or cancel URL parameters
   useEffect(() => {
-    const storedDialogState = sessionStorage.getItem('upgradeDialogShown');
-    if (storedDialogState === 'true' && showUpgradeDialog) {
-      setShowUpgradeDialog(false);
-    }
-  }, [showUpgradeDialog, setShowUpgradeDialog]);
-  
-  // Check for payment success or cancel URL parameters once on component mount, not on every render
-  useEffect(() => {
-    const handlePaymentResult = () => {
-      const queryParams = new URLSearchParams(location.search);
-      const paymentSuccess = queryParams.get('payment_success');
-      const paymentCanceled = queryParams.get('payment_canceled');
-      
-      if (paymentSuccess === 'true') {
-        toast.success('Payment successful! You are now on the Pro Plan.');
-        refreshCredits();
-        // Clean URL
-        navigate('/dashboard', { replace: true });
-      }
-      
-      if (paymentCanceled === 'true') {
-        toast.info('Payment was canceled.');
-        // Clean URL
-        navigate('/dashboard', { replace: true });
-      }
-    };
+    const queryParams = new URLSearchParams(location.search);
+    const paymentSuccess = queryParams.get('payment_success');
+    const paymentCanceled = queryParams.get('payment_canceled');
     
-    handlePaymentResult();
-  }, []); // Empty dependency array to run only once
+    if (paymentSuccess === 'true') {
+      toast.success('Payment successful! You are now on the Pro Plan.');
+      refreshCredits();
+      // Clean URL
+      navigate('/dashboard', { replace: true });
+    }
+    
+    if (paymentCanceled === 'true') {
+      toast.info('Payment was canceled.');
+      // Clean URL
+      navigate('/dashboard', { replace: true });
+    }
+  }, [location.search, navigate, refreshCredits]);
   
   // Get values directly from credits object
   const getCreditsRemaining = () => {
@@ -81,19 +63,15 @@ export function UserCreditsDisplay() {
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);
-    
-    // First, check if dialog has been shown already in this session
-    sessionStorage.setItem('upgradeDialogShown', 'true');
-    
     try {
-      const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke('create-checkout');
+      // const { data, error } = await supabase.functions.invoke('create-checkout');
       
-      if (checkoutError) {
-        throw new Error(checkoutError.message);
+      if (error) {
+        throw new Error(error.message);
       }
       
-      if (checkoutData?.url) {
-        window.location.href = checkoutData.url;
+      if (data.url) {
+        window.location.href = data.url;
       } else {
         throw new Error('No checkout URL returned');
       }
@@ -128,20 +106,16 @@ export function UserCreditsDisplay() {
       </Badge>
 
       {!isPro() && (
-        <Dialog open={showUpgradeDialog} onOpenChange={(open) => {
-          setShowUpgradeDialog(open);
-          if (open) {
-            sessionStorage.setItem('upgradeDialogShown', 'true');
-          }
-        }}>
+        <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
           <DialogTrigger asChild>
           <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
-          >
-            Upgrade
-          </Button>
+  variant="outline" 
+  size="sm" 
+  className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
+>
+  Updrade
+</Button>
+
           </DialogTrigger>
           <DialogContent className="font-geistSans">
             <DialogHeader>

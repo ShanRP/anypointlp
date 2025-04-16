@@ -1,9 +1,7 @@
-
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User, Provider } from '@supabase/supabase-js';
 import { UAParser } from 'ua-parser-js';
-import { logAuditEvent } from '@/utils/supabaseOptimizer';
 
 type AuthContextType = {
   session: Session | null;
@@ -15,15 +13,9 @@ type AuthContextType = {
   loading: boolean;
   getUserSessions: () => Promise<any[]>;
   signOutSession: (sessionId: string) => Promise<void>;
-  lastActivity: Date;
-  updateLastActivity: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Constants for security settings
-const SESSION_ACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const SESSION_CACHE_LIFETIME = 10000; // 10 seconds
 
 const logAuthEvent = async (userId: string, action: string) => {
   try {
@@ -31,9 +23,10 @@ const logAuthEvent = async (userId: string, action: string) => {
     const result = parser.getResult();
     const deviceInfo = `${result.os.name || 'Unknown OS'} / ${result.browser.name || 'Unknown Browser'} ${result.browser.version || ''}`;
     
-    await logAuditEvent(userId, action, { 
-      device: deviceInfo, 
-      timestamp: new Date().toISOString() 
+    await supabase.from('apl_auth_logs').insert({
+      user_id: userId,
+      action,
+      device: deviceInfo,
     });
   } catch (error) {
     console.error("Error logging auth event:", error);
@@ -44,54 +37,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastActivity, setLastActivity] = useState(new Date());
   const sessionCache = useRef<any[]>([]);
   const sessionCacheTime = useRef<number>(0);
-  const activityInterval = useRef<any>(null);
-
-  // Function to update the last activity timestamp
-  const updateLastActivity = () => {
-    setLastActivity(new Date());
-  };
-
-  // Auto logout after inactivity
-  useEffect(() => {
-    // Check for inactivity
-    const checkActivity = () => {
-      if (!session) return;
-      
-      const now = new Date();
-      const inactiveTime = now.getTime() - lastActivity.getTime();
-      
-      if (inactiveTime > SESSION_ACTIVITY_TIMEOUT) {
-        console.log('Session expired due to inactivity');
-        signOut();
-      }
-    };
-
-    // Set up activity checking
-    if (session) {
-      activityInterval.current = setInterval(checkActivity, 60000); // Check every minute
-    }
-
-    // Setup event listeners for activity tracking
-    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-    const handleActivity = () => updateLastActivity();
-    
-    activityEvents.forEach(event => {
-      window.addEventListener(event, handleActivity);
-    });
-
-    return () => {
-      if (activityInterval.current) {
-        clearInterval(activityInterval.current);
-      }
-      
-      activityEvents.forEach(event => {
-        window.removeEventListener(event, handleActivity);
-      });
-    };
-  }, [session, lastActivity]);
+  const SESSION_CACHE_LIFETIME = 10000; // 10 seconds
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -100,11 +48,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-        
-        // If session exists, update last activity
-        if (session) {
-          updateLastActivity();
-        }
       } catch (error) {
         console.error("Error fetching session:", error);
         setLoading(false);
@@ -121,9 +64,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
         
         if (event === 'SIGNED_IN' && session?.user) {
-          // Update last activity on sign in
-          updateLastActivity();
-          
           setTimeout(async () => {
             try {
               await logAuthEvent(session.user.id, 'SIGN IN');
@@ -149,7 +89,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (!error && data?.user) {
         await logAuthEvent(data.user.id, 'SIGN IN');
-        updateLastActivity();
       }
       return { error };
     } catch (error) {
@@ -202,7 +141,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("Error signing in with provider:", error);
       } else {
         console.log("Provider auth initiated:", data);
-        updateLastActivity();
       }
     } catch (error) {
       console.error("Error initiating provider auth:", error);
@@ -315,8 +253,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loading,
     getUserSessions,
     signOutSession,
-    lastActivity,
-    updateLastActivity,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

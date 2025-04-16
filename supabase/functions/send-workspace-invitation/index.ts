@@ -5,8 +5,8 @@ import * as z from "https://deno.land/x/zod@v3.21.4/mod.ts";
 
 // Set up CORS headers for browser requests
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*", 
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 // Create request schema using Zod
@@ -47,15 +47,10 @@ serve(async (req) => {
 
     // Parse and validate request body
     const body = await req.json();
-    
-    // Log request ID for audit purposes
-    const requestId = crypto.randomUUID();
-    console.log(`Processing invitation request: ${requestId}`);
-    
     const validationResult = inviteRequestSchema.safeParse(body);
     
     if (!validationResult.success) {
-      console.error(`Request ${requestId} validation error:`, validationResult.error);
+      console.error("Validation error:", validationResult.error);
       return new Response(
         JSON.stringify({
           content: [{ type: "text", text: JSON.stringify({ error: "Invalid request format" }) }],
@@ -67,56 +62,6 @@ serve(async (req) => {
     
     const { workspaceId, email, inviterName } = validationResult.data.arguments;
     
-    // Check JWT authorization
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error(`Request ${requestId}: Missing authorization header`);
-      return new Response(
-        JSON.stringify({
-          content: [{ type: "text", text: JSON.stringify({ error: "Unauthorized request" }) }],
-          isError: true,
-        }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        }
-      );
-    }
-    
-    // Extract JWT token 
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Verify JWT token
-    const { data: { user }, error: jwtError } = await supabase.auth.getUser(token);
-    
-    if (jwtError || !user) {
-      console.error(`Request ${requestId}: Invalid JWT token`, jwtError);
-      return new Response(
-        JSON.stringify({
-          content: [{ type: "text", text: JSON.stringify({ error: "Unauthorized request" }) }],
-          isError: true,
-        }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        }
-      );
-    }
-    
-    console.log(`Request ${requestId}: User ${user.id} is inviting ${email} to workspace ${workspaceId}`);
-    
-    // Log the invitation attempt for audit purposes
-    await supabase.from("apl_auth_logs").insert({
-      user_id: user.id,
-      action: "WORKSPACE_INVITATION",
-      details: JSON.stringify({
-        workspaceId,
-        invitedEmail: email,
-        requestId,
-        timestamp: new Date().toISOString()
-      })
-    });
-    
     // Get the workspace details - only select what's needed
     const { data: workspace, error: workspaceError } = await supabase
       .from("apl_workspaces")
@@ -125,7 +70,7 @@ serve(async (req) => {
       .single();
 
     if (workspaceError || !workspace) {
-      console.error(`Request ${requestId}: Error fetching workspace:`, workspaceError);
+      console.error("Error fetching workspace:", workspaceError);
       return new Response(
         JSON.stringify({
           content: [{ type: "text", text: JSON.stringify({ error: "Workspace not found" }) }],
@@ -135,7 +80,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Request ${requestId}: Workspace found: ${workspace.name}`);
+    console.log("Workspace found:", workspace.name);
 
     // Check if the user already exists - only fetch necessary fields
     const { data: existingUsers, error: userCheckError } = await supabase.auth.admin.listUsers({
@@ -147,13 +92,13 @@ serve(async (req) => {
     });
 
     if (userCheckError) {
-      console.error(`Request ${requestId}: Error checking user existence:`, userCheckError);
+      console.error("Error checking user existence:", userCheckError);
     }
 
     let existingUserId = null;
     if (existingUsers && existingUsers.users && existingUsers.users.length > 0) {
       existingUserId = existingUsers.users[0].id;
-      console.log(`Request ${requestId}: User already exists with ID: ${existingUserId}`);
+      console.log("User already exists with ID:", existingUserId);
 
       // Check if user is already a member of this workspace
       if (existingUserId) {
@@ -165,11 +110,10 @@ serve(async (req) => {
           .maybeSingle();
 
         if (membershipError) {
-          console.error(`Request ${requestId}: Error checking workspace membership:`, membershipError);
+          console.error("Error checking workspace membership:", membershipError);
         }
 
         if (membershipCheck) {
-          console.log(`Request ${requestId}: User ${existingUserId} is already a member of workspace ${workspaceId}`);
           return new Response(
             JSON.stringify({
               content: [{ type: "text", text: JSON.stringify({ error: "User is already a member of this workspace" }) }],
@@ -189,14 +133,14 @@ serve(async (req) => {
           workspace_id: workspaceId,
           email: email,
           status: "pending",
-          created_by: user.id, // Use the authenticated user's ID for audit purposes
+          created_by: workspace.user_id,
         },
       ])
       .select("id") // Only select ID to minimize data transfer
       .single();
 
     if (inviteError) {
-      console.error(`Request ${requestId}: Error creating invitation record:`, inviteError);
+      console.error("Error creating invitation record:", inviteError);
 
       // Check if it's a unique constraint violation (already invited)
       if (inviteError.code === "23505") {
@@ -218,11 +162,11 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Request ${requestId}: Invitation record created successfully: ${inviteData?.id}`);
+    console.log("Invitation record created successfully:", inviteData?.id);
 
     // Generate the appropriate invite link
     const inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`;
-    console.log(`Request ${requestId}: Created invite link: ${inviteLink}`);
+    console.log("Created invite link:", inviteLink);
 
     const inviterDisplay = inviterName || "A user";
     const subject = `Invitation to join workspace "${workspace.name}"`;
@@ -242,7 +186,7 @@ serve(async (req) => {
 
     try {
       // Use inviteUserByEmail for all users (both new and existing)
-      console.log(`Request ${requestId}: Sending invitation email to: ${email}`);
+      console.log("Sending invitation email to:", email);
 
       const { data, error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
         redirectTo: inviteLink,
@@ -257,20 +201,7 @@ serve(async (req) => {
         throw emailError;
       }
 
-      console.log(`Request ${requestId}: Invitation email sent successfully to: ${email}`);
-      
-      // Log successful invitation for audit
-      await supabase.from("apl_auth_logs").insert({
-        user_id: user.id,
-        action: "WORKSPACE_INVITATION_SUCCESS",
-        details: JSON.stringify({
-          workspaceId,
-          invitedEmail: email,
-          invitationId: inviteData?.id,
-          requestId,
-          timestamp: new Date().toISOString()
-        })
-      });
+      console.log("Invitation email sent successfully to:", email);
 
       return new Response(
         JSON.stringify({
@@ -287,21 +218,7 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } catch (emailError) {
-      console.error(`Request ${requestId}: Error sending invitation email:`, emailError);
-      
-      // Log the failed email sending for audit
-      await supabase.from("apl_auth_logs").insert({
-        user_id: user.id,
-        action: "WORKSPACE_INVITATION_EMAIL_FAILED",
-        details: JSON.stringify({
-          workspaceId,
-          invitedEmail: email,
-          invitationId: inviteData?.id,
-          requestId,
-          error: emailError.message,
-          timestamp: new Date().toISOString()
-        })
-      });
+      console.error("Error sending invitation email:", emailError);
 
       // Even if the email fails, we've created the invitation record
       return new Response(
