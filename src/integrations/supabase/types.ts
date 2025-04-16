@@ -13,26 +13,26 @@ export type Database = {
         Row: {
           action: string
           created_at: string
+          details: Json | null
           device: string | null
           id: string
-          ip_address: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           action: string
           created_at?: string
+          details?: Json | null
           device?: string | null
           id?: string
-          ip_address?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           action?: string
           created_at?: string
+          details?: Json | null
           device?: string | null
           id?: string
-          ip_address?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -92,140 +92,179 @@ export type Database = {
         }
         Relationships: []
       }
-      apl_dataweave_tasks: {
+      apl_dataweave_history: {
         Row: {
           created_at: string
-          generated_scripts: Json
+          generated_script: string | null
           id: string
-          input_format: string
-          input_samples: Json
+          input_format: string | null
+          input_samples: Json | null
           notes: string | null
-          output_samples: Json
-          task_id: string
-          task_name: string
-          user_id: string
-          workspace_id: string
+          output_samples: Json | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string
-          generated_scripts: Json
+          generated_script?: string | null
           id?: string
-          input_format: string
-          input_samples: Json
+          input_format?: string | null
+          input_samples?: Json | null
           notes?: string | null
-          output_samples: Json
-          task_id: string
-          task_name: string
-          user_id: string
-          workspace_id: string
+          output_samples?: Json | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string
-          generated_scripts?: Json
+          generated_script?: string | null
           id?: string
-          input_format?: string
-          input_samples?: Json
+          input_format?: string | null
+          input_samples?: Json | null
           notes?: string | null
-          output_samples?: Json
-          task_id?: string
-          task_name?: string
-          user_id?: string
-          workspace_id?: string
+          output_samples?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      apl_dataweave_tasks: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          generated_scripts: Json | null
+          id: string
+          input_format: string | null
+          input_samples: Json | null
+          notes: string | null
+          output_samples: Json | null
+          task_id: string | null
+          task_name: string | null
+          updated_at: string
+          user_id: string | null
+          username: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          generated_scripts?: Json | null
+          id?: string
+          input_format?: string | null
+          input_samples?: Json | null
+          notes?: string | null
+          output_samples?: Json | null
+          task_id?: string | null
+          task_name?: string | null
+          updated_at?: string
+          user_id?: string | null
+          username?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          generated_scripts?: Json | null
+          id?: string
+          input_format?: string | null
+          input_samples?: Json | null
+          notes?: string | null
+          output_samples?: Json | null
+          task_id?: string | null
+          task_name?: string | null
+          updated_at?: string
+          user_id?: string | null
+          username?: string | null
+          workspace_id?: string | null
         }
         Relationships: []
       }
       apl_diagram_tasks: {
         Row: {
-          category: string
-          connection_steps: string | null
+          category: string | null
           created_at: string
           description: string | null
-          flow_diagram: string | null
+          diagram_content: Json | null
+          diagram_type: string | null
           id: string
-          raml_content: string | null
-          result_content: string | null
+          svg_output: string | null
           task_id: string
           task_name: string
           updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
         }
         Insert: {
-          category?: string
-          connection_steps?: string | null
+          category?: string | null
           created_at?: string
           description?: string | null
-          flow_diagram?: string | null
+          diagram_content?: Json | null
+          diagram_type?: string | null
           id?: string
-          raml_content?: string | null
-          result_content?: string | null
+          svg_output?: string | null
           task_id: string
           task_name: string
           updated_at?: string
-          user_id?: string | null
+          user_id: string
           workspace_id: string
         }
         Update: {
-          category?: string
-          connection_steps?: string | null
+          category?: string | null
           created_at?: string
           description?: string | null
-          flow_diagram?: string | null
+          diagram_content?: Json | null
+          diagram_type?: string | null
           id?: string
-          raml_content?: string | null
-          result_content?: string | null
+          svg_output?: string | null
           task_id?: string
           task_name?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           workspace_id?: string
         }
         Relationships: []
       }
       apl_document_tasks: {
         Row: {
-          category: string
-          code: string | null
+          category: string | null
+          content: string | null
           created_at: string
           description: string | null
-          document_type: string | null
+          format: string | null
           id: string
-          result_content: string | null
-          source_type: string | null
+          tags: Json | null
           task_id: string
           task_name: string
           updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
         }
         Insert: {
-          category?: string
-          code?: string | null
+          category?: string | null
+          content?: string | null
           created_at?: string
           description?: string | null
-          document_type?: string | null
+          format?: string | null
           id?: string
-          result_content?: string | null
-          source_type?: string | null
+          tags?: Json | null
           task_id: string
           task_name: string
           updated_at?: string
-          user_id?: string | null
+          user_id: string
           workspace_id: string
         }
         Update: {
-          category?: string
-          code?: string | null
+          category?: string | null
+          content?: string | null
           created_at?: string
           description?: string | null
-          document_type?: string | null
+          format?: string | null
           id?: string
-          result_content?: string | null
-          source_type?: string | null
+          tags?: Json | null
           task_id?: string
           task_name?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           workspace_id?: string
         }
         Relationships: []
@@ -267,57 +306,80 @@ export type Database = {
       }
       apl_exchange_items: {
         Row: {
-          content: Json
+          content: Json | null
           created_at: string
           description: string | null
-          downloads: number | null
           id: string
-          likes: number | null
           title: string
           type: string
           updated_at: string
           user_id: string
           username: string | null
-          visibility: string
+          visibility: string | null
           workspace_id: string | null
         }
         Insert: {
-          content: Json
+          content?: Json | null
           created_at?: string
           description?: string | null
-          downloads?: number | null
           id?: string
-          likes?: number | null
           title: string
           type: string
           updated_at?: string
           user_id: string
           username?: string | null
-          visibility?: string
+          visibility?: string | null
           workspace_id?: string | null
         }
         Update: {
-          content?: Json
+          content?: Json | null
           created_at?: string
           description?: string | null
-          downloads?: number | null
           id?: string
-          likes?: number | null
           title?: string
           type?: string
           updated_at?: string
           user_id?: string
           username?: string | null
-          visibility?: string
+          visibility?: string | null
           workspace_id?: string | null
         }
         Relationships: []
+      }
+      apl_exchange_likes: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apl_exchange_likes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "apl_exchange_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       apl_integration_tasks: {
         Row: {
           category: string | null
           compilation_check: string | null
-          created_at: string | null
+          created_at: string
           description: string | null
           diagrams: Json | null
           flow_constants: string | null
@@ -328,16 +390,16 @@ export type Database = {
           pom_dependencies: string | null
           raml_content: string | null
           runtime: string | null
-          task_id: string
-          task_name: string
-          updated_at: string | null
+          task_id: string | null
+          task_name: string | null
+          updated_at: string
           user_id: string | null
-          workspace_id: string
+          workspace_id: string | null
         }
         Insert: {
           category?: string | null
           compilation_check?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           diagrams?: Json | null
           flow_constants?: string | null
@@ -348,16 +410,16 @@ export type Database = {
           pom_dependencies?: string | null
           raml_content?: string | null
           runtime?: string | null
-          task_id: string
-          task_name: string
-          updated_at?: string | null
+          task_id?: string | null
+          task_name?: string | null
+          updated_at?: string
           user_id?: string | null
-          workspace_id: string
+          workspace_id?: string | null
         }
         Update: {
           category?: string | null
           compilation_check?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           diagrams?: Json | null
           flow_constants?: string | null
@@ -368,11 +430,11 @@ export type Database = {
           pom_dependencies?: string | null
           raml_content?: string | null
           runtime?: string | null
-          task_id?: string
-          task_name?: string
-          updated_at?: string | null
+          task_id?: string | null
+          task_name?: string | null
+          updated_at?: string
           user_id?: string | null
-          workspace_id?: string
+          workspace_id?: string | null
         }
         Relationships: []
       }
@@ -449,7 +511,7 @@ export type Database = {
       }
       apl_munit_tasks: {
         Row: {
-          category: string
+          category: string | null
           created_at: string
           description: string | null
           flow_description: string | null
@@ -461,11 +523,11 @@ export type Database = {
           task_id: string
           task_name: string
           updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
         }
         Insert: {
-          category?: string
+          category?: string | null
           created_at?: string
           description?: string | null
           flow_description?: string | null
@@ -477,11 +539,11 @@ export type Database = {
           task_id: string
           task_name: string
           updated_at?: string
-          user_id?: string | null
+          user_id: string
           workspace_id: string
         }
         Update: {
-          category?: string
+          category?: string | null
           created_at?: string
           description?: string | null
           flow_description?: string | null
@@ -493,7 +555,7 @@ export type Database = {
           task_id?: string
           task_name?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           workspace_id?: string
         }
         Relationships: []
@@ -527,49 +589,67 @@ export type Database = {
           created_at: string
           id: string
           peer_id: string
-          status: string
+          session_id: string
+          status: string | null
           updated_at: string
           user_id: string
-          username: string
         }
         Insert: {
           created_at?: string
           id?: string
           peer_id: string
-          status?: string
+          session_id: string
+          status?: string | null
           updated_at?: string
           user_id: string
-          username: string
         }
         Update: {
           created_at?: string
           id?: string
           peer_id?: string
-          status?: string
+          session_id?: string
+          status?: string | null
           updated_at?: string
           user_id?: string
-          username?: string
         }
         Relationships: []
       }
       apl_profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
+          company: string | null
           created_at: string
+          full_name: string | null
           id: string
+          job_title: string | null
+          location: string | null
           updated_at: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
+          company?: string | null
           created_at?: string
+          full_name?: string | null
           id: string
+          job_title?: string | null
+          location?: string | null
           updated_at?: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
+          company?: string | null
           created_at?: string
+          full_name?: string | null
           id?: string
+          job_title?: string | null
+          location?: string | null
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -578,7 +658,7 @@ export type Database = {
           api_name: string | null
           api_version: string | null
           base_uri: string | null
-          category: string
+          category: string | null
           created_at: string
           description: string | null
           documentation: string | null
@@ -588,14 +668,14 @@ export type Database = {
           task_id: string
           task_name: string
           updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
         }
         Insert: {
           api_name?: string | null
           api_version?: string | null
           base_uri?: string | null
-          category?: string
+          category?: string | null
           created_at?: string
           description?: string | null
           documentation?: string | null
@@ -605,14 +685,14 @@ export type Database = {
           task_id: string
           task_name: string
           updated_at?: string
-          user_id?: string | null
+          user_id: string
           workspace_id: string
         }
         Update: {
           api_name?: string | null
           api_version?: string | null
           base_uri?: string | null
-          category?: string
+          category?: string | null
           created_at?: string
           description?: string | null
           documentation?: string | null
@@ -622,55 +702,55 @@ export type Database = {
           task_id?: string
           task_name?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           workspace_id?: string
         }
         Relationships: []
       }
       apl_sample_data_tasks: {
         Row: {
-          category: string
+          category: string | null
           created_at: string
           description: string | null
           id: string
           notes: string | null
           result_content: string | null
           schema_content: string | null
-          source_format: string
+          source_format: string | null
           task_id: string
           task_name: string
           updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
         }
         Insert: {
-          category?: string
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
           notes?: string | null
           result_content?: string | null
           schema_content?: string | null
-          source_format: string
+          source_format?: string | null
           task_id: string
           task_name: string
           updated_at?: string
-          user_id?: string | null
+          user_id: string
           workspace_id: string
         }
         Update: {
-          category?: string
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
           notes?: string | null
           result_content?: string | null
           schema_content?: string | null
-          source_format?: string
+          source_format?: string | null
           task_id?: string
           task_name?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           workspace_id?: string
         }
         Relationships: []
@@ -692,7 +772,7 @@ export type Database = {
           credits_used?: number
           id?: string
           is_pro?: boolean
-          reset_date: string
+          reset_date?: string
           updated_at?: string
           user_id: string
         }
@@ -711,26 +791,32 @@ export type Database = {
       apl_user_sessions: {
         Row: {
           created_at: string
-          device_info: string | null
+          expired_at: string | null
           id: string
-          last_active: string
+          ip_address: string | null
+          last_active_at: string
           session_id: string
+          user_agent: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
-          device_info?: string | null
+          expired_at?: string | null
           id?: string
-          last_active?: string
+          ip_address?: string | null
+          last_active_at?: string
           session_id: string
+          user_agent?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
-          device_info?: string | null
+          expired_at?: string | null
           id?: string
-          last_active?: string
+          ip_address?: string | null
+          last_active_at?: string
           session_id?: string
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -742,7 +828,6 @@ export type Database = {
           created_at: string
           created_by: string
           email: string
-          expires_at: string | null
           id: string
           status: string
           workspace_id: string
@@ -753,9 +838,8 @@ export type Database = {
           created_at?: string
           created_by: string
           email: string
-          expires_at?: string | null
           id?: string
-          status: string
+          status?: string
           workspace_id: string
         }
         Update: {
@@ -764,7 +848,6 @@ export type Database = {
           created_at?: string
           created_by?: string
           email?: string
-          expires_at?: string | null
           id?: string
           status?: string
           workspace_id?: string
@@ -784,6 +867,7 @@ export type Database = {
           created_at: string
           id: string
           role: string
+          updated_at: string
           user_id: string
           workspace_id: string
         }
@@ -791,6 +875,7 @@ export type Database = {
           created_at?: string
           id?: string
           role?: string
+          updated_at?: string
           user_id: string
           workspace_id: string
         }
@@ -798,6 +883,7 @@ export type Database = {
           created_at?: string
           id?: string
           role?: string
+          updated_at?: string
           user_id?: string
           workspace_id?: string
         }
@@ -815,33 +901,33 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          initial: string
-          invite_enabled: boolean
-          invite_link: string | null
+          initial: string | null
+          invite_enabled: boolean | null
+          is_invited_workspace: boolean | null
           name: string
-          session_timeout: string
+          session_timeout: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          initial: string
-          invite_enabled?: boolean
-          invite_link?: string | null
+          initial?: string | null
+          invite_enabled?: boolean | null
+          is_invited_workspace?: boolean | null
           name: string
-          session_timeout?: string
+          session_timeout?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          initial?: string
-          invite_enabled?: boolean
-          invite_link?: string | null
+          initial?: string | null
+          invite_enabled?: boolean | null
+          is_invited_workspace?: boolean | null
           name?: string
-          session_timeout?: string
+          session_timeout?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -852,182 +938,180 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_workspace_member: {
+        Args: {
+          workspace_id_param: string
+          user_id_param: string
+          role_param?: string
+        }
+        Returns: string
+      }
       apl_accept_workspace_invitation: {
-        Args: { workspace_id_param: string; user_id_param: string }
+        Args: { p_invitation_id: string; p_user_id: string }
         Returns: boolean
+      }
+      apl_get_api_key: {
+        Args: { key_name: string }
+        Returns: string
       }
       apl_get_integration_task_details: {
         Args: { task_id_param: string }
         Returns: {
-          category: string | null
-          compilation_check: string | null
-          created_at: string | null
-          description: string | null
-          diagrams: Json | null
-          flow_constants: string | null
-          flow_implementation: string | null
-          flow_summary: string | null
-          generated_code: string | null
           id: string
-          pom_dependencies: string | null
-          raml_content: string | null
-          runtime: string | null
           task_id: string
           task_name: string
-          updated_at: string | null
-          user_id: string | null
+          description: string
+          user_id: string
           workspace_id: string
+          created_at: string
+          updated_at: string
+          category: string
+          runtime: string
+          raml_content: string
+          generated_code: string
+          flow_summary: string
+          flow_implementation: string
+          flow_constants: string
+          pom_dependencies: string
+          compilation_check: string
+          diagrams: Json
         }[]
       }
       apl_get_integration_tasks: {
         Args: { workspace_id_param: string }
         Returns: {
-          category: string | null
-          compilation_check: string | null
-          created_at: string | null
-          description: string | null
-          diagrams: Json | null
-          flow_constants: string | null
-          flow_implementation: string | null
-          flow_summary: string | null
-          generated_code: string | null
           id: string
-          pom_dependencies: string | null
-          raml_content: string | null
-          runtime: string | null
           task_id: string
           task_name: string
-          updated_at: string | null
-          user_id: string | null
+          description: string
+          user_id: string
           workspace_id: string
+          created_at: string
+          updated_at: string
+          category: string
+          runtime: string
+          raml_content: string
+          generated_code: string
+          flow_summary: string
+          flow_implementation: string
+          flow_constants: string
+          pom_dependencies: string
+          compilation_check: string
+          diagrams: Json
         }[]
       }
       apl_get_munit_task_details: {
         Args: { task_id_param: string }
         Returns: {
-          category: string
-          created_at: string
-          description: string | null
-          flow_description: string | null
-          flow_implementation: string | null
           id: string
-          munit_content: string | null
-          number_of_scenarios: number | null
-          runtime: string | null
           task_id: string
           task_name: string
-          updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
+          description: string
+          created_at: string
+          updated_at: string
+          category: string
+          munit_content: string
+          flow_implementation: string
+          flow_description: string
+          runtime: string
+          number_of_scenarios: number
         }[]
       }
       apl_get_munit_tasks: {
         Args: { workspace_id_param: string }
         Returns: {
-          category: string
-          created_at: string
-          description: string | null
-          flow_description: string | null
-          flow_implementation: string | null
           id: string
-          munit_content: string | null
-          number_of_scenarios: number | null
-          runtime: string | null
           task_id: string
           task_name: string
-          updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
+          description: string
+          created_at: string
+          updated_at: string
+          category: string
+          munit_content: string
+          flow_implementation: string
+          flow_description: string
+          runtime: string
+          number_of_scenarios: number
         }[]
       }
       apl_get_raml_task_details: {
         Args: { task_id_param: string }
         Returns: {
-          api_name: string | null
-          api_version: string | null
-          base_uri: string | null
-          category: string
-          created_at: string
-          description: string | null
-          documentation: string | null
-          endpoints: Json | null
           id: string
-          raml_content: string | null
           task_id: string
           task_name: string
-          updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
+          description: string
+          created_at: string
+          updated_at: string
+          category: string
+          raml_content: string
+          api_name: string
+          api_version: string
+          base_uri: string
+          endpoints: Json
+          documentation: string
         }[]
       }
       apl_get_raml_tasks: {
         Args: { workspace_id_param: string }
         Returns: {
-          api_name: string | null
-          api_version: string | null
-          base_uri: string | null
-          category: string
-          created_at: string
-          description: string | null
-          documentation: string | null
-          endpoints: Json | null
           id: string
-          raml_content: string | null
           task_id: string
           task_name: string
-          updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
+          description: string
+          created_at: string
+          updated_at: string
+          category: string
+          raml_content: string
+          api_name: string
+          api_version: string
+          base_uri: string
+          endpoints: Json
+          documentation: string
         }[]
       }
       apl_get_sample_data_task_details: {
         Args: { task_id_param: string }
         Returns: {
-          category: string
-          created_at: string
-          description: string | null
           id: string
-          notes: string | null
-          result_content: string | null
-          schema_content: string | null
-          source_format: string
           task_id: string
           task_name: string
-          updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
+          description: string
+          created_at: string
+          updated_at: string
+          category: string
+          source_format: string
+          schema_content: string
+          result_content: string
+          notes: string
         }[]
       }
       apl_get_sample_data_tasks: {
         Args: { workspace_id_param: string }
         Returns: {
-          category: string
-          created_at: string
-          description: string | null
           id: string
-          notes: string | null
-          result_content: string | null
-          schema_content: string | null
-          source_format: string
           task_id: string
           task_name: string
-          updated_at: string
-          user_id: string | null
+          user_id: string
           workspace_id: string
-        }[]
-      }
-      apl_get_task_details: {
-        Args: { task_id_param: string }
-        Returns: {
-          id: string
-          task_id: string
-          task_name: string
-          input_format: string
-          input_samples: Json
-          output_samples: Json
-          notes: string
-          generated_scripts: Json
+          description: string
           created_at: string
+          updated_at: string
+          category: string
+          source_format: string
+          schema_content: string
+          result_content: string
+          notes: string
         }[]
       }
       apl_get_user_sessions: {
@@ -1042,24 +1126,24 @@ export type Database = {
           initial: string
           session_timeout: string
           invite_enabled: boolean
-          invite_link: string
+          is_invited_workspace: boolean
           created_at: string
         }[]
       }
       apl_get_workspace_tasks: {
-        Args: { workspace_id_param: string }
+        Args: { workspace_id_param: string; category_param?: string }
         Returns: {
           id: string
           task_id: string
           task_name: string
           category: string
           created_at: string
-          description: string
+          updated_at: string
         }[]
       }
       apl_increment_exchange_counter: {
-        Args: { item_id_param: string; counter_name: string }
-        Returns: undefined
+        Args: { p_counter_type: string; p_item_id: string; p_user_id: string }
+        Returns: boolean
       }
       apl_insert_dataweave_history: {
         Args: {
@@ -1103,21 +1187,42 @@ export type Database = {
         }
         Returns: string
       }
-      apl_invite_user_to_workspace: {
-        Args: { workspace_id_param: string; email_param: string }
-        Returns: boolean
-      }
-      apl_upsert_peer_connection: {
+      apl_save_integration_task: {
         Args: {
+          p_task_id: string
+          p_task_name: string
+          p_description: string
           p_user_id: string
-          p_peer_id: string
-          p_username: string
-          p_status?: string
+          p_workspace_id: string
+          p_category?: string
+          p_runtime?: string
+          p_raml_content?: string
+          p_generated_code?: string
+          p_flow_summary?: string
+          p_flow_implementation?: string
+          p_flow_constants?: string
+          p_pom_dependencies?: string
+          p_compilation_check?: string
+          p_diagrams?: Json
         }
         Returns: string
       }
       bytea_to_text: {
         Args: { data: string }
+        Returns: string
+      }
+      check_workspace_membership: {
+        Args: { workspace_id_param: string; user_id_param: string }
+        Returns: {
+          id: string
+          workspace_id: string
+          user_id: string
+          role: string
+          created_at: string
+        }[]
+      }
+      create_default_workspace: {
+        Args: { p_user_id: string; p_username?: string }
         Returns: string
       }
       http: {
@@ -1171,12 +1276,29 @@ export type Database = {
         Args: { curlopt: string; value: string }
         Returns: boolean
       }
+      invite_user_to_workspace: {
+        Args: { p_workspace_id: string; p_user_id: string; p_role?: string }
+        Returns: boolean
+      }
+      reset_user_credits: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       send_welcome_email: {
         Args: { subscriber_email: string }
         Returns: Json
       }
       text_to_bytea: {
         Args: { data: string }
+        Returns: string
+      }
+      update_peer_connection: {
+        Args: {
+          p_user_id: string
+          p_session_id: string
+          p_peer_id: string
+          p_status?: string
+        }
         Returns: string
       }
       urlencode: {
