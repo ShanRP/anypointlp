@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { logAuditEvent } from '@/utils/supabaseOptimizer';
+import { logAuditEvent, getCount } from '@/utils/supabaseOptimizer';
 
 /**
  * Security utilities for SOC 2 compliance
@@ -57,6 +57,13 @@ export const checkPasswordStrength = (password: string): { isValid: boolean; rea
   return { isValid: true };
 };
 
+// Cache for vulnerability checks to avoid repeated database calls
+const vulnerabilityCache = new Map<string, {
+  data: any;
+  timestamp: number;
+}>();
+const VULNERABILITY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Checks for potential security vulnerabilities
  * @param userId Current user ID for logging
@@ -66,28 +73,37 @@ export const checkSecurityVulnerabilities = async (userId: string): Promise<{
   vulnerabilities: Array<{ severity: 'high' | 'medium' | 'low'; issue: string; recommendation: string }>;
   score: number;
 }> => {
+  const cacheKey = `vulnerabilities:${userId}`;
+  
+  // Check cache first
+  if (vulnerabilityCache.has(cacheKey)) {
+    const cache = vulnerabilityCache.get(cacheKey)!;
+    if (Date.now() - cache.timestamp < VULNERABILITY_CACHE_TTL) {
+      return cache.data;
+    }
+    vulnerabilityCache.delete(cacheKey);
+  }
+  
   const vulnerabilities: Array<{ 
     severity: 'high' | 'medium' | 'low'; 
     issue: string; 
     recommendation: string 
   }> = [];
   
-  // Log the security check for audit purposes
+  // Log the security check for audit purposes - but only once per session
   await logAuditEvent(userId, 'SECURITY_CHECK', {
     timestamp: new Date().toISOString(),
     source: 'securityUtils.checkSecurityVulnerabilities'
   });
   
-  // Check if multiple sessions are active
+  // Check if multiple sessions are active - use optimized count query
   try {
-    const { data: sessions, error } = await supabase.from('apl_user_sessions')
-      .select('id')
-      .eq('user_id', userId);
+    const { count, error } = await getCount('apl_user_sessions', { user_id: userId });
       
-    if (!error && sessions && sessions.length > 1) {
+    if (!error && count && count > 1) {
       vulnerabilities.push({
         severity: 'medium',
-        issue: `Multiple active sessions detected (${sessions.length})`,
+        issue: `Multiple active sessions detected (${count})`,
         recommendation: 'Sign out of unused sessions for better security'
       });
     }
@@ -95,18 +111,23 @@ export const checkSecurityVulnerabilities = async (userId: string): Promise<{
     console.error('Error checking sessions:', error);
   }
   
-  // Check for recent failed login attempts
+  // Check for recent failed login attempts - use select with count only
   try {
-    const { data: failedLogins, error } = await supabase.from('apl_auth_logs')
-      .select('created_at')
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data, error } = await supabase
+      .from('apl_auth_logs')
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('action', 'LOGIN_FAILED')
-      .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+      .gt('created_at', oneDayAgo);
       
-    if (!error && failedLogins && failedLogins.length > 3) {
+    const failedCount = data?.length || 0;
+    
+    if (!error && failedCount > 3) {
       vulnerabilities.push({
         severity: 'high',
-        issue: `Multiple failed login attempts detected (${failedLogins.length} in the last 24 hours)`,
+        issue: `Multiple failed login attempts detected (${failedCount} in the last 24 hours)`,
         recommendation: 'Consider changing your password and enabling two-factor authentication'
       });
     }
@@ -121,10 +142,18 @@ export const checkSecurityVulnerabilities = async (userId: string): Promise<{
     return total + 5;
   }, 0)));
   
-  return {
+  const result = {
     vulnerabilities,
     score
   };
+  
+  // Cache the result
+  vulnerabilityCache.set(cacheKey, {
+    data: result,
+    timestamp: Date.now()
+  });
+  
+  return result;
 };
 
 /**
@@ -144,6 +173,12 @@ export const sanitizeInput = (input: string): string => {
     .replace(/'/g, '&#039;');
 };
 
+// Token validation cache to prevent repeated validation of the same token
+const tokenCache = new Map<string, {
+  isValid: boolean;
+  expiry: number;
+}>();
+
 /**
  * Validates authentication token expiration
  * @param token JWT token to validate
@@ -151,6 +186,21 @@ export const sanitizeInput = (input: string): string => {
  */
 export const validateAuthToken = (token: string): boolean => {
   if (!token) return false;
+  
+  const tokenFingerprint = token.split('.')[2] || token; // Use signature part as cache key
+  
+  // Check cache first
+  if (tokenCache.has(tokenFingerprint)) {
+    const cache = tokenCache.get(tokenFingerprint)!;
+    
+    // If cached token is expired, remove from cache and return false
+    if (Date.now() >= cache.expiry) {
+      tokenCache.delete(tokenFingerprint);
+      return false;
+    }
+    
+    return cache.isValid;
+  }
   
   try {
     // Extract the payload part of the JWT (second part)
@@ -165,8 +215,15 @@ export const validateAuthToken = (token: string): boolean => {
     
     const expirationTime = payload.exp * 1000; // Convert to milliseconds
     const currentTime = Date.now();
+    const isValid = currentTime < expirationTime;
     
-    return currentTime < expirationTime;
+    // Cache the result
+    tokenCache.set(tokenFingerprint, {
+      isValid,
+      expiry: expirationTime
+    });
+    
+    return isValid;
   } catch (error) {
     console.error('Error validating token:', error);
     return false;
