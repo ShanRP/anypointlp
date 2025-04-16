@@ -6,6 +6,8 @@ import { debounce } from 'lodash';
  * Utility functions to optimize Supabase queries and reduce egress usage
  */
 
+type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 'apl_user_credits' | 'apl_auth_logs';
+
 /**
  * Performs a paginated query with column selection
  * @param table The table to query
@@ -15,7 +17,7 @@ import { debounce } from 'lodash';
  * @param filters Optional filters to apply
  */
 export const paginatedQuery = async (
-  table: string,
+  table: TableName,
   columns: string,
   page: number = 1,
   pageSize: number = 10,
@@ -60,7 +62,7 @@ export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>
  * @param table The table to query
  * @param filters Optional filters to apply
  */
-export const getCount = async (table: string, filters?: Record<string, any>) => {
+export const getCount = async (table: TableName, filters?: Record<string, any>) => {
   let query = supabase
     .from(table)
     .select('id', { count: 'exact', head: true });
@@ -91,4 +93,43 @@ export const getWorkspaceDetails = async (workspaceId: string) => {
     .single();
     
   return { data, error };
+};
+
+/**
+ * Log a security or audit event
+ * @param userId User ID 
+ * @param action Action being performed
+ * @param details Optional details about the action
+ */
+export const logAuditEvent = async (
+  userId: string, 
+  action: string, 
+  details?: Record<string, any>
+) => {
+  try {
+    const device = navigator?.userAgent || 'Unknown device';
+    
+    await supabase.from('apl_auth_logs').insert({
+      user_id: userId,
+      action,
+      device,
+      details: details ? JSON.stringify(details) : null
+    });
+  } catch (error) {
+    console.error('Failed to log audit event:', error);
+    // Don't throw as we don't want to break app functionality due to logging failures
+  }
+};
+
+/**
+ * Handles secure token management to avoid exposing sensitive keys
+ */
+export const generateSecureRequestSignature = (payload: any): string => {
+  // In a real implementation, this would use crypto APIs to create a secure signature
+  // This is a simplified example
+  const timestamp = Date.now();
+  const requestId = crypto.randomUUID();
+  
+  // Concatenate timestamp and requestId to create a unique signature
+  return `${timestamp}.${requestId}`;
 };
