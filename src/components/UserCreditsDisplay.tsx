@@ -64,7 +64,7 @@ export function UserCreditsDisplay() {
   const handleUpgrade = async () => {
     setIsUpgrading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout');
+      // const { data, error } = await supabase.functions.invoke('create-checkout');
       
       if (error) {
         throw new Error(error.message);
