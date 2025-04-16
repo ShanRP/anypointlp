@@ -98,7 +98,11 @@ export const checkSecurityVulnerabilities = async (userId: string): Promise<{
   
   // Check if multiple sessions are active - use optimized count query
   try {
-    const { count, error } = await getCount('apl_user_sessions', { user_id: userId });
+    // Use direct query since apl_user_sessions is not in the TableName type
+    const { count, error } = await supabase
+      .from('apl_user_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
       
     if (!error && count && count > 1) {
       vulnerabilities.push({

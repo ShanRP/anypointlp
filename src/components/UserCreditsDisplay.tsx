@@ -86,14 +86,14 @@ export function UserCreditsDisplay() {
     sessionStorage.setItem('upgradeDialogShown', 'true');
     
     try {
-      // const { data, error } = await supabase.functions.invoke('create-checkout');
+      const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke('create-checkout');
       
-      if (error) {
-        throw new Error(error.message);
+      if (checkoutError) {
+        throw new Error(checkoutError.message);
       }
       
-      if (data.url) {
-        window.location.href = data.url;
+      if (checkoutData?.url) {
+        window.location.href = checkoutData.url;
       } else {
         throw new Error('No checkout URL returned');
       }

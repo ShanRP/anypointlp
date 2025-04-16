@@ -6,6 +6,7 @@ import { debounce } from 'lodash';
  * Utility functions to optimize Supabase queries and reduce egress usage
  */
 
+// Define specific table names to avoid type issues
 type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 'apl_user_credits' | 'apl_auth_logs';
 
 // Cache to store query results with expiration
@@ -84,7 +85,7 @@ export const paginatedQuery = async (
 export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>(
   fn: T,
   wait: number = 300
-) => {
+): ((...args: Parameters<T>) => Promise<ReturnType<T>>) => {
   return debounce(fn, wait);
 };
 
@@ -95,7 +96,7 @@ export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>
  * @param useCache Whether to use cache (default: true)
  */
 export const getCount = async (
-  table: TableName, 
+  table: TableName | string, 
   filters?: Record<string, any>,
   useCache: boolean = true
 ) => {
@@ -248,7 +249,11 @@ export const generateSecureRequestSignature = (payload: any): string => {
  * Optimize batch fetching for task data
  * Reduces multiple individual requests to a single batch request
  */
-export const batchFetchTasks = async (workspaceId: string, taskType: string, useCache: boolean = true) => {
+export const batchFetchTasks = async (
+  workspaceId: string, 
+  taskType: string, 
+  useCache: boolean = true
+) => {
   const cacheKey = `batchTasks:${workspaceId}:${taskType}`;
   
   if (useCache && queryCache[cacheKey] && (Date.now() - queryCache[cacheKey].timestamp) < CACHE_TTL) {
@@ -256,7 +261,12 @@ export const batchFetchTasks = async (workspaceId: string, taskType: string, use
     return queryCache[cacheKey].data;
   }
   
-  const tableName = `apl_${taskType}_tasks`;
+  // Use typed literal instead of string concatenation
+  const tableName = taskType === 'workspace_members' ? 'apl_workspace_members' :
+                    taskType === 'workspaces' ? 'apl_workspaces' :
+                    taskType === 'workspace_invitations' ? 'apl_workspace_invitations' :
+                    taskType === 'user_credits' ? 'apl_user_credits' :
+                    `apl_${taskType}_tasks`;
   
   const { data, error } = await supabase
     .from(tableName)
