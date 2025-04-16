@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,12 +7,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Trash, Edit, Save, Send, Mail } from 'lucide-react';
-import { WorkspaceOption } from '@/hooks/useWorkspaces';
+import { Trash, Edit, Save, Send, Mail, Shield, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { createDebouncedQuery } from '@/utils/supabaseOptimizer';
+import { createDebouncedQuery, logAuditEvent, getWorkspaceDetails } from '@/utils/supabaseOptimizer';
+import { WorkspaceOption } from '@/hooks/useWorkspaces';
 
 type WorkspaceDetailsDialogProps = {
   isOpen: boolean;
@@ -51,10 +52,17 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
   if (!workspace) return null;
 
   const handleDelete = async () => {
-    if (!workspace) return;
+    if (!workspace || !user) return;
     
     setIsDeleting(true);
     try {
+      // Log delete attempt for audit purposes
+      await logAuditEvent(user.id, 'DELETE_WORKSPACE', {
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        timestamp: new Date().toISOString()
+      });
+      
       const success = await onDelete(workspace.id);
       if (success) {
         toast.success("Workspace deleted successfully");
@@ -71,10 +79,20 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
   };
 
   const handleUpdate = async () => {
-    if (!workspace || !workspaceName.trim()) return;
+    if (!workspace || !workspaceName.trim() || !user) return;
     
     setIsUpdating(true);
     try {
+      // Log update attempt for audit purposes
+      await logAuditEvent(user.id, 'UPDATE_WORKSPACE', {
+        workspaceId: workspace.id,
+        workspaceName: workspaceName,
+        inviteEnabled: inviteEnabled,
+        previousName: workspace.name,
+        previousInviteEnabled: workspace.invite_enabled,
+        timestamp: new Date().toISOString()
+      });
+      
       const success = await onUpdate(workspace.id, { 
         name: workspaceName,
         invite_enabled: inviteEnabled
@@ -100,13 +118,20 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
   };
 
   const debouncedSendInvitation = createDebouncedQuery(async () => {
-    if (!workspace || !validateEmail(inviteEmail)) {
+    if (!workspace || !validateEmail(inviteEmail) || !user) {
       toast.error("Please enter a valid email address");
       return;
     }
     
     setIsSendingInvite(true);
     try {
+      // Log invitation attempt for audit purposes
+      await logAuditEvent(user.id, 'INVITE_WORKSPACE_MEMBER', {
+        workspaceId: workspace.id,
+        invitedEmail: inviteEmail,
+        timestamp: new Date().toISOString()
+      });
+      
       const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
         body: {
           type: "tool",
@@ -130,6 +155,13 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
       
       const responseData = JSON.parse(data.content[0].text);
       
+      // Log successful invitation for audit
+      await logAuditEvent(user.id, 'INVITE_WORKSPACE_MEMBER_SUCCESS', {
+        workspaceId: workspace.id,
+        invitedEmail: inviteEmail,
+        timestamp: new Date().toISOString()
+      });
+      
       if (responseData.warning) {
         toast.warning(responseData.message || "Invitation created but email could not be sent");
       } else {
@@ -139,6 +171,14 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
       setInviteEmail('');
     } catch (error) {
       console.error("Error sending invitation:", error);
+      
+      // Log failed invitation for audit
+      await logAuditEvent(user.id, 'INVITE_WORKSPACE_MEMBER_FAILED', {
+        workspaceId: workspace.id,
+        invitedEmail: inviteEmail,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
       
       if (error.message && error.message.includes("already a member")) {
         toast.error("User is already a member of this workspace");
@@ -161,6 +201,10 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="text-xl">Workspace Details</DialogTitle>
+          <div className="text-xs text-gray-500 mt-1">
+            <Shield className="h-3 w-3 inline-block mr-1" />
+            All changes are logged for audit and compliance
+          </div>
         </DialogHeader>
         
         <motion.div 
