@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,11 +6,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Clipboard, Check, Copy, Trash, Edit, Save, Link, Share2, Mail, Send } from 'lucide-react';
+import { Trash, Edit, Save, Send, Mail } from 'lucide-react';
 import { WorkspaceOption } from '@/hooks/useWorkspaces';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { createDebouncedQuery } from '@/utils/supabaseOptimizer';
 
 type WorkspaceDetailsDialogProps = {
   isOpen: boolean;
@@ -99,7 +99,7 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
     return re.test(email);
   };
 
-  const sendInvitation = async () => {
+  const debouncedSendInvitation = createDebouncedQuery(async () => {
     if (!workspace || !validateEmail(inviteEmail)) {
       toast.error("Please enter a valid email address");
       return;
@@ -107,7 +107,6 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
     
     setIsSendingInvite(true);
     try {
-      // Call the edge function with only the required data
       const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
         body: {
           type: "tool",
@@ -124,7 +123,6 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
         throw error;
       }
       
-      // Handle possible MCP error responses
       if (data.isError) {
         const errorData = JSON.parse(data.content[0].text);
         throw new Error(errorData.error || "Failed to send invitation");
@@ -138,7 +136,7 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
         toast.success(responseData.message || "Invitation sent successfully");
       }
       
-      setInviteEmail(''); // Clear the input field
+      setInviteEmail('');
     } catch (error) {
       console.error("Error sending invitation:", error);
       
@@ -152,6 +150,10 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
     } finally {
       setIsSendingInvite(false);
     }
+  }, 300);
+
+  const sendInvitation = () => {
+    debouncedSendInvitation();
   };
 
   return (
