@@ -107,7 +107,7 @@ const WorkspaceDetailsDialog: React.FC<WorkspaceDetailsDialogProps> = ({
     
     setIsSendingInvite(true);
     try {
-      // Use MCP approach to call the send-invitation tool
+      // Call the edge function with only the required data
       const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
         body: {
           type: "tool",

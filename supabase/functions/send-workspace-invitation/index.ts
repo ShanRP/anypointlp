@@ -9,6 +9,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Get environment variables - these are set securely in Supabase
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const APP_URL = Deno.env.get("APP_URL") || "http://localhost:8080";
+
+// Schema for invitation request validation
+const invitationSchema = z.object({
+  workspaceId: z.string().uuid(),
+  email: z.string().email(),
+  inviterName: z.string().optional(),
+});
+
 // Simple implementation of MCP functionality
 class SimpleMcpServer {
   private tools = new Map();
@@ -71,20 +83,32 @@ const mcpServer = new SimpleMcpServer({
   version: "1.0.0"
 });
 
+// Create a secure Supabase client with service role key
+// This client is only created on the server side and never exposed to the client
+const adminSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+
 // Add a tool for sending workspace invitations
 mcpServer.tool(
   "send-invitation",
   {},
   async ({ workspaceId, email, inviterName }) => {
     try {
-      // Get secure context
-      const { supabase, APP_URL } = getSecureContext();
+      // Validate the input using zod
+      const { workspaceId: validWorkspaceId, email: validEmail, inviterName: validInviterName } = 
+        invitationSchema.parse({ workspaceId, email, inviterName });
       
-      // Get the workspace details
-      const { data: workspace, error: workspaceError } = await supabase
+      console.log("Processing invitation for workspace:", validWorkspaceId, "to email:", validEmail);
+      
+      // Get the workspace details using admin privileges
+      const { data: workspace, error: workspaceError } = await adminSupabase
         .from("apl_workspaces")
         .select("name, user_id")
-        .eq("id", workspaceId)
+        .eq("id", validWorkspaceId)
         .single();
 
       if (workspaceError || !workspace) {
@@ -98,11 +122,11 @@ mcpServer.tool(
       console.log("Workspace found:", workspace.name);
 
       // Check if the user already exists
-      const { data: existingUsers, error: userCheckError } = await supabase.auth.admin.listUsers({
+      const { data: existingUsers, error: userCheckError } = await adminSupabase.auth.admin.listUsers({
         perPage: 1,
         page: 1,
         filter: {
-          email: email
+          email: validEmail
         }
       });
 
@@ -117,10 +141,10 @@ mcpServer.tool(
         
         // Check if user is already a member of this workspace
         if (existingUserId) {
-          const { data: membershipCheck, error: membershipError } = await supabase
+          const { data: membershipCheck, error: membershipError } = await adminSupabase
             .from("apl_workspace_members")
             .select("id")
-            .eq("workspace_id", workspaceId)
+            .eq("workspace_id", validWorkspaceId)
             .eq("user_id", existingUserId)
             .maybeSingle();
             
@@ -138,12 +162,12 @@ mcpServer.tool(
       }
 
       // Create the invitation record
-      const { data: inviteData, error: inviteError } = await supabase
+      const { data: inviteData, error: inviteError } = await adminSupabase
         .from("apl_workspace_invitations")
         .insert([
           {
-            workspace_id: workspaceId,
-            email: email,
+            workspace_id: validWorkspaceId,
+            email: validEmail,
             status: "pending",
             created_by: workspace.user_id
           }
@@ -171,10 +195,10 @@ mcpServer.tool(
       console.log("Invitation record created successfully:", inviteData?.id);
 
       // Generate the appropriate invite link
-      const inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}`;
+      const inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${validWorkspaceId}`;
       console.log("Created invite link:", inviteLink);
 
-      const inviterDisplay = inviterName || "A user";
+      const inviterDisplay = validInviterName || "A user";
       const subject = `Invitation to join workspace "${workspace.name}"`;
       const emailHtml = `
         <h1>Workspace Invitation</h1>
@@ -192,14 +216,14 @@ mcpServer.tool(
 
       try {
         // Use inviteUserByEmail for all users (both new and existing)
-        console.log("Sending invitation email to:", email);
+        console.log("Sending invitation email to:", validEmail);
         
-        const { data, error: emailError } = await supabase.auth.admin.inviteUserByEmail(
-          email,
+        const { data, error: emailError } = await adminSupabase.auth.admin.inviteUserByEmail(
+          validEmail,
           {
             redirectTo: inviteLink,
             data: {
-              workspace_id: workspaceId,
+              workspace_id: validWorkspaceId,
               workspace_name: workspace.name,
               inviter_name: inviterDisplay
             }
@@ -210,7 +234,7 @@ mcpServer.tool(
           throw emailError;
         }
         
-        console.log("Invitation email sent successfully to:", email);
+        console.log("Invitation email sent successfully to:", validEmail);
         
         return {
           content: [{ 
@@ -251,12 +275,11 @@ mcpServer.tool(
 mcpServer.resource(
   "workspace-info",
   new URL("workspace://info/"),
-  async (uri, params) => {
+  async (uri: URL) => {
     try {
-      const { supabase } = getSecureContext();
       const workspaceId = uri.pathname.split('/').pop();
       
-      const { data: workspace, error } = await supabase
+      const { data: workspace, error } = await adminSupabase
         .from("apl_workspaces")
         .select("id, name, created_at")
         .eq("id", workspaceId)
@@ -287,34 +310,6 @@ mcpServer.resource(
     }
   }
 );
-
-// Model Context Protocol middleware to securely handle service role key
-const getSecureContext = () => {
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const APP_URL = Deno.env.get("APP_URL") || "http://localhost:8080";
-  
-  // Validate required environment variables
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Missing required environment variables");
-  }
-  
-  // Create Supabase client with service role key
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-  
-  return { 
-    supabase, 
-    SUPABASE_URL, 
-    APP_URL,
-    timestamp: new Date().toISOString(),
-    environment: Deno.env.get("ENVIRONMENT") || "development"
-  };
-};
 
 // Create an HTTP adapter for the MCP server
 class HttpMcpAdapter {
