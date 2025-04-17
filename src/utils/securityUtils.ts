@@ -57,6 +57,9 @@ export const checkPasswordStrength = (password: string): { isValid: boolean; rea
   return { isValid: true };
 };
 
+// Define acceptable table names to ensure type safety
+type SessionsTableName = 'apl_user_sessions';
+
 /**
  * Checks for potential security vulnerabilities
  * @param userId Current user ID for logging
@@ -80,7 +83,8 @@ export const checkSecurityVulnerabilities = async (userId: string): Promise<{
   
   // Check if multiple sessions are active
   try {
-    const { data: sessions, error } = await supabase.from('apl_user_sessions')
+    const { data: sessions, error } = await supabase
+      .from('apl_user_sessions' as SessionsTableName)
       .select('id')
       .eq('user_id', userId);
       
@@ -97,7 +101,8 @@ export const checkSecurityVulnerabilities = async (userId: string): Promise<{
   
   // Check for recent failed login attempts
   try {
-    const { data: failedLogins, error } = await supabase.from('apl_auth_logs')
+    const { data: failedLogins, error } = await supabase
+      .from('apl_auth_logs')
       .select('created_at')
       .eq('user_id', userId)
       .eq('action', 'LOGIN_FAILED')
