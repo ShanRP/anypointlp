@@ -64,19 +64,27 @@ export function UserCreditsDisplay() {
   const handleUpgrade = async () => {
     setIsUpgrading(true);
     try {
+      // Commented out until checkout function is properly implemented
       // const { data, error } = await supabase.functions.invoke('create-checkout');
       
-      if (error) {
-        throw new Error(error.message);
-      }
+      // if (error) {
+      //   throw new Error(error.message);
+      // }
       
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error('No checkout URL returned');
-      }
-    } catch (error) {
-      console.error('Error creating checkout session:', error);
+      // if (data && data.url) {
+      //   window.location.href = data.url;
+      // } else {
+      //   throw new Error('No checkout URL returned');
+      // }
+
+      // Temporary implementation
+      toast.info('Checkout functionality is currently being implemented');
+      setTimeout(() => {
+        setIsUpgrading(false);
+        setShowUpgradeDialog(false);
+      }, 1500);
+    } catch (err: any) {
+      console.error('Error creating checkout session:', err);
       toast.error('Failed to start checkout process. Please try again.');
     } finally {
       setShowUpgradeDialog(false);
@@ -113,7 +121,7 @@ export function UserCreditsDisplay() {
   size="sm" 
   className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
 >
-  Updrade
+  Upgrade
 </Button>
 
           </DialogTrigger>

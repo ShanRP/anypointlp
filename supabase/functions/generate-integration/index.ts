@@ -113,7 +113,7 @@ STRICT REQUIREMENTS:
 4. List at least 3-5 constants even if basic ones
 5. Include ONLY valid dependencies with correct coordinates for Mule ${runtime || '4.4.0'}
 6. Provide at least 5 compilation checks/troubleshooting steps
-7. DO NOT use markdown code blocks (``` or ~~~) in your response
+7. DO NOT use markdown code blocks (or backticks) in your response
 8. XML should be provided as plain text, not wrapped in any formatting
 `;
     

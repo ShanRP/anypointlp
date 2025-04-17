@@ -50,11 +50,11 @@ export const paginatedQuery = async (
  * @param fn The function to debounce
  * @param wait Wait time in milliseconds
  */
-export const createDebouncedQuery = (
-  fn: (...args: any[]) => Promise<any>,
+export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>(
+  fn: T,
   wait: number = 300
 ) => {
-  return debounce(fn, wait);
+  return debounce(fn, wait) as T;
 };
 
 /**
