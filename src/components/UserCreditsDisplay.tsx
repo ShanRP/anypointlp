@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { useUser } from '@/contexts/UserContext';
+import React, { useState, useEffect } from 'react';
+import { useUserCredits } from '@/hooks/useUserCredits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Coins, CreditCard, Loader2 } from 'lucide-react';
@@ -18,14 +18,13 @@ import { toast } from 'sonner';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export function UserCreditsDisplay() {
-  const { credits, creditsLoading, refreshCredits } = useUser();
-  const [showUpgradeDialog, setShowUpgradeDialog] = React.useState(false);
-  const [isUpgrading, setIsUpgrading] = React.useState(false);
+  const { credits, loading, refreshCredits, showUpgradeDialog, setShowUpgradeDialog } = useUserCredits();
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
   // Check for payment success or cancel URL parameters
-  React.useEffect(() => {
+  useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const paymentSuccess = queryParams.get('payment_success');
     const paymentCanceled = queryParams.get('payment_canceled');
@@ -65,18 +64,18 @@ export function UserCreditsDisplay() {
   const handleUpgrade = async () => {
     setIsUpgrading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout');
+      // const { data, error } = await supabase.functions.invoke('create-checkout');
       
       if (error) {
         throw new Error(error.message);
       }
       
-      if (data?.url) {
+      if (data.url) {
         window.location.href = data.url;
       } else {
         throw new Error('No checkout URL returned');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating checkout session:', error);
       toast.error('Failed to start checkout process. Please try again.');
     } finally {
@@ -85,7 +84,7 @@ export function UserCreditsDisplay() {
     }
   };
 
-  if (creditsLoading) {
+  if (loading) {
     return (
       <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 font-geistSans">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -109,13 +108,14 @@ export function UserCreditsDisplay() {
       {!isPro() && (
         <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
           <DialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
-            >
-              Upgrade
-            </Button>
+          <Button 
+  variant="outline" 
+  size="sm" 
+  className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
+>
+  Updrade
+</Button>
+
           </DialogTrigger>
           <DialogContent className="font-geistSans">
             <DialogHeader>
