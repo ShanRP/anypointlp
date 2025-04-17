@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useUserData } from '@/providers/UserDataProvider';
+import { useUserCredits } from '@/hooks/useUserCredits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Coins, CreditCard, Loader2 } from 'lucide-react';
@@ -18,8 +18,7 @@ import { toast } from 'sonner';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export function UserCreditsDisplay() {
-  const { credits, creditsLoading, refreshCredits } = useUserData();
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const { credits, loading, refreshCredits, showUpgradeDialog, setShowUpgradeDialog } = useUserCredits();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -67,10 +66,6 @@ export function UserCreditsDisplay() {
     try {
       // const { data, error } = await supabase.functions.invoke('create-checkout');
       
-      // Commenting out to avoid errors since function might not exist
-      const error = null;
-      const data = { url: '#' };
-      
       if (error) {
         throw new Error(error.message);
       }
@@ -89,7 +84,7 @@ export function UserCreditsDisplay() {
     }
   };
 
-  if (creditsLoading) {
+  if (loading) {
     return (
       <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 font-geistSans">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -114,12 +109,13 @@ export function UserCreditsDisplay() {
         <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
           <DialogTrigger asChild>
           <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
-          >
-            Upgrade
-          </Button>
+  variant="outline" 
+  size="sm" 
+  className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
+>
+  Updrade
+</Button>
+
           </DialogTrigger>
           <DialogContent className="font-geistSans">
             <DialogHeader>

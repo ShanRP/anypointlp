@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -15,7 +14,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import TaskDetailsView from '@/components/TaskDetailsView';
-import { WorkspaceOption } from '@/hooks/useWorkspaces';
+import { WorkspaceOption, useWorkspaces } from '@/hooks/useWorkspaces';
 import JobBoard from '@/components/JobBoard/JobBoard';
 import MUnitTestGenerator from '@/components/MUnitTestGenerator';
 import SampleDataGenerator from '@/components/SampleDataGenerator';
@@ -29,7 +28,6 @@ import { cn } from '@/lib/utils';
 import GeneratorCard from '@/components/GeneratorCard';
 import CodingAssistantDialog from '@/components/ai/CodingAssistantDialog';
 import { UserCreditsDisplay } from '@/components/UserCreditsDisplay';
-import { useUserData } from '@/providers/UserDataProvider';
 
 interface SidebarTask {
   id: string;
@@ -39,15 +37,13 @@ interface SidebarTask {
   workspace_id: string;
 }
 
-type PageType = 'dashboard' | 'settings' | 'dataweave' | 'integration' | 'raml' | 'taskView' | 'exchange' | 'exchangeItem' | 'exchangePublish' | 'jobBoard' | 'munit' | 'sampleData' | 'document' | 'diagram';
-
-interface DashboardAgentCardProps {
+type DashboardAgentCardProps = {
   title: string;
   description: string;
   icon: React.ReactNode;
   selected?: boolean;
   onClick?: () => void;
-}
+};
 
 const DashboardAgentCard: React.FC<DashboardAgentCardProps> = ({
   title,
@@ -111,6 +107,8 @@ const AgentCategory: React.FC<AgentCategoryProps> = ({
       </div>
     </div>;
 };
+
+type PageType = 'dashboard' | 'settings' | 'dataweave' | 'integration' | 'raml' | 'taskView' | 'exchange' | 'exchangeItem' | 'exchangePublish' | 'jobBoard' | 'munit' | 'sampleData' | 'document' | 'diagram';
 
 const DashboardContent = ({
   selectedCategory,
@@ -239,17 +237,17 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredAgents, setFilteredAgents] = useState<any[]>([]);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
-  
-  const { user, loading } = useAuth();
+  const {
+    user,
+    loading
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const { 
-    workspaces, 
-    selectedWorkspace, 
-    selectWorkspace 
-  } = useUserData();
-  
+  const {
+    workspaces,
+    selectedWorkspace,
+    selectWorkspace
+  } = useWorkspaces();
   const {
     fetchTaskDetails,
     selectedTask,
@@ -275,14 +273,6 @@ const Dashboard = () => {
       setCurrentPage('exchangePublish');
     } else if (path.includes('/dashboard/exchange')) {
       setCurrentPage('exchange');
-    } else if (path.includes('/dashboard/munit')) {
-      setCurrentPage('munit');
-    } else if (path.includes('/dashboard/sample-data')) {
-      setCurrentPage('sampleData');
-    } else if (path.includes('/dashboard/document')) {
-      setCurrentPage('document');
-    } else if (path.includes('/dashboard/diagram')) {
-      setCurrentPage('diagram');
     }
   }, [location.pathname]);
 
@@ -380,6 +370,13 @@ const Dashboard = () => {
     setFilteredAgents(filtered);
   };
 
+  const fetchWorkspaceTasks = () => {
+    if (selectedWorkspace?.id) {
+      const { fetchWorkspaceTasks } = useWorkspaceTasks(selectedWorkspace.id);
+      fetchWorkspaceTasks();
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-light dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800">
         <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -465,43 +462,103 @@ const Dashboard = () => {
             </motion.div>
           )}
           
-          {currentPage === 'settings' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'settings' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <SettingsPage />
             </motion.div>}
           
-          {currentPage === 'dataweave' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'dataweave' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <DataWeaveGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onSaveTask={() => {}} onBack={handleBackToDashboard} />
             </motion.div>}
           
-          {currentPage === 'integration' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'integration' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <IntegrationGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onBack={handleBackToDashboard} onSaveTask={() => {}} />
             </motion.div>}
           
-          {currentPage === 'raml' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'raml' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <RAMLGenerator selectedWorkspaceId={selectedWorkspace?.id || ''} onBack={handleBackToDashboard} />
             </motion.div>}
           
-          {currentPage === 'taskView' && selectedTask && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'taskView' && selectedTask && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <TaskDetailsView task={selectedTask} onBack={() => setCurrentPage('dashboard')} />
             </motion.div>}
           
-          {currentPage === 'exchange' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'exchange' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <ExchangeList onBack={handleBackToDashboard} />
             </motion.div>}
 
-          {currentPage === 'exchangeItem' && selectedExchangeItemId && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'exchangeItem' && selectedExchangeItemId && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <ExchangeItemDetails />
             </motion.div>}
 
-          {currentPage === 'exchangePublish' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'exchangePublish' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <ExchangePublish />
             </motion.div>}
 
-          {currentPage === 'jobBoard' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {currentPage === 'jobBoard' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }}>
               <JobBoard />
             </motion.div>}
 
-          {currentPage === 'munit' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="p-0">
+          {currentPage === 'munit' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }} className="p-0">
               <MUnitTestGenerator 
                 onTaskCreated={handleTaskCreated} 
                 selectedWorkspaceId={selectedWorkspace?.id} 
@@ -513,7 +570,13 @@ const Dashboard = () => {
               />
             </motion.div>}
 
-          {currentPage === 'sampleData' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="p-0">
+          {currentPage === 'sampleData' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }} className="p-0">
               <SampleDataGenerator 
                 onBack={handleBackToDashboard} 
                 selectedWorkspaceId={selectedWorkspace?.id}
@@ -524,7 +587,13 @@ const Dashboard = () => {
               />
             </motion.div>}
 
-          {currentPage === 'document' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="p-0">
+          {currentPage === 'document' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }} className="p-0">
               <DocumentGenerator 
                 onBack={handleBackToDashboard} 
                 selectedWorkspaceId={selectedWorkspace?.id}
@@ -535,7 +604,13 @@ const Dashboard = () => {
               />
             </motion.div>}
 
-          {currentPage === 'diagram' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="p-0">
+          {currentPage === 'diagram' && <motion.div initial={{
+          opacity: 0
+        }} animate={{
+          opacity: 1
+        }} transition={{
+          duration: 0.3
+        }} className="p-0">
               <DiagramGenerator 
                 onBack={handleBackToDashboard} 
                 selectedWorkspaceId={selectedWorkspace?.id}
