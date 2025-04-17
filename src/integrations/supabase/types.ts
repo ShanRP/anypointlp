@@ -92,39 +92,6 @@ export type Database = {
         }
         Relationships: []
       }
-      apl_dataweave_history: {
-        Row: {
-          created_at: string
-          generated_script: string | null
-          id: string
-          input_format: string | null
-          input_samples: Json | null
-          notes: string | null
-          output_samples: Json | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          generated_script?: string | null
-          id?: string
-          input_format?: string | null
-          input_samples?: Json | null
-          notes?: string | null
-          output_samples?: Json | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          generated_script?: string | null
-          id?: string
-          input_format?: string | null
-          input_samples?: Json | null
-          notes?: string | null
-          output_samples?: Json | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       apl_dataweave_tasks: {
         Row: {
           created_at: string
@@ -288,7 +255,15 @@ export type Database = {
           user_id?: string
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "apl_exchange_comments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "apl_exchange_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       apl_exchange_items: {
         Row: {
@@ -335,27 +310,6 @@ export type Database = {
           username?: string | null
           visibility?: string
           workspace_id?: string | null
-        }
-        Relationships: []
-      }
-      apl_exchange_likes: {
-        Row: {
-          created_at: string
-          id: string
-          item_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          item_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          item_id?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -447,7 +401,15 @@ export type Database = {
           user_id?: string
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "apl_job_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "apl_job_posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       apl_job_posts: {
         Row: {
@@ -807,7 +769,15 @@ export type Database = {
           status?: string
           workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "apl_workspace_invitations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "apl_workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       apl_workspace_members: {
         Row: {
@@ -831,7 +801,15 @@ export type Database = {
           user_id?: string
           workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "apl_workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "apl_workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       apl_workspaces: {
         Row: {
@@ -1010,204 +988,12 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: Json[]
       }
-      apl_get_user_workspaces: {
-        Args: { user_id_param: string }
-        Returns: {
-          id: string
-          name: string
-          initial: string
-          session_timeout: string
-          invite_enabled: boolean
-          invite_link: string
-          created_at: string
-        }[]
-      }
-      apl_get_workspace_tasks: {
-        Args: { workspace_id_param: string }
-        Returns: {
-          id: string
-          task_id: string
-          task_name: string
-          category: string
-          created_at: string
-          description: string
-        }[]
-      }
-      apl_increment_exchange_counter: {
-        Args: { item_id_param: string; counter_name: string }
-        Returns: undefined
-      }
-      apl_insert_dataweave_history: {
-        Args: {
-          user_id_input: string
-          input_format_input: string
-          input_samples_input: Json
-          output_samples_input: Json
-          notes_input: string
-          generated_scripts_input: Json
-        }
-        Returns: string
-      }
-      apl_insert_munit_task: {
-        Args: {
-          workspace_id: string
-          task_id: string
-          task_name: string
-          user_id: string
-          description: string
-          flow_implementation: string
-          flow_description: string
-          munit_content: string
-          runtime: string
-          number_of_scenarios: number
-          category: string
-        }
-        Returns: string
-      }
-      apl_insert_sample_data_task: {
-        Args: {
-          workspace_id: string
-          task_id: string
-          task_name: string
-          user_id: string
-          description: string
-          source_format: string
-          schema_content: string
-          result_content: string
-          notes: string
-          category: string
-        }
-        Returns: string
-      }
-      apl_invite_user_to_workspace: {
-        Args: { workspace_id_param: string; email_param: string }
-        Returns: boolean
-      }
-      apl_upsert_peer_connection: {
-        Args: {
-          p_user_id: string
-          p_peer_id: string
-          p_username: string
-          p_status: string
-        }
-        Returns: string
-      }
-      bytea_to_text: {
-        Args: { data: string }
-        Returns: string
-      }
-      check_workspace_membership: {
-        Args: { workspace_id_param: string; user_id_param: string }
-        Returns: {
-          id: string
-          workspace_id: string
-          user_id: string
-          role: string
-          created_at: string
-        }[]
-      }
-      http: {
-        Args: { request: Database["public"]["CompositeTypes"]["http_request"] }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_delete: {
-        Args:
-          | { uri: string }
-          | { uri: string; content: string; content_type: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_get: {
-        Args: { uri: string } | { uri: string; data: Json }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_head: {
-        Args: { uri: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_header: {
-        Args: { field: string; value: string }
-        Returns: Database["public"]["CompositeTypes"]["http_header"]
-      }
-      http_list_curlopt: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          curlopt: string
-          value: string
-        }[]
-      }
-      http_patch: {
-        Args: { uri: string; content: string; content_type: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_post: {
-        Args:
-          | { uri: string; content: string; content_type: string }
-          | { uri: string; data: Json }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_put: {
-        Args: { uri: string; content: string; content_type: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_reset_curlopt: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      http_set_curlopt: {
-        Args: { curlopt: string; value: string }
-        Returns: boolean
-      }
-      invite_user_to_workspace: {
-        Args: { p_workspace_id: string; p_user_id: string; p_role?: string }
-        Returns: boolean
-      }
-      reset_user_credits: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      send_welcome_email: {
-        Args: { subscriber_email: string }
-        Returns: Json
-      }
-      text_to_bytea: {
-        Args: { data: string }
-        Returns: string
-      }
-      update_peer_connection: {
-        Args: {
-          p_user_id: string
-          p_session_id: string
-          p_peer_id: string
-          p_status?: string
-        }
-        Returns: string
-      }
-      urlencode: {
-        Args: { data: Json } | { string: string } | { string: string }
-        Returns: string
-      }
     }
     Enums: {
       [_ in never]: never
     }
     CompositeTypes: {
-      http_header: {
-        field: string | null
-        value: string | null
-      }
-      http_request: {
-        method: unknown | null
-        uri: string | null
-        headers: Database["public"]["CompositeTypes"]["http_header"][] | null
-        content_type: string | null
-        content: string | null
-      }
-      http_response: {
-        status: number | null
-        content_type: string | null
-        headers: Database["public"]["CompositeTypes"]["http_header"][] | null
-        content: string | null
-      }
+      [_ in never]: never
     }
   }
 }
