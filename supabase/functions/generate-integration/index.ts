@@ -15,7 +15,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests - this is critical for browser requests
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request for CORS preflight');
     return new Response(null, { 
@@ -73,16 +73,16 @@ serve(async (req) => {
     console.log('Runtime:', runtime);
     console.log('Diagrams:', diagrams ? 'Provided' : 'Not provided');
 
-    // Enhanced strict system prompt with explicit section requirements
+    // Enhanced system prompt with explicit requirements for clean output
     const userPrompt = `
 You are an expert MuleSoft developer responsible for generating complete, production-ready integration solutions.
 
 YOUR RESPONSE MUST INCLUDE ALL FIVE SECTIONS BELOW WITH DETAILED CONTENT:
 
 1. Flow Summary - 3-4 paragraphs explaining the implementation in business terms
-2. Flow Implementation - Complete Mule XML configuration with all namespaces
+2. Flow Implementation - Complete Mule XML configuration with all necessary namespaces (IMPORTANT: DO NOT use markdown code blocks or backticks around XML, provide ONLY the raw XML)
 3. Flow Constants - List of all hostnames, ports, credentials, and environment variables
-4. POM Dependencies - All required Maven dependencies with versions
+4. POM Dependencies - Only include valid Maven dependencies with correct groupId, artifactId, and version that are compatible with Mule ${runtime || '4.4.0'}
 5. Compilation Check - Troubleshooting steps for common issues
 
 Create a detailed MuleSoft integration flow based on this description:
@@ -95,13 +95,13 @@ YOU MUST FOLLOW THIS EXACT FORMAT WITH ALL FIVE SECTIONS CLEARLY LABELED:
 [Provide 3-4 paragraphs explaining the integration purpose, approach, and benefits]
 
 # Flow Implementation
-[Provide complete, valid Mule 4.x XML with all required namespaces]
+[Provide complete, valid Mule ${runtime || '4.x'} XML with all required namespaces. DO NOT wrap XML in markdown code blocks or backticks]
 
 # Flow Constants
 [List all hostnames, ports, credentials placeholders, and environment variables]
 
 # POM Dependencies
-[List all Maven dependencies with groupId, artifactId, and version]
+[List ONLY valid Maven dependencies with groupId, artifactId, and correct version numbers compatible with Mule ${runtime || '4.4.0'}]
 
 # Compilation Check
 [Provide detailed troubleshooting steps for common issues]
@@ -111,10 +111,10 @@ STRICT REQUIREMENTS:
 2. Use the exact headings shown above (with the # prefix)
 3. Include complete XML namespace declarations
 4. List at least 3-5 constants even if basic ones
-5. Include at least 3 dependencies with full Maven coordinates
+5. Include ONLY valid dependencies with correct coordinates for Mule ${runtime || '4.4.0'}
 6. Provide at least 5 compilation checks/troubleshooting steps
-
-DO NOT SKIP OR ABBREVIATE ANY SECTION. If you only provide XML code, you will fail this task.
+7. DO NOT use markdown code blocks (``` or ~~~) in your response
+8. XML should be provided as plain text, not wrapped in any formatting
 `;
     
     console.log("Sending request to Mistral AI with enhanced prompt");
@@ -162,6 +162,9 @@ DO NOT SKIP OR ABBREVIATE ANY SECTION. If you only provide XML code, you will fa
       // Extract the generated code from the response
       let generatedCode = data.choices[0].message.content.trim();
       
+      // Post-process to remove any remaining code blocks
+      generatedCode = generatedCode.replace(/```xml/g, '').replace(/```/g, '');
+      
       // Log a sample of the response to verify all sections are present
       console.log("Response preview (first 300 chars):", generatedCode.substring(0, 300));
       
@@ -186,12 +189,12 @@ DO NOT SKIP OR ABBREVIATE ANY SECTION. If you only provide XML code, you will fa
 
         // Extract the XML content if response is XML-only
         if (!enhancedCode.includes("# Flow Summary") && 
-            (enhancedCode.startsWith("```xml") || enhancedCode.includes("<mule") || enhancedCode.startsWith("<?xml"))) {
+            (enhancedCode.includes("<mule") || enhancedCode.startsWith("<?xml"))) {
           
           console.log("Detected XML-only response, extracting XML content");
           let xmlContent = enhancedCode;
           
-          // If wrapped in markdown code blocks, extract the content
+          // If wrapped in markdown code blocks, extract the content (should be already removed in post-processing)
           if (enhancedCode.startsWith("```xml")) {
             const xmlMatch = enhancedCode.match(/```xml\s*([\s\S]*?)```/);
             if (xmlMatch && xmlMatch[1]) {
@@ -239,7 +242,7 @@ ${xmlContent.includes('db:') ?
 
 # Compilation Check
 1. Ensure all property placeholders are defined in your properties file (${runtime || 'mule-app.properties'}).
-2. Verify connector versions are compatible with your Mule runtime version (${runtime || 'Java 8.0, Maven 3.8'}).
+2. Verify connector versions are compatible with your Mule runtime version (${runtime || '4.4.0'}).
 3. Check that all required dependencies are included in your pom.xml.
 4. Validate that any referenced configuration files exist in the project structure.
 5. Confirm that all required credentials are properly configured for external systems.
@@ -310,7 +313,7 @@ retry_attempts: 3`;
 </dependency>`;
             } else if (section === "Compilation Check") {
               placeholderContent = `1. Ensure all property placeholders are defined in your properties file.
-2. Verify connector versions are compatible with your Mule runtime version (${runtime || 'Java 8.0, Maven 3.8'}).
+2. Verify connector versions are compatible with your Mule runtime version (${runtime || '4.4.0'}).
 3. Check that all required dependencies are included in your pom.xml.
 4. Validate that any referenced configuration files exist in the project structure.
 5. Confirm that all required credentials are properly configured for external systems.
