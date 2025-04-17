@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { debounce } from 'lodash';
 
@@ -53,8 +52,8 @@ export const paginatedQuery = async (
 export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>(
   fn: T,
   wait: number = 300
-) => {
-  return debounce(fn, wait);
+): ((...args: Parameters<T>) => Promise<ReturnType<T>>) => {
+  return debounce(fn, wait) as any;
 };
 
 /**
