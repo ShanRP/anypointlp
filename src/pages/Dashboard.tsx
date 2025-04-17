@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -40,13 +41,13 @@ interface SidebarTask {
 
 type PageType = 'dashboard' | 'settings' | 'dataweave' | 'integration' | 'raml' | 'taskView' | 'exchange' | 'exchangeItem' | 'exchangePublish' | 'jobBoard' | 'munit' | 'sampleData' | 'document' | 'diagram';
 
-const DashboardAgentCardProps = {
+interface DashboardAgentCardProps {
   title: string;
   description: string;
   icon: React.ReactNode;
   selected?: boolean;
   onClick?: () => void;
-};
+}
 
 const DashboardAgentCard: React.FC<DashboardAgentCardProps> = ({
   title,
