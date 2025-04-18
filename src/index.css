@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Geist Sans';
+  src: url('/fonts/GeistSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Sans';
+  src: url('/fonts/GeistSans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -68,7 +100,7 @@
 
 @layer base {
   :root {
-    font-family: '__GeistSans_3a0388', '__GeistSans_Fallback_3a0388', system-ui, sans-serif;
+    font-family: 'Geist Sans', system-ui, sans-serif;
   }
   
   * {
@@ -77,14 +109,14 @@
   
   body {
     @apply bg-background text-foreground;
-    font-family: '__GeistSans_3a0388', '__GeistSans_Fallback_3a0388', system-ui, sans-serif;
+    font-family: 'Geist Sans', system-ui, sans-serif;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
   
   h1, h2, h3, h4, h5, pre, code {
-    font-family: '__GeistMono_c1e5c9', '__GeistMono_Fallback_c1e5c9', ui-monospace, monospace;
+    font-family: 'Geist Mono', ui-monospace, monospace;
     letter-spacing: -0.02em;
-    font-weight: 600;
+    font-weight: 500;
   }
   
   /* Focus styles */

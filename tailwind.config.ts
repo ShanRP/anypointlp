@@ -20,30 +20,29 @@ export default {
     extend: {
       fontFamily: {
         sans: [
-          '__GeistSans_3a0388',
-          '__GeistSans_Fallback_3a0388',
+          'Geist Sans',
           'system-ui', 
           'sans-serif'
         ],
         mono: [
-          '__GeistMono_c1e5c9',
+          'Geist Mono',
           'ui-monospace',
           'SFMono-Regular',
           'monospace'
         ],
         display: [
-          '__GeistMono_c1e5c9',
+          'Geist Mono',
           'ui-monospace',
           'SFMono-Regular',
           'monospace'
         ],
         geistSans: [
-          '__GeistSans_3a0388',
-          '__GeistSans_Fallback_3a0388',
+          'Geist Sans',
+          'system-ui',
           'sans-serif'
         ],
         geistMono: [
-          '__GeistMono_c1e5c9',
+          'Geist Mono',
           'ui-monospace',
           'SFMono-Regular',
           'monospace'
