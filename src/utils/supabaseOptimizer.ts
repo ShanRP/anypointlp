@@ -21,8 +21,10 @@ export const paginatedQuery = async (
   columns: string,
   page: number = 1,
   pageSize: number = 10,
-  filters?: Record<string, any>
+  filters?: Record<string, any>,
+  options: { cacheTime?: number } = {}
 ) => {
+  const cacheTime = options.cacheTime || 300; // 5 minutes default
   const start = (page - 1) * pageSize;
   const end = start + pageSize - 1;
   

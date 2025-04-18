@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -15,18 +15,36 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-const CACHE_TIME = 1000 * 60 * 5; // 5 minutes
-const STALE_TIME = 1000 * 60 * 1; // 1 minute
+// Longer cache times for less frequently changing data
+const CACHE_TIME = 1000 * 60 * 30; // 30 minutes
+const STALE_TIME = 1000 * 60 * 5; // 5 minutes
+
+// Query keys for better cache management
+const QUERY_KEYS = {
+  credits: 'userCredits',
+  workspaces: 'userWorkspaces',
+  logs: 'userLogs',
+  tasks: {
+    all: 'tasks',
+    integration: 'integrationTasks',
+    raml: 'ramlTasks',
+    munit: 'munitTasks',
+    sampleData: 'sampleDataTasks',
+    document: 'documentTasks',
+    diagram: 'diagramTasks'
+  }
+};
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const {
     data: credits,
     isLoading: isCreditsLoading,
     refetch: refreshCredits
   } = useQuery({
-    queryKey: ['userCredits', user?.id],
+    queryKey: [QUERY_KEYS.credits, user?.id],
     queryFn: async () => {
       if (!user) return null;
       const { data } = await supabase
@@ -46,7 +64,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     isLoading: isWorkspacesLoading,
     refetch: refreshWorkspaces
   } = useQuery({
-    queryKey: ['userWorkspaces', user?.id],
+    queryKey: [QUERY_KEYS.workspaces, user?.id],
     queryFn: async () => {
       if (!user) return [];
       const { data } = await supabase.rpc("apl_get_user_workspaces", {
@@ -63,7 +81,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     data: logs = [],
     isLoading: isLogsLoading,
   } = useQuery({
-    queryKey: ['userLogs', user?.id],
+    queryKey: [QUERY_KEYS.logs, user?.id],
     queryFn: async () => {
       if (!user) return [];
       const { data } = await supabase
@@ -78,7 +96,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     staleTime: STALE_TIME
   });
 
-  // Set up real-time subscriptions for critical updates
+  // Set up real-time subscriptions for critical updates only
   React.useEffect(() => {
     if (!user) return;
 
@@ -92,29 +110,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           table: "apl_user_credits",
           filter: `user_id=eq.${user.id}`,
         },
-        () => refreshCredits()
-      )
-      .subscribe();
-
-    const workspacesChannel = supabase
-      .channel("workspaces-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "apl_workspaces",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => refreshWorkspaces()
+        () => {
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.credits, user.id] });
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(creditsChannel);
-      supabase.removeChannel(workspacesChannel);
     };
-  }, [user, refreshCredits, refreshWorkspaces]);
+  }, [user, queryClient]);
 
   const loading = isCreditsLoading || isWorkspacesLoading || isLogsLoading;
 
