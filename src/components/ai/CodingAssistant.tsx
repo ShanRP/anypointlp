@@ -107,12 +107,13 @@ const CodingAssistant: React.FC<CodingAssistantProps> = ({
     try {
       console.log("Fetching chat sessions for user:", user.id);
 
-      // Get all sessions for the user - fetch in batches
+      // Fetch only recent sessions first
       const { data: sessionsData, error: sessionsError } = await supabase
         .from("apl_coding_assistant_sessions")
-        .select("*")
+        .select("id, title, created_at, updated_at")
         .eq("user_id", user.id)
-        .order("updated_at", { ascending: false });
+        .order('updated_at', { ascending: false })
+        .limit(10);
 
       if (sessionsError) throw sessionsError;
 
@@ -947,8 +948,7 @@ const CodingAssistant: React.FC<CodingAssistantProps> = ({
                       />
                       <motion.span
                         className="w-2 h-2 bg-purple-600 rounded-full"
-                        animate={{ y: [0, -5, 0] }}
-                        transition={{
+                        animate={{ y: [0, -5, 0] }}                        transition={{
                           repeat: Infinity,
                           duration: 0.8,
                           delay: 0.4,

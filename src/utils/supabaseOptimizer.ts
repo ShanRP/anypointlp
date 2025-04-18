@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { debounce } from 'lodash';
 
@@ -7,6 +6,10 @@ import { debounce } from 'lodash';
  */
 
 type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 'apl_user_credits' | 'apl_auth_logs';
+
+const queryCache = new Map();
+
+export const clearCache = () => queryCache.clear();
 
 /**
  * Performs a paginated query with column selection
@@ -27,12 +30,20 @@ export const paginatedQuery = async (
   const cacheTime = options.cacheTime || 300; // 5 minutes default
   const start = (page - 1) * pageSize;
   const end = start + pageSize - 1;
-  
+  const cacheKey = `${table}-${columns}-${page}-${pageSize}-${JSON.stringify(filters)}`;
+
+  if (queryCache.has(cacheKey)) {
+    const cachedData = queryCache.get(cacheKey);
+    if (cachedData && cachedData.timestamp + cacheTime > Date.now()) {
+      return cachedData.data;
+    }
+  }
+
   let query = supabase
     .from(table)
     .select(columns, { count: 'exact' })
     .range(start, end);
-  
+
   // Apply any filters
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
@@ -41,10 +52,11 @@ export const paginatedQuery = async (
       }
     });
   }
-  
+
   const { data, count, error } = await query;
-  
-  return { data, count, error, pageCount: count ? Math.ceil(count / pageSize) : 0 };
+  const result = { data, count, error, pageCount: count ? Math.ceil(count / pageSize) : 0 };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 };
 
 /**
@@ -65,10 +77,14 @@ export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>
  * @param filters Optional filters to apply
  */
 export const getCount = async (table: TableName, filters?: Record<string, any>) => {
+  const cacheKey = `${table}-count-${JSON.stringify(filters)}`;
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey);
+  }
   let query = supabase
     .from(table)
     .select('id', { count: 'exact', head: true });
-  
+
   // Apply any filters
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
@@ -77,10 +93,11 @@ export const getCount = async (table: TableName, filters?: Record<string, any>) 
       }
     });
   }
-  
+
   const { count, error } = await query;
-  
-  return { count, error };
+  const result = { count, error };
+  queryCache.set(cacheKey, result);
+  return result;
 };
 
 /**
@@ -88,13 +105,19 @@ export const getCount = async (table: TableName, filters?: Record<string, any>) 
  * Only fetch necessary data for a workspace
  */
 export const getWorkspaceDetails = async (workspaceId: string) => {
+  const cacheKey = `workspace-${workspaceId}`;
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey);
+  }
   const { data, error } = await supabase
     .from('apl_workspaces')
     .select('id, name, invite_enabled')
     .eq('id', workspaceId)
     .single();
-    
-  return { data, error };
+
+  const result = { data, error };
+  queryCache.set(cacheKey, result);
+  return result;
 };
 
 /**
@@ -110,7 +133,7 @@ export const logAuditEvent = async (
 ) => {
   try {
     const device = navigator?.userAgent || 'Unknown device';
-    
+
     await supabase.from('apl_auth_logs').insert({
       user_id: userId,
       action,
@@ -131,7 +154,7 @@ export const generateSecureRequestSignature = (payload: any): string => {
   // This is a simplified example
   const timestamp = Date.now();
   const requestId = crypto.randomUUID();
-  
+
   // Concatenate timestamp and requestId to create a unique signature
   return `${timestamp}.${requestId}`;
 };

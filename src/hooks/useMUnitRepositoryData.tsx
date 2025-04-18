@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useGithubApi } from './useGithubApi';
 import { Repository, FileNode } from '@/utils/githubUtils';
@@ -12,7 +11,7 @@ export function useMUnitRepositoryData() {
     fetchFileStructure,
     fetchFileContent
   } = useGithubApi();
-  
+
   const [selectedRepository, setSelectedRepository] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [branches, setBranches] = useState<string[]>([]);
@@ -21,29 +20,41 @@ export function useMUnitRepositoryData() {
   const [fileContent, setFileContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // Fetch repositories if needed
+  // Cache for repositories (incomplete - needs expansion for other data)
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  let repositoryCache = { data: null, timestamp: 0 };
+
+  // Fetch repositories if needed, using cache
   useEffect(() => {
-    if (repositories.length === 0) {
-      fetchRepositories();
-    }
+    const fetchAndCacheRepositories = async () => {
+      if (repositoryCache.data && Date.now() - repositoryCache.timestamp < CACHE_DURATION) {
+        return;
+      }
+      if (repositories.length === 0) {
+        const repoData = await fetchRepositories();
+        repositoryCache = { data: repoData, timestamp: Date.now() };
+      }
+    };
+
+    fetchAndCacheRepositories();
   }, [repositories, fetchRepositories]);
 
   // Fetch branches when repository changes
   useEffect(() => {
     const fetchBranches = async () => {
       if (!selectedRepository) return;
-      
+
       setLoading(true);
       try {
         const repo = repositories.find(r => r.id === selectedRepository);
         if (!repo) {
           throw new Error('Repository not found');
         }
-        
+
         // For now, just use the default branch
         setBranches([repo.default_branch]);
         setSelectedBranch(repo.default_branch);
-        
+
         // Fetch file structure for the repository
         const fileStructure = await fetchFileStructure(repo);
         setFiles(fileStructure);
@@ -54,7 +65,7 @@ export function useMUnitRepositoryData() {
         setLoading(false);
       }
     };
-    
+
     fetchBranches();
   }, [selectedRepository, repositories, fetchFileStructure]);
 
@@ -62,14 +73,14 @@ export function useMUnitRepositoryData() {
   useEffect(() => {
     const getFileContent = async () => {
       if (!selectedRepository || !selectedFilePath) return;
-      
+
       setLoading(true);
       try {
         const repo = repositories.find(r => r.id === selectedRepository);
         if (!repo) {
           throw new Error('Repository not found');
         }
-        
+
         const content = await fetchFileContent(repo, selectedFilePath);
         if (content) {
           setFileContent(content);
@@ -81,7 +92,7 @@ export function useMUnitRepositoryData() {
         setLoading(false);
       }
     };
-    
+
     getFileContent();
   }, [selectedRepository, selectedFilePath, repositories, fetchFileContent]);
 

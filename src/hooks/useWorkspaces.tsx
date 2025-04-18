@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
@@ -18,20 +17,39 @@ export const useWorkspaces = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState<WorkspaceOption | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchComplete, setFetchComplete] = useState(false);
+  const [cache, setCache] = useState<{[key:string]: WorkspaceOption[]}>([]);
+
 
   // Fetch workspaces when user is available
   const fetchWorkspaces = useCallback(async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
+      const cacheKey = user.id;
+      if(cache[cacheKey] && Date.now() - cache[cacheKey][0].timestamp < 300000){ //check cache and expiry (5 minutes)
+        setWorkspaces(cache[cacheKey].map(w => ({...w, timestamp: undefined})));
+        if (!selectedWorkspace) {
+          setSelectedWorkspace(cache[cacheKey][0]);
+        } else {
+          const updatedSelected = cache[cacheKey].find(w => w.id === selectedWorkspace.id);
+          if (updatedSelected) {
+            setSelectedWorkspace(updatedSelected);
+          } else {
+            setSelectedWorkspace(cache[cacheKey][0]);
+          }
+        }
+        setFetchComplete(true);
+        return;
+      }
+
       const { data, error } = await supabase
         .rpc('apl_get_user_workspaces', { 
           user_id_param: user.id 
         });
-      
+
       if (error) throw error;
-      
+
       if (data && data.length > 0) {
         const formattedWorkspaces = data.map((workspace: any) => ({
           id: workspace.id,
@@ -39,10 +57,12 @@ export const useWorkspaces = () => {
           initial: workspace.initial,
           session_timeout: workspace.session_timeout,
           invite_enabled: workspace.invite_enabled,
+          timestamp: Date.now()
         }));
-        
+
         setWorkspaces(formattedWorkspaces);
-        
+        setCache(prev => ({...prev, [cacheKey]: formattedWorkspaces}));
+
         // Set selected workspace if not already set or update it if it exists
         if (!selectedWorkspace) {
           setSelectedWorkspace(formattedWorkspaces[0]);
@@ -60,6 +80,7 @@ export const useWorkspaces = () => {
         // If no workspaces, set empty array
         setWorkspaces([]);
         setSelectedWorkspace(null);
+        setCache(prev => ({...prev, [cacheKey]: []}));
       }
       setFetchComplete(true);
     } catch (error) {
@@ -68,7 +89,7 @@ export const useWorkspaces = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, selectedWorkspace]);
+  }, [user, selectedWorkspace, cache]);
 
   // Reset state when user changes or logs out
   useEffect(() => {
@@ -82,15 +103,16 @@ export const useWorkspaces = () => {
       setWorkspaces([]);
       setSelectedWorkspace(null);
       setFetchComplete(false);
+      setCache({});
     }
   }, [user, fetchWorkspaces, fetchComplete]);
 
   const createWorkspace = async (name: string) => {
     if (!user) return null;
-    
+
     try {
       const initial = name.charAt(0).toUpperCase();
-      
+
       const { data, error } = await supabase
         .from('apl_workspaces')
         .insert([
@@ -104,23 +126,25 @@ export const useWorkspaces = () => {
         ])
         .select()
         .single();
-      
+
       if (error) throw error;
-      
+
       const newWorkspace: WorkspaceOption = {
         id: data.id,
         name: data.name,
         initial: data.initial,
         session_timeout: data.session_timeout,
-        invite_enabled: data.invite_enabled
+        invite_enabled: data.invite_enabled,
+        timestamp: Date.now()
       };
-      
+
       // Update workspaces array with new workspace
       setWorkspaces(prev => [...prev, newWorkspace]);
-      
+      setCache(prev => ({...prev, [user.id]: [...prev[user.id] || [], newWorkspace]}));
+
       // Set as selected workspace
       setSelectedWorkspace(newWorkspace);
-      
+
       return newWorkspace;
     } catch (error) {
       console.error('Error creating workspace:', error);
@@ -131,7 +155,7 @@ export const useWorkspaces = () => {
 
   const updateWorkspace = async (workspaceId: string, updates: Partial<WorkspaceOption>) => {
     if (!user) return false;
-    
+
     try {
       const { data, error } = await supabase
         .from('apl_workspaces')
@@ -139,36 +163,38 @@ export const useWorkspaces = () => {
         .eq('id', workspaceId)
         .eq('user_id', user.id)
         .select();
-      
+
       if (error) throw error;
-      
+
       // Fetch updated workspace data to ensure we have the latest
       const { data: refreshedData, error: refreshError } = await supabase
         .from('apl_workspaces')
         .select('*')
         .eq('id', workspaceId)
         .single();
-        
+
       if (refreshError) throw refreshError;
-      
+
       const updatedWorkspace = {
         id: refreshedData.id,
         name: refreshedData.name,
         initial: refreshedData.initial,
         session_timeout: refreshedData.session_timeout,
-        invite_enabled: refreshedData.invite_enabled
+        invite_enabled: refreshedData.invite_enabled,
+        timestamp: Date.now()
       };
-      
+
       // Update local state
       setWorkspaces(prev => prev.map(w => 
         w.id === workspaceId ? updatedWorkspace : w
       ));
-      
+      setCache(prev => ({...prev, [user.id]: prev[user.id].map(w => w.id === workspaceId ? updatedWorkspace : w)}));
+
       // Update selected workspace if it's the one being updated
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace(updatedWorkspace);
       }
-      
+
       return true;
     } catch (error) {
       console.error('Error updating workspace:', error);
@@ -179,31 +205,32 @@ export const useWorkspaces = () => {
 
   const deleteWorkspace = async (workspaceId: string) => {
     if (!user) return false;
-    
+
     try {
       // Don't allow deletion if it's the only workspace
       if (workspaces.length <= 1) {
         toast.error('Cannot delete the only workspace. Please create another workspace first.');
         return false;
       }
-      
+
       const { error } = await supabase
         .from('apl_workspaces')
         .delete()
         .eq('id', workspaceId)
         .eq('user_id', user.id);
-      
+
       if (error) throw error;
-      
+
       // Update the workspaces list
       const updatedWorkspaces = workspaces.filter(w => w.id !== workspaceId);
       setWorkspaces(updatedWorkspaces);
-      
+      setCache(prev => ({...prev, [user.id]: updatedWorkspaces}));
+
       // If the deleted workspace was selected, select another one
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace(updatedWorkspaces[0]);
       }
-      
+
       return true;
     } catch (error) {
       console.error('Error deleting workspace:', error);

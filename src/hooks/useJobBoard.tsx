@@ -33,111 +33,49 @@ export function useJobBoard() {
   const { user } = useAuth();
 
   useEffect(() => {
-    fetchPosts();
-
-    // Set up real-time subscription for posts
-    const postsChannel = supabase
-      .channel('job-posts-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'apl_job_posts' }, 
-        () => {
-          fetchPosts();
-        }
-      )
+    const subscription = supabase
+      .channel('job_posts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_posts' }, payload => {
+        const newData = payload.new;
+        setPosts(prevPosts => {
+          if (payload.eventType === 'INSERT'){
+            return [newData, ...prevPosts];
+          } else if (payload.eventType === 'UPDATE'){
+            return prevPosts.map(post => post.id === newData.id ? newData : post);
+          } else if (payload.eventType === 'DELETE'){
+             return prevPosts.filter(post => post.id !== payload.old.id);
+          }
+          return prevPosts;
+        });
+      })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(postsChannel);
+      supabase.removeChannel(subscription);
     };
   }, []);
 
   useEffect(() => {
     if (selectedPost) {
-      fetchComments(selectedPost.id);
-      
-      // Set up real-time subscription for comments
-      const commentsChannel = supabase
-        .channel('job-comments-changes')
-        .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'apl_job_comments', filter: `post_id=eq.${selectedPost.id}` }, 
-          () => {
-            fetchComments(selectedPost.id);
-          }
-        )
+      const commentsSubscription = supabase
+        .channel(`job_comments_${selectedPost.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'job_comments', filter: `post_id=eq.${selectedPost.id}` }, payload => {
+          setComments(prevComments => {
+            if (payload.eventType === 'INSERT'){
+              return [payload.new, ...prevComments];
+            } else if (payload.eventType === 'UPDATE'){
+              return prevComments.map(comment => comment.id === payload.new.id ? payload.new : comment);
+            } else if (payload.eventType === 'DELETE'){
+              return prevComments.filter(comment => comment.id !== payload.old.id);
+            }
+            return prevComments;
+          });
+        })
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(commentsChannel);
-      };
+      return () => supabase.removeChannel(commentsSubscription);
     }
   }, [selectedPost]);
 
-  const fetchPosts = async () => {
-    try {
-      setLoading(true);
-      
-      // First get posts
-      const { data: postsData, error: postsError } = await supabase
-        .from('apl_job_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (postsError) throw postsError;
-      
-      // Create a postsWithCommentCounts array to store our final result
-      const postsWithCommentCounts = [];
-      
-      // Process each post individually to get its comment count
-      for (const post of postsData || []) {
-        // Count comments for this post
-        const { count, error } = await supabase
-          .from('apl_job_comments')
-          .select('*', { count: 'exact', head: true })
-          .eq('post_id', post.id);
-        
-        if (error) {
-          console.error('Error counting comments for post', post.id, error);
-          // Continue with next post even if there's an error
-          postsWithCommentCounts.push({
-            ...post,
-            comment_count: 0
-          });
-        } else {
-          // Add the post with its comment count
-          postsWithCommentCounts.push({
-            ...post,
-            comment_count: count || 0
-          });
-        }
-      }
-      
-      setPosts(postsWithCommentCounts as JobPost[]);
-    } catch (error) {
-      console.error('Error fetching job posts:', error);
-      toast.error('Failed to load job posts');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchComments = useCallback(async (postId: string) => {
-    try {
-      setCommentsLoading(true);
-      const { data, error } = await supabase
-        .from('apl_job_comments')
-        .select('*')
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setComments(data as JobComment[] || []);
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-      toast.error('Failed to load comments');
-    } finally {
-      setCommentsLoading(false);
-    }
-  }, []);
 
   const createPost = async (title: string, description: string, code?: string) => {
     if (!user) {
@@ -222,7 +160,6 @@ export function useJobBoard() {
     commentsLoading,
     createPost,
     updatePostStatus,
-    addComment,
-    fetchComments
+    addComment
   };
 }

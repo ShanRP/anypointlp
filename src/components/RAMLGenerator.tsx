@@ -84,7 +84,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
   const { user } = useAuth();
   const { saveRamlTask } = useWorkspaceTasks(workspaceId);
   const { useCredit } = useUserCredits();
-  
+
   const [apiName, setApiName] = useState('');
   const [apiVersion, setApiVersion] = useState('v1');
   const [baseUri, setBaseUri] = useState('https://api.example.com/v1');
@@ -143,20 +143,20 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
   const handleSaveEndpoint = () => {
     if (!editingEndpoint) return;
-    
+
     if (!editingEndpoint.path.trim()) {
       toast.error('Endpoint path is required');
       return;
     }
 
     const updatedEndpoints = [...endpoints];
-    
+
     if (currentEndpointIndex !== null) {
       updatedEndpoints[currentEndpointIndex] = editingEndpoint;
     } else {
       updatedEndpoints.push(editingEndpoint);
     }
-    
+
     setEndpoints(updatedEndpoints);
     setShowEndpointDialog(false);
     setEditingEndpoint(null);
@@ -186,20 +186,20 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
   const handleSaveMethod = () => {
     if (!editingMethod || currentEndpointIndex === null) return;
-    
+
     if (!editingMethod.type) {
       toast.error('Method type is required');
       return;
     }
 
     const updatedEndpoints = [...endpoints];
-    
+
     if (currentMethodIndex !== null) {
       updatedEndpoints[currentEndpointIndex].methods[currentMethodIndex] = editingMethod;
     } else {
       updatedEndpoints[currentEndpointIndex].methods.push(editingMethod);
     }
-    
+
     setEndpoints(updatedEndpoints);
     setShowMethodDialog(false);
     setEditingMethod(null);
@@ -220,7 +220,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
   const handleAddEndpointParam = () => {
     if (!editingEndpoint) return;
-    
+
     if (!newParam.name.trim()) {
       toast.error('Parameter name is required');
       return;
@@ -230,7 +230,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
     if (!updatedEndpoint.uriParams) {
       updatedEndpoint.uriParams = [];
     }
-    
+
     updatedEndpoint.uriParams.push({ ...newParam });
     setEditingEndpoint(updatedEndpoint);
     setNewParam({ name: '', type: 'string', required: true, description: '' });
@@ -238,10 +238,10 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
   const handleDeleteEndpointParam = (index: number) => {
     if (!editingEndpoint || !editingEndpoint.uriParams) return;
-    
+
     const updatedParams = [...editingEndpoint.uriParams];
     updatedParams.splice(index, 1);
-    
+
     setEditingEndpoint({
       ...editingEndpoint,
       uriParams: updatedParams
@@ -250,7 +250,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
   const handleAddMethodParam = (paramType: 'queryParams' | 'uriParams') => {
     if (!editingMethod) return;
-    
+
     if (!newParam.name.trim()) {
       toast.error('Parameter name is required');
       return;
@@ -260,7 +260,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
     if (!updatedMethod[paramType]) {
       updatedMethod[paramType] = [];
     }
-    
+
     updatedMethod[paramType]?.push({ ...newParam });
     setEditingMethod(updatedMethod);
     setNewParam({ name: '', type: 'string', required: true, description: '' });
@@ -268,10 +268,10 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
   const handleDeleteMethodParam = (paramType: 'queryParams' | 'uriParams', index: number) => {
     if (!editingMethod || !editingMethod[paramType]) return;
-    
+
     const updatedParams = [...(editingMethod[paramType] || [])];
     updatedParams.splice(index, 1);
-    
+
     setEditingMethod({
       ...editingMethod,
       [paramType]: updatedParams
@@ -280,7 +280,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
   const handleAddResponse = () => {
     if (!editingMethod) return;
-    
+
     if (!newResponse.code.trim()) {
       toast.error('Response code is required');
       return;
@@ -295,11 +295,11 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
   const handleDeleteResponse = (index: number) => {
     if (!editingMethod) return;
-    
+
     if (editingMethod.responses.length > 1) {
       const updatedResponses = [...editingMethod.responses];
       updatedResponses.splice(index, 1);
-      
+
       setEditingMethod({
         ...editingMethod,
         responses: updatedResponses
@@ -338,14 +338,14 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
       toast.error('Please provide API specifications');
       return;
     }
-    
+
     const canUseCredit = await useCredit();
     if (!canUseCredit) {
       return;
     }
-    
+
     setIsGenerating(true);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('APL_generate-raml', {
         body: {
@@ -368,11 +368,11 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
         setGeneratedRAML(data.raml);
         setCurrentTab('preview');
         toast.success('RAML specification generated successfully');
-        
+
         if (user) {
           try {
             const taskId = `R-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
-            
+
             const taskData = {
               task_id: taskId,
               task_name: apiName,
@@ -386,9 +386,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               endpoints: endpoints as any,
               category: 'raml'
             };
-            
+
             const savedTask = await saveRamlTask(taskData);
-            
+
             if (savedTask && onTaskCreated) {
               onTaskCreated({
                 id: taskId,
@@ -398,14 +398,14 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 workspace_id: workspaceId
               });
             }
-            
+
             if (onSaveTask && savedTask) {
               onSaveTask(savedTask[0].id);
             }
-            
+
             setPublishTitle(apiName);
             setPublishDescription(apiDescription);
-            
+
             toast.success('RAML task saved to workspace');
           } catch (err) {
             console.error('Error saving RAML task:', err);
@@ -438,7 +438,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
     try {
       console.log('Publishing with workspace ID:', workspaceId);
-      
+
       const { data, error } = await supabase
         .from('apl_exchange_items')
         .insert({
@@ -451,7 +451,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           visibility: visibility,
           workspace_id: visibility === 'private' ? workspaceId : null
         })
-        .select();
+        .select('id, title, description, content, type')
+        .eq('type', 'raml')
+        .limit(20);
 
       if (error) throw error;
 
@@ -641,7 +643,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                                 <Plus className="h-4 w-4 mr-1" /> Add Method
                               </Button>
                             </div>
-                            
+
                             <div className="space-y-4">
                               {endpoint.methods.map((method, methodIndex) => (
                                 <div 
@@ -682,7 +684,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                                       </Button>
                                     </div>
                                   </div>
-                                  
+
                                   {method.requestBody && (
                                     <div className="mt-2 text-sm">
                                       <div className="font-medium">Request Body:</div>
@@ -691,7 +693,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                                       )}
                                     </div>
                                   )}
-                                  
+
                                   {method.responses && method.responses.length > 0 && (
                                     <div className="mt-2 text-sm">
                                       <div className="font-medium">Responses:</div>
@@ -705,7 +707,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                                       </div>
                                     </div>
                                   )}
-                                  
+
                                   {method.queryParams && method.queryParams.length > 0 && (
                                     <div className="mt-2 text-sm">
                                       <div className="font-medium">Query Parameters:</div>
@@ -809,7 +811,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           <DialogHeader>
             <DialogTitle>{currentEndpointIndex !== null ? 'Edit Endpoint' : 'Create New Endpoint'}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 my-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -829,7 +831,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">URI Parameters</label>
@@ -864,7 +866,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                   </Button>
                 </div>
               </div>
-              
+
               {editingEndpoint?.uriParams && editingEndpoint.uriParams.length > 0 ? (
                 <div className="space-y-2 border rounded-md p-2">
                   {editingEndpoint.uriParams.map((param, index) => (
@@ -892,7 +894,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               )}
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEndpointDialog(false)}>Cancel</Button>
             <Button onClick={handleSaveEndpoint}>Save</Button>
@@ -905,9 +907,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           <DialogHeader>
             <DialogTitle>{currentMethodIndex !== null ? 'Edit Method' : 'Add New Method'}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-6 my-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Method Type*</label>
                 <Select 
@@ -937,7 +939,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <input 
@@ -949,7 +951,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 />
                 <label htmlFor="requestBody" className="text-sm font-medium">Has Request Body</label>
               </div>
-              
+
               {editingMethod?.requestBody && (
                 <div className="ml-6 space-y-2">
                   <div className="space-y-1">
@@ -972,7 +974,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 </div>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">Responses</label>
@@ -984,7 +986,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                   <Plus className="h-4 w-4 mr-1" /> Add Response
                 </Button>
               </div>
-              
+
               {editingMethod?.responses && editingMethod.responses.length > 0 ? (
                 <div className="space-y-2">
                   {editingMethod.responses.map((response, index) => (
@@ -1011,7 +1013,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 <div className="text-sm text-gray-500 italic">No responses defined</div>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">Query Parameters</label>
@@ -1046,7 +1048,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                   </Button>
                 </div>
               </div>
-              
+
               {editingMethod?.queryParams && editingMethod.queryParams.length > 0 ? (
                 <div className="space-y-2 border rounded-md p-2">
                   {editingMethod.queryParams.map((param, index) => (
@@ -1073,7 +1075,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 <div className="text-sm text-gray-500 italic">No query parameters defined</div>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">URI Parameters (specific to this method)</label>
@@ -1108,7 +1110,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                   </Button>
                 </div>
               </div>
-              
+
               {editingMethod?.uriParams && editingMethod.uriParams.length > 0 ? (
                 <div className="space-y-2 border rounded-md p-2">
                   {editingMethod.uriParams.map((param, index) => (
@@ -1136,7 +1138,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               )}
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowMethodDialog(false)}>Cancel</Button>
             <Button onClick={handleSaveMethod}>Save</Button>
@@ -1149,7 +1151,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           <DialogHeader>
             <DialogTitle>Add Response</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 my-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Status Code*</label>
@@ -1185,7 +1187,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               />
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddResponseDialog(false)}>Cancel</Button>
             <Button onClick={handleAddResponse}>Add</Button>
@@ -1198,7 +1200,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           <DialogHeader>
             <DialogTitle>Publish RAML to Exchange</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 my-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Title*</label>
@@ -1237,7 +1239,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               </RadioGroup>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Cancel</Button>
             <Button 

@@ -95,11 +95,11 @@ export function useGithubApi(): UseGithubApiReturn {
       }
 
       const data = await response.json();
-      
+
       if (data.truncated) {
         toast.warning('Repository is too large, not all files may be displayed');
       }
-      
+
       const structure = buildFileTree(data.tree as GithubTreeItem[]);
       setFileStructure(structure);
       return structure;
@@ -112,9 +112,17 @@ export function useGithubApi(): UseGithubApiReturn {
     }
   }, []);
 
+  const fileContentCache = new Map();
+
   const fetchFileContent = useCallback(async (repo: Repository, filePath: string): Promise<string | null> => {
+    const cacheKey = `${repo.id}-${filePath}`;
+    if (fileContentCache.has(cacheKey)) {
+      return fileContentCache.get(cacheKey);
+    }
     try {
-      return await fetchContent(repo, filePath);
+      const content = await fetchContent(repo, filePath);
+      fileContentCache.set(cacheKey, content);
+      return content;
     } catch (error: any) {
       console.error('Error fetching file content:', error);
       toast.error(`Failed to fetch file content: ${error.message}`);

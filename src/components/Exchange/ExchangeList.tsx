@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -52,23 +51,26 @@ const ExchangeList: React.FC<ExchangeListProps> = ({ onBack }) => {
   const [selectedTab, setSelectedTab] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
   const [contentTypeView, setContentTypeView] = useState<string>('all');
+  const [page, setPage] = useState(0); // Added state for pagination
   const navigate = useNavigate();
   const { user } = useAuth();
 
   useEffect(() => {
     fetchExchangeItems();
-  }, []);
+  }, [page]); // Fetch items when page changes
 
   useEffect(() => {
     filterItems();
-  }, [items, searchQuery, typeFilter, selectedTab, sortBy, contentTypeView]);
+  }, [items, searchQuery, typeFilter, selectedTab, sortBy, contentTypeView, page]);
 
   const fetchExchangeItems = async () => {
     setLoading(true);
     try {
+      const ITEMS_PER_PAGE = 10;
       const { data, error } = await supabase
         .from('apl_exchange_items')
-        .select('*')
+        .select('id, title, description, type, user_id, username, created_at, likes, downloads')
+        .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -176,7 +178,7 @@ const ExchangeList: React.FC<ExchangeListProps> = ({ onBack }) => {
                 className="pl-10 pr-4 py-2 w-full border rounded-md focus:ring-2 focus:ring-black focus:border-transparent"
               />
             </div>
-            
+
             <div className="flex gap-4">
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-40">
@@ -191,7 +193,7 @@ const ExchangeList: React.FC<ExchangeListProps> = ({ onBack }) => {
                   <SelectItem value="dataweave">DataWeave</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-40">
                   <div className="flex items-center gap-2">
@@ -205,7 +207,7 @@ const ExchangeList: React.FC<ExchangeListProps> = ({ onBack }) => {
                   <SelectItem value="downloads">Most Downloads</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <Button 
                 variant="outline" 
                 size="icon"
@@ -216,7 +218,7 @@ const ExchangeList: React.FC<ExchangeListProps> = ({ onBack }) => {
               </Button>
             </div>
           </div>
-          
+
           <div className="flex flex-col md:flex-row justify-between items-center">
             <Tabs defaultValue="all" value={selectedTab} onValueChange={setSelectedTab} className="w-full md:w-auto">
               <TabsList className="grid grid-cols-2 w-56">
@@ -224,7 +226,7 @@ const ExchangeList: React.FC<ExchangeListProps> = ({ onBack }) => {
                 <TabsTrigger value="mine">My Items</TabsTrigger>
               </TabsList>
             </Tabs>
-            
+
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -252,7 +254,7 @@ const ExchangeList: React.FC<ExchangeListProps> = ({ onBack }) => {
               </RadioGroup>
             </motion.div>
           </div>
-          
+
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
