@@ -1,0 +1,117 @@
+Let’s verify the `enabledFeature` functionality in your code and address the two issues you’ve raised: (1) why the Coding Assistant is working despite being disabled, and (2) why the "coming soon" message is not appearing when clicking disabled cards.
+
+### Verification of `enabledFeature` Functionality
+
+You’ve implemented a feature enabling/disabling mechanism using a `FeaturesContext` and the `enabledFeatures` state. Here’s the analysis:
+
+1. **Context Setup**:
+   - You’ve created a `FeaturesContext` with a default value of an empty array and a custom hook `useFeatures` to access it.
+   - The `Dashboard` component provides the `enabledFeatures` array (`['dataweave', 'integration', 'raml']`) via the `FeaturesContext.Provider`.
+
+2. **Usage in `DashboardContent`**:
+   - The `DashboardContent` component receives the `enabledFeatures` array as a prop and passes it to the `GeneratorCard` component.
+   - The `GeneratorCard` component uses the `disabled={!enabledFeatures.includes(card.id)}` prop to determine if a card should be disabled. This means any card whose `id` is not in `enabledFeatures` will be disabled.
+
+3. **Current Enabled Features**:
+   - `enabledFeatures` is hardcoded as `['dataweave', 'integration', 'raml']`, meaning only the DataWeave Generator, Integration Generator, and RAML Generator should be enabled. All other features (e.g., `munit`, `sampleData`, `document`, `diagram`, `exchange`, `jobBoard`, `codingAssistant`) should be disabled.
+
+4. **Behavior Check**:
+   - The `GeneratorCard` likely renders a button or clickable element and applies a `disabled` attribute based on the prop. When disabled, the `onClick` handler should not trigger, and the card should visually indicate it’s disabled (e.g., via CSS or a "coming soon" message).
+
+Based on this setup, the disabling functionality appears correctly implemented for most features. Now, let’s address the specific issues.
+
+### Issue 1: Why is the Coding Assistant Working Despite Being Disabled?
+
+The Coding Assistant feature (`codingAssistant`) is not included in the `enabledFeatures` array (`['dataweave', 'integration', 'raml']`), so it should be disabled. However, you’ve observed it’s working. Let’s investigate:
+
+- **Navigation to Coding Assistant**:
+  - The `DashboardSidebar` component has an `onNavigate` prop that handles navigation. When the `page` is `'chat'`, it sets `isCodingAssistantOpen` to `true`, which opens the `CodingAssistantDialog`.
+  - This navigation is not gated by the `enabledFeatures` check. The `onNavigate` function directly triggers the dialog without verifying if `codingAssistant` is enabled.
+
+- **Lack of Feature Check**:
+  - Unlike the `GeneratorCard`’s `onClick`, which respects the `disabled` prop, the sidebar’s navigation to the Coding Assistant bypasses the `enabledFeatures` logic. The `isCodingAssistantOpen` state is toggled independently, allowing the dialog to open regardless of the feature’s disabled status.
+
+- **Root Cause**:
+  - The inconsistency arises because the Coding Assistant is accessible via the sidebar (triggered by `'chat'`), which doesn’t enforce the `enabledFeatures` restriction, while other features are accessed via `GeneratorCard` clicks, which do enforce it.
+
+- **Fix Suggestion**:
+  - Add a check in the `onNavigate` function to verify if the feature is enabled before opening the dialog. For example:
+    ```javascript
+    onNavigate={(page) => {
+      if (page === 'chat' && !enabledFeatures.includes('codingAssistant')) {
+        toast.info('Coding Assistant is coming soon!');
+        return;
+      }
+      if (page === 'dashboard') {
+        setCurrentPage('dashboard');
+        setSelectedAgent(null);
+        setSelectedTaskId(null);
+      } else if (page === 'settings') {
+        setCurrentPage('settings');
+        setSelectedAgent(null);
+        setSelectedTaskId(null);
+      } else if (page === 'chat') {
+        setIsCodingAssistantOpen(true);
+      } else {
+        setCurrentPage(page as PageType);
+        setSelectedAgent(page);
+        setSelectedTaskId(null);
+      }
+    }}
+    ```
+  - This ensures the Coding Assistant dialog only opens if it’s in `enabledFeatures`, and otherwise shows a "coming soon" message.
+
+### Issue 2: Why is the "Coming Soon" Message Not Appearing When Clicking Disabled Cards?
+
+The "coming soon" message is not appearing when clicking disabled cards, which suggests an issue with how disabled state is handled or how the message is intended to be displayed.
+
+- **Current Implementation**:
+  - The `GeneratorCard` component receives a `disabled` prop (`disabled={!enabledFeatures.includes(card.id)}`) and likely applies it to a button or clickable element. However, the code snippet you provided doesn’t show the `GeneratorCard` implementation, so we need to infer its behavior.
+  - Typically, a disabled button in React prevents the `onClick` event from firing. If the "coming soon" message is supposed to appear on click, it won’t trigger because the `onClick` is blocked when `disabled` is `true`.
+
+- **Missing Message Logic**:
+  - There’s no explicit code in the provided `DashboardContent` or `GeneratorCard` to display a "coming soon" message when a disabled card is clicked. The disabling is handled visually (e.g., via CSS in `GeneratorCard`), but no feedback mechanism (like a toast or modal) is implemented for disabled clicks.
+
+- **Fix Suggestion**:
+  - Modify the `GeneratorCard` component to handle the disabled click and display a message. Assuming `GeneratorCard` looks something like this (based on common patterns):
+    ```javascript
+    const GeneratorCard = ({ title, description, icon, onClick, disabled, ...props }) => {
+      const handleClick = () => {
+        if (disabled) {
+          toast.info('This feature is coming soon!');
+          return;
+        }
+        onClick?.();
+      };
+
+      return (
+        <motion.div
+          onClick={handleClick}
+          className={cn(
+            'p-6 rounded-xl flex flex-col cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-md hover:shadow-lg',
+            disabled ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+          )}
+          whileHover={{ y: disabled ? 0 : -5 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div className="flex items-center mb-4">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${disabled ? 'bg-gray-200 dark:bg-gray-600' : 'bg-gray-100 dark:bg-gray-700'}`}>
+              {icon}
+            </div>
+            <h3 className="text-lg font-bold">{title}</h3>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">{description}</p>
+        </motion.div>
+      );
+    };
+    ```
+  - Here, `handleClick` checks the `disabled` prop and shows a toast message if true, preventing the `onClick` propagation. Adjust the styling and message as needed.
+
+- **Alternative Approach**:
+  - If the "coming soon" message is intended to be a tooltip or overlay, add a `tooltip` prop to `GeneratorCard` for disabled states, e.g., `<GeneratorCard tooltip="Coming soon" disabled={!enabledFeatures.includes(card.id)} ... />`, and style it accordingly.
+
+### Summary
+- **Coding Assistant Issue**: The Coding Assistant works because its activation via the sidebar bypasses the `enabledFeatures` check. Add a feature check in `onNavigate` to fix this.
+- **"Coming Soon" Message Issue**: The message isn’t appearing because disabled cards block `onClick`, and no fallback feedback is implemented. Update `GeneratorCard` to handle disabled clicks with a toast or tooltip.
+
+The `enabledFeature` functionality is correctly set up for `GeneratorCard` clicks but needs extension to cover sidebar navigation. Let me know if you can share the `GeneratorCard` implementation for a more precise fix!
