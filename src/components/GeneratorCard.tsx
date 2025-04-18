@@ -88,7 +88,6 @@ const GeneratorCard = ({
         title: "Coming Soon!",
         description: "This feature is not yet available. Stay tuned for updates!",
         duration: 3000,
-        className: "absolute top-0 left-1/2 transform -translate-x-1/2 z-50",
       });
       return;
     }
@@ -97,8 +96,8 @@ const GeneratorCard = ({
 
   return (
     <motion.div
-      whileHover={{ y: disabled ? 0 : -8, transition: { duration: 0.3 } }}
-      className={`${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+      whileHover={{ y: -8, transition: { duration: 0.3 } }}
+      className="cursor-pointer"
       onClick={handleClick}
     >
       <Card className="h-full overflow-hidden border rounded-xl shadow-sm hover:shadow-lg transition-all train-border-card">

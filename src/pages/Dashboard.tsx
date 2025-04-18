@@ -223,11 +223,11 @@ const DashboardContent = ({
             description={card.description}
             icon={card.icon || <Code className="h-5 w-5" />}
             type={card.id || card.category}
-            onClick={() => (card.id !== 'codingAssistant' && card.type !== 'codingAssistant') && onAgentSelect(card.id || card.category)}
+            onClick={() => onAgentSelect(card.id || card.category)}
             badge={card.badge}
             bgColor={card.bgColor}
             badgeColor={card.badgeColor}
-            disabled={!enabledFeatures.includes(card.id)} // Added disabled prop
+            disabled={!enabledFeatures.includes(card.id)}
           />
         ))}
       </div>
