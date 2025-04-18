@@ -84,9 +84,8 @@ const GeneratorCard = ({
   // Regular generator card
   const handleClick = () => {
     if (disabled) {
-      toast({
-        title: "Coming Soon!",
-        description: "This feature is not yet available. Stay tuned for updates!",
+      toast("This feature is not yet available. Stay tuned for updates!", {
+        description: "Coming Soon!",
         duration: 3000,
       });
       return;

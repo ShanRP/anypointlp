@@ -27,13 +27,13 @@ export function FeaturesProvider({ children }: { children: React.ReactNode }) {
     'dataweave',
     'integration',
     'raml',
+    'jobBoard'
     // Comment out features that should be disabled
     // 'munit',
     // 'sampleData',
     // 'document',
     // 'diagram',
     // 'exchange',
-    // 'jobBoard',
     // 'codingAssistant'
   ]);
 
