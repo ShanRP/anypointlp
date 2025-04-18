@@ -88,6 +88,7 @@ const GeneratorCard = ({
         title: "Coming Soon!",
         description: "This feature is not yet available. Stay tuned for updates!",
         duration: 3000,
+        className: "absolute top-0 left-1/2 transform -translate-x-1/2 z-50",
       });
       return;
     }

@@ -27,7 +27,7 @@ export function FeaturesProvider({ children }: { children: React.ReactNode }) {
     'dataweave',
     'integration',
     'raml',
-    // Comment out features to disable them
+    // Comment out features that should be disabled
     // 'munit',
     // 'sampleData',
     // 'document',
