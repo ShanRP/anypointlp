@@ -82,8 +82,21 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
   const { selectedWorkspace } = useWorkspaces();
   const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
   const { user } = useAuth();
-  const { saveRamlTask } = useWorkspaceTasks(workspaceId);
+  const { saveRamlTask } = useWorkspaceTasks(workspaceId, {
+    staleTime: CACHE_CONFIG.STALE_TIME,
+    cacheTime: CACHE_CONFIG.TASKS_CACHE_TIME
+  });
   const { useCredit } = useUserCredits();
+  
+  // Prefetch data on mount
+  useEffect(() => {
+    if (workspaceId) {
+      queryClient.prefetchQuery({
+        queryKey: [QUERY_KEYS.tasks.raml, workspaceId],
+        staleTime: CACHE_CONFIG.STALE_TIME
+      });
+    }
+  }, [workspaceId]);
 
   const [apiName, setApiName] = useState('');
   const [apiVersion, setApiVersion] = useState('v1');

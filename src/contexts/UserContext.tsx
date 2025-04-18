@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,19 +20,26 @@ const STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 // Query keys for better cache management
 const QUERY_KEYS = {
-  credits: 'userCredits',
-  workspaces: 'userWorkspaces',
-  logs: 'userLogs',
-  tasks: {
-    all: 'tasks',
-    integration: 'integrationTasks',
-    raml: 'ramlTasks',
-    munit: 'munitTasks',
-    sampleData: 'sampleDataTasks',
-    document: 'documentTasks',
-    diagram: 'diagramTasks'
-  }
-};
+    credits: 'userCredits',
+    workspaces: 'userWorkspaces',
+    logs: 'userLogs',
+    tasks: {
+      all: 'tasks',
+      integration: 'integrationTasks',
+      raml: 'ramlTasks',
+      munit: 'munitTasks',
+      sampleData: 'sampleDataTasks',
+      document: 'documentTasks',
+      diagram: 'diagramTasks'
+    }
+  };
+
+  // Cache configuration
+  const CACHE_CONFIG = {
+    STALE_TIME: 1000 * 60 * 5, // 5 minutes
+    CACHE_TIME: 1000 * 60 * 30, // 30 minutes
+    TASKS_CACHE_TIME: 1000 * 60 * 10 // 10 minutes
+  };
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
