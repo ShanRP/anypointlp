@@ -1,0 +1,212 @@
+Error fetching posts: TypeError: setLoading is not a function
+    at fetchPosts (JobBoard.tsx:112:9)
+    at JobBoard.tsx:128:5
+    at commitHookEffectListMount (chunk-FLMU7I4S.js?v=d03339b6:16963:34)
+    at commitPassiveMountOnFiber (chunk-FLMU7I4S.js?v=d03339b6:18206:19)
+    at commitPassiveMountEffects_complete (chunk-FLMU7I4S.js?v=d03339b6:18179:17)
+    at commitPassiveMountEffects_begin (chunk-FLMU7I4S.js?v=d03339b6:18169:15)
+    at commitPassiveMountEffects (chunk-FLMU7I4S.js?v=d03339b6:18159:11)
+    at flushPassiveEffectsImpl (chunk-FLMU7I4S.js?v=d03339b6:19543:11)
+    at flushPassiveEffects (chunk-FLMU7I4S.js?v=d03339b6:19500:22)
+    at commitRootImpl (chunk-FLMU7I4S.js?v=d03339b6:19469:13)
+console.error @ chunk-CNG5DYDR.js?v=d03339b6:17716
+console.error @ CallModal.tsx:147
+fetchPosts @ JobBoard.tsx:121
+(anonymous) @ JobBoard.tsx:128
+commitHookEffectListMount @ chunk-FLMU7I4S.js?v=d03339b6:16963
+commitPassiveMountOnFiber @ chunk-FLMU7I4S.js?v=d03339b6:18206
+commitPassiveMountEffects_complete @ chunk-FLMU7I4S.js?v=d03339b6:18179
+commitPassiveMountEffects_begin @ chunk-FLMU7I4S.js?v=d03339b6:18169
+commitPassiveMountEffects @ chunk-FLMU7I4S.js?v=d03339b6:18159
+flushPassiveEffectsImpl @ chunk-FLMU7I4S.js?v=d03339b6:19543
+flushPassiveEffects @ chunk-FLMU7I4S.js?v=d03339b6:19500
+commitRootImpl @ chunk-FLMU7I4S.js?v=d03339b6:19469
+commitRoot @ chunk-FLMU7I4S.js?v=d03339b6:19330
+performSyncWorkOnRoot @ chunk-FLMU7I4S.js?v=d03339b6:18948
+flushSyncCallbacks @ chunk-FLMU7I4S.js?v=d03339b6:9166
+(anonymous) @ chunk-FLMU7I4S.js?v=d03339b6:18677Understand this error
+chunk-FLMU7I4S.js?v=d03339b6:16718 Uncaught TypeError: Cannot read properties of undefined (reading 'channel')
+    at JobBoard.tsx:132:8
+    at commitHookEffectListMount (chunk-FLMU7I4S.js?v=d03339b6:16963:34)
+    at commitPassiveMountOnFiber (chunk-FLMU7I4S.js?v=d03339b6:18206:19)
+    at commitPassiveMountEffects_complete (chunk-FLMU7I4S.js?v=d03339b6:18179:17)
+    at commitPassiveMountEffects_begin (chunk-FLMU7I4S.js?v=d03339b6:18169:15)
+    at commitPassiveMountEffects (chunk-FLMU7I4S.js?v=d03339b6:18159:11)
+    at flushPassiveEffectsImpl (chunk-FLMU7I4S.js?v=d03339b6:19543:11)
+    at flushPassiveEffects (chunk-FLMU7I4S.js?v=d03339b6:19500:22)
+    at commitRootImpl (chunk-FLMU7I4S.js?v=d03339b6:19469:13)
+    at commitRoot (chunk-FLMU7I4S.js?v=d03339b6:19330:13)
+(anonymous) @ JobBoard.tsx:132
+commitHookEffectListMount @ chunk-FLMU7I4S.js?v=d03339b6:16963
+commitPassiveMountOnFiber @ chunk-FLMU7I4S.js?v=d03339b6:18206
+commitPassiveMountEffects_complete @ chunk-FLMU7I4S.js?v=d03339b6:18179
+commitPassiveMountEffects_begin @ chunk-FLMU7I4S.js?v=d03339b6:18169
+commitPassiveMountEffects @ chunk-FLMU7I4S.js?v=d03339b6:18159
+flushPassiveEffectsImpl @ chunk-FLMU7I4S.js?v=d03339b6:19543
+flushPassiveEffects @ chunk-FLMU7I4S.js?v=d03339b6:19500
+commitRootImpl @ chunk-FLMU7I4S.js?v=d03339b6:19469
+commitRoot @ chunk-FLMU7I4S.js?v=d03339b6:19330
+performSyncWorkOnRoot @ chunk-FLMU7I4S.js?v=d03339b6:18948
+flushSyncCallbacks @ chunk-FLMU7I4S.js?v=d03339b6:9166
+(anonymous) @ chunk-FLMU7I4S.js?v=d03339b6:18677Understand this error
+CallModal.tsx:147 Error fetching posts: TypeError: setLoading is not a function
+    at fetchPosts (JobBoard.tsx:112:9)
+    at JobBoard.tsx:128:5
+    at commitHookEffectListMount (chunk-FLMU7I4S.js?v=d03339b6:16963:34)
+    at invokePassiveEffectMountInDEV (chunk-FLMU7I4S.js?v=d03339b6:18374:19)
+    at invokeEffectsInDev (chunk-FLMU7I4S.js?v=d03339b6:19754:19)
+    at commitDoubleInvokeEffectsInDEV (chunk-FLMU7I4S.js?v=d03339b6:19739:15)
+    at flushPassiveEffectsImpl (chunk-FLMU7I4S.js?v=d03339b6:19556:13)
+    at flushPassiveEffects (chunk-FLMU7I4S.js?v=d03339b6:19500:22)
+    at commitRootImpl (chunk-FLMU7I4S.js?v=d03339b6:19469:13)
+    at commitRoot (chunk-FLMU7I4S.js?v=d03339b6:19330:13)
+console.error @ chunk-CNG5DYDR.js?v=d03339b6:17716
+console.error @ CallModal.tsx:147
+fetchPosts @ JobBoard.tsx:121
+(anonymous) @ JobBoard.tsx:128
+commitHookEffectListMount @ chunk-FLMU7I4S.js?v=d03339b6:16963
+invokePassiveEffectMountInDEV @ chunk-FLMU7I4S.js?v=d03339b6:18374
+invokeEffectsInDev @ chunk-FLMU7I4S.js?v=d03339b6:19754
+commitDoubleInvokeEffectsInDEV @ chunk-FLMU7I4S.js?v=d03339b6:19739
+flushPassiveEffectsImpl @ chunk-FLMU7I4S.js?v=d03339b6:19556
+flushPassiveEffects @ chunk-FLMU7I4S.js?v=d03339b6:19500
+commitRootImpl @ chunk-FLMU7I4S.js?v=d03339b6:19469
+commitRoot @ chunk-FLMU7I4S.js?v=d03339b6:19330
+performSyncWorkOnRoot @ chunk-FLMU7I4S.js?v=d03339b6:18948
+flushSyncCallbacks @ chunk-FLMU7I4S.js?v=d03339b6:9166
+(anonymous) @ chunk-FLMU7I4S.js?v=d03339b6:18677Understand this error
+chunk-FLMU7I4S.js?v=d03339b6:16718 Uncaught TypeError: Cannot read properties of undefined (reading 'channel')
+    at JobBoard.tsx:132:8
+    at commitHookEffectListMount (chunk-FLMU7I4S.js?v=d03339b6:16963:34)
+    at invokePassiveEffectMountInDEV (chunk-FLMU7I4S.js?v=d03339b6:18374:19)
+    at invokeEffectsInDev (chunk-FLMU7I4S.js?v=d03339b6:19754:19)
+    at commitDoubleInvokeEffectsInDEV (chunk-FLMU7I4S.js?v=d03339b6:19739:15)
+    at flushPassiveEffectsImpl (chunk-FLMU7I4S.js?v=d03339b6:19556:13)
+    at flushPassiveEffects (chunk-FLMU7I4S.js?v=d03339b6:19500:22)
+    at commitRootImpl (chunk-FLMU7I4S.js?v=d03339b6:19469:13)
+    at commitRoot (chunk-FLMU7I4S.js?v=d03339b6:19330:13)
+    at performSyncWorkOnRoot (chunk-FLMU7I4S.js?v=d03339b6:18948:11)
+(anonymous) @ JobBoard.tsx:132
+commitHookEffectListMount @ chunk-FLMU7I4S.js?v=d03339b6:16963
+invokePassiveEffectMountInDEV @ chunk-FLMU7I4S.js?v=d03339b6:18374
+invokeEffectsInDev @ chunk-FLMU7I4S.js?v=d03339b6:19754
+commitDoubleInvokeEffectsInDEV @ chunk-FLMU7I4S.js?v=d03339b6:19739
+flushPassiveEffectsImpl @ chunk-FLMU7I4S.js?v=d03339b6:19556
+flushPassiveEffects @ chunk-FLMU7I4S.js?v=d03339b6:19500
+commitRootImpl @ chunk-FLMU7I4S.js?v=d03339b6:19469
+commitRoot @ chunk-FLMU7I4S.js?v=d03339b6:19330
+performSyncWorkOnRoot @ chunk-FLMU7I4S.js?v=d03339b6:18948
+flushSyncCallbacks @ chunk-FLMU7I4S.js?v=d03339b6:9166
+(anonymous) @ chunk-FLMU7I4S.js?v=d03339b6:18677Understand this error
+2CallModal.tsx:147 The above error occurred in the <JobBoard> component:
+
+    at JobBoard (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/components/JobBoard/JobBoard.tsx:37:107)
+    at div
+    at MotionComponent (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/framer-motion.js?v=d03339b6:1973:40)
+    at div
+    at div
+    at div
+    at Dashboard (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/pages/Dashboard.tsx:530:53)
+    at RenderedRoute (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d03339b6:4092:5)
+    at Routes (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d03339b6:4531:5)
+    at Router (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d03339b6:4474:15)
+    at BrowserRouter (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d03339b6:5219:5)
+    at Provider2 (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=d03339b6:63:15)
+    at TooltipProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=d03339b6:254:5)
+    at LanguageProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/providers/LanguageProvider.tsx:675:36)
+    at UserProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/contexts/UserContext.tsx:45:32)
+    at ThemeProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/providers/ThemeProvider.tsx:24:33)
+    at AuthProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/hooks/useAuth.tsx:43:32)
+    at QueryClientProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/@tanstack_react-query.js?v=d03339b6:2726:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+console.error @ chunk-CNG5DYDR.js?v=d03339b6:17716
+console.error @ CallModal.tsx:147
+logCapturedError @ chunk-FLMU7I4S.js?v=d03339b6:14080
+update.callback @ chunk-FLMU7I4S.js?v=d03339b6:14100
+callCallback @ chunk-FLMU7I4S.js?v=d03339b6:11296
+commitUpdateQueue @ chunk-FLMU7I4S.js?v=d03339b6:11313
+commitLayoutEffectOnFiber @ chunk-FLMU7I4S.js?v=d03339b6:17141
+commitLayoutMountEffects_complete @ chunk-FLMU7I4S.js?v=d03339b6:18030
+commitLayoutEffects_begin @ chunk-FLMU7I4S.js?v=d03339b6:18019
+commitLayoutEffects @ chunk-FLMU7I4S.js?v=d03339b6:17970
+commitRootImpl @ chunk-FLMU7I4S.js?v=d03339b6:19406
+commitRoot @ chunk-FLMU7I4S.js?v=d03339b6:19330
+performSyncWorkOnRoot @ chunk-FLMU7I4S.js?v=d03339b6:18948
+flushSyncCallbacks @ chunk-FLMU7I4S.js?v=d03339b6:9166
+(anonymous) @ chunk-FLMU7I4S.js?v=d03339b6:18677Understand this error
+chunk-FLMU7I4S.js?v=d03339b6:9176 Uncaught TypeError: Cannot read properties of undefined (reading 'channel')
+    at JobBoard.tsx:132:8
+    at commitHookEffectListMount (chunk-FLMU7I4S.js?v=d03339b6:16963:34)
+    at commitPassiveMountOnFiber (chunk-FLMU7I4S.js?v=d03339b6:18206:19)
+    at commitPassiveMountEffects_complete (chunk-FLMU7I4S.js?v=d03339b6:18179:17)
+    at commitPassiveMountEffects_begin (chunk-FLMU7I4S.js?v=d03339b6:18169:15)
+    at commitPassiveMountEffects (chunk-FLMU7I4S.js?v=d03339b6:18159:11)
+    at flushPassiveEffectsImpl (chunk-FLMU7I4S.js?v=d03339b6:19543:11)
+    at flushPassiveEffects (chunk-FLMU7I4S.js?v=d03339b6:19500:22)
+    at commitRootImpl (chunk-FLMU7I4S.js?v=d03339b6:19469:13)
+    at commitRoot (chunk-FLMU7I4S.js?v=d03339b6:19330:13)
+(anonymous) @ JobBoard.tsx:132
+commitHookEffectListMount @ chunk-FLMU7I4S.js?v=d03339b6:16963
+commitPassiveMountOnFiber @ chunk-FLMU7I4S.js?v=d03339b6:18206
+commitPassiveMountEffects_complete @ chunk-FLMU7I4S.js?v=d03339b6:18179
+commitPassiveMountEffects_begin @ chunk-FLMU7I4S.js?v=d03339b6:18169
+commitPassiveMountEffects @ chunk-FLMU7I4S.js?v=d03339b6:18159
+flushPassiveEffectsImpl @ chunk-FLMU7I4S.js?v=d03339b6:19543
+flushPassiveEffects @ chunk-FLMU7I4S.js?v=d03339b6:19500
+commitRootImpl @ chunk-FLMU7I4S.js?v=d03339b6:19469
+commitRoot @ chunk-FLMU7I4S.js?v=d03339b6:19330
+performSyncWorkOnRoot @ chunk-FLMU7I4S.js?v=d03339b6:18948
+flushSyncCallbacks @ chunk-FLMU7I4S.js?v=d03339b6:9166
+(anonymous) @ chunk-FLMU7I4S.js?v=d03339b6:18677Understand this error
+JobBoard.tsx:124 Uncaught (in promise) TypeError: setLoading is not a function
+    at fetchPosts (JobBoard.tsx:124:9)
+    at JobBoard.tsx:128:5
+    at commitHookEffectListMount (chunk-FLMU7I4S.js?v=d03339b6:16963:34)
+    at commitPassiveMountOnFiber (chunk-FLMU7I4S.js?v=d03339b6:18206:19)
+    at commitPassiveMountEffects_complete (chunk-FLMU7I4S.js?v=d03339b6:18179:17)
+    at commitPassiveMountEffects_begin (chunk-FLMU7I4S.js?v=d03339b6:18169:15)
+    at commitPassiveMountEffects (chunk-FLMU7I4S.js?v=d03339b6:18159:11)
+    at flushPassiveEffectsImpl (chunk-FLMU7I4S.js?v=d03339b6:19543:11)
+    at flushPassiveEffects (chunk-FLMU7I4S.js?v=d03339b6:19500:22)
+    at commitRootImpl (chunk-FLMU7I4S.js?v=d03339b6:19469:13)
+fetchPosts @ JobBoard.tsx:124
+(anonymous) @ JobBoard.tsx:128
+commitHookEffectListMount @ chunk-FLMU7I4S.js?v=d03339b6:16963
+commitPassiveMountOnFiber @ chunk-FLMU7I4S.js?v=d03339b6:18206
+commitPassiveMountEffects_complete @ chunk-FLMU7I4S.js?v=d03339b6:18179
+commitPassiveMountEffects_begin @ chunk-FLMU7I4S.js?v=d03339b6:18169
+commitPassiveMountEffects @ chunk-FLMU7I4S.js?v=d03339b6:18159
+flushPassiveEffectsImpl @ chunk-FLMU7I4S.js?v=d03339b6:19543
+flushPassiveEffects @ chunk-FLMU7I4S.js?v=d03339b6:19500
+commitRootImpl @ chunk-FLMU7I4S.js?v=d03339b6:19469
+commitRoot @ chunk-FLMU7I4S.js?v=d03339b6:19330
+performSyncWorkOnRoot @ chunk-FLMU7I4S.js?v=d03339b6:18948
+flushSyncCallbacks @ chunk-FLMU7I4S.js?v=d03339b6:9166
+(anonymous) @ chunk-FLMU7I4S.js?v=d03339b6:18677Understand this error
+JobBoard.tsx:124 Uncaught (in promise) TypeError: setLoading is not a function
+    at fetchPosts (JobBoard.tsx:124:9)
+    at JobBoard.tsx:128:5
+    at commitHookEffectListMount (chunk-FLMU7I4S.js?v=d03339b6:16963:34)
+    at invokePassiveEffectMountInDEV (chunk-FLMU7I4S.js?v=d03339b6:18374:19)
+    at invokeEffectsInDev (chunk-FLMU7I4S.js?v=d03339b6:19754:19)
+    at commitDoubleInvokeEffectsInDEV (chunk-FLMU7I4S.js?v=d03339b6:19739:15)
+    at flushPassiveEffectsImpl (chunk-FLMU7I4S.js?v=d03339b6:19556:13)
+    at flushPassiveEffects (chunk-FLMU7I4S.js?v=d03339b6:19500:22)
+    at commitRootImpl (chunk-FLMU7I4S.js?v=d03339b6:19469:13)
+    at commitRoot (chunk-FLMU7I4S.js?v=d03339b6:19330:13)
+fetchPosts @ JobBoard.tsx:124
+(anonymous) @ JobBoard.tsx:128
+commitHookEffectListMount @ chunk-FLMU7I4S.js?v=d03339b6:16963
+invokePassiveEffectMountInDEV @ chunk-FLMU7I4S.js?v=d03339b6:18374
+invokeEffectsInDev @ chunk-FLMU7I4S.js?v=d03339b6:19754
+commitDoubleInvokeEffectsInDEV @ chunk-FLMU7I4S.js?v=d03339b6:19739
+flushPassiveEffectsImpl @ chunk-FLMU7I4S.js?v=d03339b6:19556
+flushPassiveEffects @ chunk-FLMU7I4S.js?v=d03339b6:19500
+commitRootImpl @ chunk-FLMU7I4S.js?v=d03339b6:19469
+commitRoot @ chunk-FLMU7I4S.js?v=d03339b6:19330
+performSyncWorkOnRoot @ chunk-FLMU7I4S.js?v=d03339b6:18948
+flushSyncCallbacks @ chunk-FLMU7I4S.js?v=d03339b6:9166
+(anonymous) @ chunk-FLMU7I4S.js?v=d03339b6:18677Understand this error
