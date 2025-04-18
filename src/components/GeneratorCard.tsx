@@ -16,6 +16,18 @@ interface GeneratorCardProps {
   badgeColor?: string;
 }
 
+interface GeneratorCardProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  type: string;
+  onClick?: () => void;
+  badge?: string;
+  bgColor?: string;
+  badgeColor?: string;
+  disabled?: boolean;
+}
+
 const GeneratorCard = ({ 
   title, 
   description, 
@@ -24,7 +36,8 @@ const GeneratorCard = ({
   onClick, 
   badge,
   bgColor = 'from-purple-600 to-indigo-600', 
-  badgeColor = 'bg-purple-500'
+  badgeColor = 'bg-purple-500',
+  disabled = false
 }: GeneratorCardProps) => {
   // Handle Coding Assistant special case
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -69,11 +82,23 @@ const GeneratorCard = ({
   }
   
   // Regular generator card
+  const handleClick = () => {
+    if (disabled) {
+      toast({
+        title: "Coming Soon!",
+        description: "This feature is not yet available. Stay tuned for updates!",
+        duration: 3000,
+      });
+      return;
+    }
+    onClick?.();
+  };
+
   return (
     <motion.div
-      whileHover={{ y: -8, transition: { duration: 0.3 } }}
-      className="cursor-pointer"
-      onClick={onClick}
+      whileHover={{ y: disabled ? 0 : -8, transition: { duration: 0.3 } }}
+      className={`${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+      onClick={handleClick}
     >
       <Card className="h-full overflow-hidden border rounded-xl shadow-sm hover:shadow-lg transition-all train-border-card">
         <CardHeader className={`bg-gradient-to-r ${bgColor} text-white py-6 bg-opacity-90`}>

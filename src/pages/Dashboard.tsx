@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, RefreshCw, FileCode2, Code, Share2, TestTube2, Database, Users, FileText, FileQuestion, MessageSquare, X } from 'lucide-react';
@@ -115,6 +115,7 @@ const DashboardContent = ({
   setSelectedCategory,
   onAgentSelect,
   filteredAgents,
+  enabledFeatures
 }) => {
   const { t } = useLanguage();
 
@@ -220,12 +221,18 @@ const DashboardContent = ({
             badge={card.badge}
             bgColor={card.bgColor}
             badgeColor={card.badgeColor}
+            disabled={!enabledFeatures.includes(card.id)} // Added disabled prop
           />
         ))}
       </div>
     </div>
   );
 };
+
+
+const FeaturesContext = createContext<string[]>([]);
+
+const useFeatures = () => useContext(FeaturesContext);
 
 const Dashboard = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -237,23 +244,13 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredAgents, setFilteredAgents] = useState<any[]>([]);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
-  const {
-    user,
-    loading
-  } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    workspaces,
-    selectedWorkspace,
-    selectWorkspace
-  } = useWorkspaces();
-  const {
-    fetchTaskDetails,
-    selectedTask,
-    tasks: workspaceTasks,
-    fetchWorkspaceTasks: fetchTasks
-  } = useWorkspaceTasks(selectedWorkspace?.id || '');
+  const { workspaces, selectedWorkspace, selectWorkspace } = useWorkspaces();
+  const { fetchTaskDetails, selectedTask, tasks: workspaceTasks, fetchWorkspaceTasks: fetchTasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
+  const [enabledFeatures, setEnabledFeatures] = useState(['integration', 'dataweave', 'raml', 'munit', 'sampleData', 'document', 'diagram', 'exchange', 'jobBoard', 'codingAssistant']); //Initial enabled features.  Could be fetched from server
+
 
   useEffect(() => {
     if (!loading && !user) {
@@ -316,11 +313,11 @@ const Dashboard = () => {
       workspace_id: selectedWorkspace?.id || ''
     };
     setTasks(prevTasks => [...prevTasks, taskWithWorkspace]);
-    
+
     if (selectedWorkspace?.id) {
       refreshWorkspaceTasks();
     }
-    
+
     toast.success(`Task ${task.id} created successfully!`);
   };
 
@@ -342,7 +339,7 @@ const Dashboard = () => {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    
+
     const allAgents = [
       { id: 'integration', title: 'Integration Generator', description: 'Create flow code from flow specifications and flow diagrams', category: 'coding', icon: <FileCode2 size={16} /> },
       { id: 'dataweave', title: 'DataWeave Generator', description: 'Create transformations from input output examples', category: 'coding', icon: <Database size={16} /> },
@@ -384,250 +381,177 @@ const Dashboard = () => {
       </div>;
   }
 
-  return <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden">
-      <DashboardSidebar 
-        onNavigate={page => {
-          if (page === 'dashboard') {
-            setCurrentPage('dashboard');
-            setSelectedAgent(null);
-            setSelectedTaskId(null);
-          } else if (page === 'settings') {
-            setCurrentPage('settings');
-            setSelectedAgent(null);
-            setSelectedTaskId(null);
-          } else if (page === 'chat') {
-            setIsCodingAssistantOpen(true);
-          } else {
-            setCurrentPage(page as PageType);
-            setSelectedAgent(page);
-            setSelectedTaskId(null);
-          }
-        }} 
-        currentPage={currentPage} 
-        onTaskSelect={handleTaskSelect} 
-        selectedWorkspaceId={selectedWorkspace?.id} 
-        onWorkspaceChange={handleWorkspaceChange} 
-      />
-      
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        <div className="absolute inset-0 overflow-hidden z-0">
-          <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-gradient-to-b from-purple-100 to-transparent dark:from-purple-900/20 dark:to-transparent rounded-full blur-3xl opacity-30 transform translate-x-1/3 -translate-y-1/3"></div>
-          <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-to-t from-indigo-100 to-transparent dark:from-indigo-900/20 dark:to-transparent rounded-full blur-3xl opacity-30 transform -translate-x-1/3 translate-y-1/3"></div>
-        </div>
-
-        <header className="relative z-10 h-16 flex items-center px-8 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
-            <div className="relative w-[400px]">
-              <input
-                type="text"
-                placeholder="Search or type a command..."
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="w-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 pr-8 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
-              />
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                <Search className="h-4 w-4" />
-              </div>
-              {searchQuery.length > 0 && (
-                <div 
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer" 
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFilteredAgents([]);
-                  }}
-                >
-                  <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-3">
-            <UserCreditsDisplay />
-          </div>
-        </header>
-
-        <div className="relative z-10 flex-1 overflow-auto">
-          {currentPage === 'dashboard' && (
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              transition={{ duration: 0.3 }}
-            >
-              <DashboardContent 
-                selectedCategory={selectedCategory} 
-                setSelectedCategory={setSelectedCategory} 
-                onAgentSelect={handleAgentSelect} 
-                filteredAgents={filteredAgents}
-              />
-            </motion.div>
-          )}
-          
-          {currentPage === 'settings' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <SettingsPage />
-            </motion.div>}
-          
-          {currentPage === 'dataweave' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <DataWeaveGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onSaveTask={() => {}} onBack={handleBackToDashboard} />
-            </motion.div>}
-          
-          {currentPage === 'integration' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <IntegrationGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onBack={handleBackToDashboard} onSaveTask={() => {}} />
-            </motion.div>}
-          
-          {currentPage === 'raml' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <RAMLGenerator selectedWorkspaceId={selectedWorkspace?.id || ''} onBack={handleBackToDashboard} />
-            </motion.div>}
-          
-          {currentPage === 'taskView' && selectedTask && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <TaskDetailsView task={selectedTask} onBack={() => setCurrentPage('dashboard')} />
-            </motion.div>}
-          
-          {currentPage === 'exchange' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <ExchangeList onBack={handleBackToDashboard} />
-            </motion.div>}
-
-          {currentPage === 'exchangeItem' && selectedExchangeItemId && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <ExchangeItemDetails />
-            </motion.div>}
-
-          {currentPage === 'exchangePublish' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <ExchangePublish />
-            </motion.div>}
-
-          {currentPage === 'jobBoard' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }}>
-              <JobBoard />
-            </motion.div>}
-
-          {currentPage === 'munit' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }} className="p-0">
-              <MUnitTestGenerator 
-                onTaskCreated={handleTaskCreated} 
-                selectedWorkspaceId={selectedWorkspace?.id} 
-                onBack={handleBackToDashboard} 
-                onSaveTask={(id) => {
-                  refreshWorkspaceTasks();
-                  toast.success(`MUnit test saved with ID: ${id}`);
-                }} 
-              />
-            </motion.div>}
-
-          {currentPage === 'sampleData' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }} className="p-0">
-              <SampleDataGenerator 
-                onBack={handleBackToDashboard} 
-                selectedWorkspaceId={selectedWorkspace?.id}
-                onSaveTask={(id) => {
-                  refreshWorkspaceTasks();
-                  toast.success(`Sample data saved with ID: ${id}`);
-                }}
-              />
-            </motion.div>}
-
-          {currentPage === 'document' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }} className="p-0">
-              <DocumentGenerator 
-                onBack={handleBackToDashboard} 
-                selectedWorkspaceId={selectedWorkspace?.id}
-                onSaveTask={(id) => {
-                  refreshWorkspaceTasks();
-                  toast.success(`Document saved with ID: ${id}`);
-                }}
-              />
-            </motion.div>}
-
-          {currentPage === 'diagram' && <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.3
-        }} className="p-0">
-              <DiagramGenerator 
-                onBack={handleBackToDashboard} 
-                selectedWorkspaceId={selectedWorkspace?.id}
-                onSaveTask={(id) => {
-                  refreshWorkspaceTasks();
-                  toast.success(`Diagram saved with ID: ${id}`);
-                }}
-              />
-            </motion.div>}
-        </div>
-        <CodingAssistantDialog 
-          isOpen={isCodingAssistantOpen} 
-          onOpenChange={setIsCodingAssistantOpen} 
-          trigger={<button data-dialog-trigger="coding-assistant" className="hidden"></button>}
+  return (
+    <FeaturesContext.Provider value={enabledFeatures}> {/* Features Context Provider */}
+      <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden">
+        <DashboardSidebar 
+          onNavigate={page => {
+            if (page === 'dashboard') {
+              setCurrentPage('dashboard');
+              setSelectedAgent(null);
+              setSelectedTaskId(null);
+            } else if (page === 'settings') {
+              setCurrentPage('settings');
+              setSelectedAgent(null);
+              setSelectedTaskId(null);
+            } else if (page === 'chat') {
+              setIsCodingAssistantOpen(true);
+            } else {
+              setCurrentPage(page as PageType);
+              setSelectedAgent(page);
+              setSelectedTaskId(null);
+            }
+          }} 
+          currentPage={currentPage} 
+          onTaskSelect={handleTaskSelect} 
+          selectedWorkspaceId={selectedWorkspace?.id} 
+          onWorkspaceChange={handleWorkspaceChange} 
         />
+
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          <div className="absolute inset-0 overflow-hidden z-0">
+            <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-gradient-to-b from-purple-100 to-transparent dark:from-purple-900/20 dark:to-transparent rounded-full blur-3xl opacity-30 transform translate-x-1/3 -translate-y-1/3"></div>
+            <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-to-t from-indigo-100 to-transparent dark:from-indigo-900/20 dark:to-transparent rounded-full blur-3xl opacity-30 transform -translate-x-1/3 translate-y-1/3"></div>
+          </div>
+
+          <header className="relative z-10 h-16 flex items-center px-8 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
+              <div className="relative w-[400px]">
+                <input
+                  type="text"
+                  placeholder="Search or type a command..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="w-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2 pl-10 pr-8 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+                />
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                  <Search className="h-4 w-4" />
+                </div>
+                {searchQuery.length > 0 && (
+                  <div 
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer" 
+                    onClick={() => {
+                      setSearchQuery('');
+                      setFilteredAgents([]);
+                    }}
+                  >
+                    <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <UserCreditsDisplay />
+            </div>
+          </header>
+
+          <div className="relative z-10 flex-1 overflow-auto">
+            {currentPage === 'dashboard' && (
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                transition={{ duration: 0.3 }}
+              >
+                <DashboardContent 
+                  selectedCategory={selectedCategory} 
+                  setSelectedCategory={setSelectedCategory} 
+                  onAgentSelect={handleAgentSelect} 
+                  filteredAgents={filteredAgents}
+                  enabledFeatures={enabledFeatures} // Pass enabledFeatures to DashboardContent
+                />
+              </motion.div>
+            )}
+
+            {currentPage === 'settings' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <SettingsPage />
+              </motion.div>}
+
+            {currentPage === 'dataweave' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <DataWeaveGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onSaveTask={() => {}} onBack={handleBackToDashboard} />
+              </motion.div>}
+
+            {currentPage === 'integration' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <IntegrationGenerator onTaskCreated={handleTaskCreated} selectedWorkspaceId={selectedWorkspace?.id} onBack={handleBackToDashboard} onSaveTask={() => {}} />
+              </motion.div>}
+
+            {currentPage === 'raml' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <RAMLGenerator selectedWorkspaceId={selectedWorkspace?.id || ''} onBack={handleBackToDashboard} />
+              </motion.div>}
+
+            {currentPage === 'taskView' && selectedTask && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <TaskDetailsView task={selectedTask} onBack={() => setCurrentPage('dashboard')} />
+              </motion.div>}
+
+            {currentPage === 'exchange' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <ExchangeList onBack={handleBackToDashboard} />
+              </motion.div>}
+
+            {currentPage === 'exchangeItem' && selectedExchangeItemId && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <ExchangeItemDetails />
+              </motion.div>}
+
+            {currentPage === 'exchangePublish' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <ExchangePublish />
+              </motion.div>}
+
+            {currentPage === 'jobBoard' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <JobBoard />
+              </motion.div>}
+
+            {currentPage === 'munit' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="p-0">
+                <MUnitTestGenerator 
+                  onTaskCreated={handleTaskCreated} 
+                  selectedWorkspaceId={selectedWorkspace?.id} 
+                  onBack={handleBackToDashboard} 
+                  onSaveTask={(id) => {
+                    refreshWorkspaceTasks();
+                    toast.success(`MUnit test saved with ID: ${id}`);
+                  }} 
+                />
+              </motion.div>}
+
+            {currentPage === 'sampleData' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="p-0">
+                <SampleDataGenerator 
+                  onBack={handleBackToDashboard} 
+                  selectedWorkspaceId={selectedWorkspace?.id}
+                  onSaveTask={(id) => {
+                    refreshWorkspaceTasks();
+                    toast.success(`Sample data saved with ID: ${id}`);
+                  }}
+                />
+              </motion.div>}
+
+            {currentPage === 'document' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="p-0">
+                <DocumentGenerator 
+                  onBack={handleBackToDashboard} 
+                  selectedWorkspaceId={selectedWorkspace?.id}
+                  onSaveTask={(id) => {
+                    refreshWorkspaceTasks();
+                    toast.success(`Document saved with ID: ${id}`);
+                  }}
+                />
+              </motion.div>}
+
+            {currentPage === 'diagram' && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="p-0">
+                <DiagramGenerator 
+                  onBack={handleBackToDashboard} 
+                  selectedWorkspaceId={selectedWorkspace?.id}
+                  onSaveTask={(id) => {
+                    refreshWorkspaceTasks();
+                    toast.success(`Diagram saved with ID: ${id}`);
+                  }}
+                />
+              </motion.div>}
+          </div>
+          <CodingAssistantDialog 
+            isOpen={isCodingAssistantOpen} 
+            onOpenChange={setIsCodingAssistantOpen} 
+            trigger={<button data-dialog-trigger="coding-assistant" className="hidden"></button>}
+          />
+        </div>
       </div>
-    </div>;
+    </FeaturesContext.Provider>
+  );
 };
 
 export default Dashboard;
