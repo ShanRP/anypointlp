@@ -1,0 +1,28 @@
+chunk-CNG5DYDR.js?v=d03339b6:17716 The above error occurred in the <JobBoard> component:
+
+    at JobBoard (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/components/JobBoard/JobBoard.tsx:37:107)
+    at div
+    at MotionComponent (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/framer-motion.js?v=d03339b6:1973:40)
+    at div
+    at div
+    at div
+    at Dashboard (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/pages/Dashboard.tsx:530:53)
+    at RenderedRoute (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d03339b6:4092:5)
+    at Routes (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d03339b6:4531:5)
+    at Router (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d03339b6:4474:15)
+    at BrowserRouter (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d03339b6:5219:5)
+    at Provider2 (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=d03339b6:63:15)
+    at TooltipProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=d03339b6:254:5)
+    at LanguageProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/providers/LanguageProvider.tsx:675:36)
+    at UserProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/contexts/UserContext.tsx:45:32)
+    at ThemeProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/providers/ThemeProvider.tsx:24:33)
+    at AuthProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/src/hooks/useAuth.tsx:43:32)
+    at QueryClientProvider (https://3768d6f5-9c45-4e22-9426-d39c532dd7d4-00-3jvbdbypdo7ym.sisko.replit.dev/node_modules/.vite/deps/@tanstack_react-query.js?v=d03339b6:2726:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+chunk-FLMU7I4S.js?v=d03339b6:9176 Uncaught ReferenceError: useEffect is not defined
+    at JobBoard (JobBoard.tsx:108:3)
+﻿
+
