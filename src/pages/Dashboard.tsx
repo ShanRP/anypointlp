@@ -223,11 +223,20 @@ const DashboardContent = ({
             description={card.description}
             icon={card.icon || <Code className="h-5 w-5" />}
             type={card.id || card.category}
-            onClick={() => onAgentSelect(card.id || card.category)}
+            onClick={() => {
+              if (card.id === 'codingAssistant' || !enabledFeatures.includes(card.id || '')) {
+                toast("Coming Soon!", {
+                  description: "This feature is not yet available. Stay tuned for updates!",
+                  duration: 3000,
+                });
+                return;
+              }
+              onAgentSelect(card.id || card.category);
+            }}
             badge={card.badge}
             bgColor={card.bgColor}
             badgeColor={card.badgeColor}
-            disabled={!enabledFeatures.includes(card.id)}
+            disabled={card.id === 'codingAssistant' || !enabledFeatures.includes(card.id || '')}
           />
         ))}
       </div>

@@ -82,10 +82,11 @@ const GeneratorCard = ({
   }
   
   // Regular generator card
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (disabled) {
-      toast("This feature is not yet available. Stay tuned for updates!", {
-        description: "Coming Soon!",
+      toast("Coming Soon!", {
+        description: "This feature is not yet available. Stay tuned for updates!",
         duration: 3000,
       });
       return;
@@ -95,8 +96,8 @@ const GeneratorCard = ({
 
   return (
     <motion.div
-      whileHover={{ y: -8, transition: { duration: 0.3 } }}
-      className="cursor-pointer"
+      whileHover={{ y: disabled ? 0 : -8, transition: { duration: 0.3 } }}
+      className={`${disabled ? 'opacity-70' : ''} cursor-pointer`}
       onClick={handleClick}
     >
       <Card className="h-full overflow-hidden border rounded-xl shadow-sm hover:shadow-lg transition-all train-border-card">
