@@ -1,28 +1,27 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useJobBoard } from '@/hooks/useJobBoard';
-import JobPostCard from './JobPostCard';
-import JobPostDetails from './JobPostDetails';
-import CreateJobPostForm from './CreateJobPostForm';
-import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, UserX } from 'lucide-react';
-import CallModal, { CallModalHandle } from './CallModal';
-import CallNotification from './CallNotification';
-import ChatDialog from './ChatDialog';
-import { usePeerJS } from '@/hooks/usePeerJS';
-import { toast } from 'sonner';
+import React, { useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useJobBoard } from "@/hooks/useJobBoard";
+import JobPostCard from "./JobPostCard";
+import JobPostDetails from "./JobPostDetails";
+import CreateJobPostForm from "./CreateJobPostForm";
+import { Button } from "@/components/ui/button";
+import { PlusCircle, Loader2, UserX } from "lucide-react";
+import CallModal, { CallModalHandle } from "./CallModal";
+import CallNotification from "./CallNotification";
+import ChatDialog from "./ChatDialog";
+import { usePeerJS } from "@/hooks/usePeerJS";
+import { toast } from "sonner";
 
 export default function JobBoard() {
-  const { posts, selectedPost, setSelectedPost, createPost, setPosts } = useJobBoard();
-  const [loading, setLoading] = useState(true);
+  const { posts, loading, selectedPost, setSelectedPost, createPost } =
+    useJobBoard();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const { supabase } = useAuth();
-  const { 
-    videoRef, 
-    remoteVideoRef, 
-    startVideo, 
-    startAudio, 
-    isConnecting, 
+  const {
+    videoRef,
+    remoteVideoRef,
+    startVideo,
+    startAudio,
+    isConnecting,
     incomingCall,
     answerCall,
     declineCall,
@@ -30,23 +29,27 @@ export default function JobBoard() {
     sendChatMessage,
     activeChat,
     setActiveChat,
-    chatMessages
+    chatMessages,
   } = usePeerJS();
 
   const [callModalOpen, setCallModalOpen] = useState(false);
-  const [callType, setCallType] = useState<'video' | 'audio' | null>(null);
-  const [callPeer, setCallPeer] = useState('');
+  const [callType, setCallType] = useState<"video" | "audio" | null>(null);
+  const [callPeer, setCallPeer] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatPeer, setChatPeer] = useState({ id: '', name: '' });
+  const [chatPeer, setChatPeer] = useState({ id: "", name: "" });
 
   const callModalRef = useRef<CallModalHandle>(null);
 
-  const handleCreatePost = async (values: { 
-    title: string; 
-    description: string; 
+  const handleCreatePost = async (values: {
+    title: string;
+    description: string;
     code?: string;
   }) => {
-    const result = await createPost(values.title, values.description, values.code);
+    const result = await createPost(
+      values.title,
+      values.description,
+      values.code,
+    );
     if (result) {
       setShowCreateForm(false);
       toast.success("Your post has been published!");
@@ -57,13 +60,17 @@ export default function JobBoard() {
     setSelectedPost(null);
   };
 
-  const handleCallInitiated = (type: 'video' | 'audio', userId: string, peerName: string) => {
+  const handleCallInitiated = (
+    type: "video" | "audio",
+    userId: string,
+    peerName: string,
+  ) => {
     setCallType(type);
     setCallPeer(peerName);
     setCallModalOpen(true);
 
     // Start the call
-    if (type === 'video') {
+    if (type === "video") {
       startVideo(userId, peerName);
     } else {
       startAudio(userId, peerName);
@@ -83,12 +90,16 @@ export default function JobBoard() {
 
     // Make sure to stop any active media streams
     if (videoRef.current?.srcObject) {
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+      (videoRef.current.srcObject as MediaStream)
+        .getTracks()
+        .forEach((track) => track.stop());
       videoRef.current.srcObject = null;
     }
 
     if (remoteVideoRef.current?.srcObject) {
-      (remoteVideoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+      (remoteVideoRef.current.srcObject as MediaStream)
+        .getTracks()
+        .forEach((track) => track.stop());
       remoteVideoRef.current.srcObject = null;
     }
   };
@@ -107,51 +118,6 @@ export default function JobBoard() {
     }
   };
 
-  useEffect(() => {
-    // Initial fetch of posts
-    const fetchPosts = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('apl_job_posts')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setPosts(data || []);
-      } catch (error) {
-        console.error('Error fetching posts:', error);
-        toast.error('Failed to load posts');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPosts();
-
-    // Subscribe to real-time changes
-    const subscription = supabase
-      .channel('job_posts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'apl_job_posts' }, payload => {
-        const newData = payload.new;
-        setPosts(prevPosts => {
-          if (payload.eventType === 'INSERT'){
-            return [newData, ...prevPosts];
-          } else if (payload.eventType === 'UPDATE'){
-            return prevPosts.map(post => post.id === newData.id ? newData : post);
-          } else if (payload.eventType === 'DELETE'){
-             return prevPosts.filter(post => post.id !== payload.old.id);
-          }
-          return prevPosts;
-        });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, []);
-
   return (
     <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-12">
       <motion.div
@@ -161,13 +127,17 @@ export default function JobBoard() {
         className="flex justify-between items-center mb-10"
       >
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Developer Community Board</h2>
-          <p className="text-gray-500 mt-1">Connect with other developers and solve problems together</p>
+          <h2 className="text-3xl font-bold text-gray-800">
+            Developer Community Board
+          </h2>
+          <p className="text-gray-500 mt-1">
+            Connect with other developers and solve problems together
+          </p>
         </div>
 
         {!selectedPost && !showCreateForm && (
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button 
+            <Button
               onClick={() => setShowCreateForm(true)}
               className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-5 py-6"
               size="lg"
@@ -179,8 +149,8 @@ export default function JobBoard() {
         )}
 
         {(selectedPost || showCreateForm) && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               setSelectedPost(null);
               setShowCreateForm(false);
@@ -214,9 +184,9 @@ export default function JobBoard() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <CreateJobPostForm 
-              onSubmit={handleCreatePost} 
-              onCancel={() => setShowCreateForm(false)} 
+            <CreateJobPostForm
+              onSubmit={handleCreatePost}
+              onCancel={() => setShowCreateForm(false)}
             />
           </motion.div>
         )}
@@ -229,7 +199,7 @@ export default function JobBoard() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <JobPostDetails 
+            <JobPostDetails
               post={selectedPost}
               onBack={handleBackToList}
               onCallInitiated={handleCallInitiated}
@@ -248,10 +218,10 @@ export default function JobBoard() {
           >
             {posts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {posts.map(post => (
-                  <JobPostCard 
-                    key={post.id} 
-                    post={post} 
+                {posts.map((post) => (
+                  <JobPostCard
+                    key={post.id}
+                    post={post}
                     onClick={() => setSelectedPost(post)}
                     onCallInitiated={handleCallInitiated}
                     onChatInitiated={handleChatInitiated}
@@ -259,18 +229,26 @@ export default function JobBoard() {
                 ))}
               </div>
             ) : (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }} 
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="text-center p-16 bg-gray-50 rounded-xl border border-gray-200"
               >
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
                   <UserX size={32} className="text-gray-400" />
                 </div>
-                <h3 className="text-xl font-medium text-gray-700 mb-2">No posts yet</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">Be the first to share your problem or question with the community.</p>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button 
+                <h3 className="text-xl font-medium text-gray-700 mb-2">
+                  No posts yet
+                </h3>
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                  Be the first to share your problem or question with the
+                  community.
+                </p>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button
                     onClick={() => setShowCreateForm(true)}
                     className="bg-purple-600 hover:bg-purple-700 px-6"
                     size="lg"
