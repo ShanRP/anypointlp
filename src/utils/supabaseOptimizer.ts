@@ -158,17 +158,3 @@ export const generateSecureRequestSignature = (payload: any): string => {
   // Concatenate timestamp and requestId to create a unique signature
   return `${timestamp}.${requestId}`;
 };
-
-export const optimizeQuery = (query: any, options = { selectMinimal: true }) => {
-  if (options.selectMinimal) {
-    // Only select required fields to minimize data transfer
-    query = query.select('id, title, description, type, created_at');
-  }
-  return query;
-};
-
-export const CACHE_DURATIONS = {
-  SHORT: 1000 * 60 * 5, // 5 minutes
-  MEDIUM: 1000 * 60 * 30, // 30 minutes
-  LONG: 1000 * 60 * 60 * 24 // 24 hours
-};
