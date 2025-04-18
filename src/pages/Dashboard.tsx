@@ -116,6 +116,12 @@ const DashboardContent = ({
   onAgentSelect,
   filteredAgents,
   enabledFeatures
+}: {
+  selectedCategory: string;
+  setSelectedCategory: (category: string) => void;
+  onAgentSelect: (agent: string) => void;
+  filteredAgents: any[];
+  enabledFeatures: string[];
 }) => {
   const { t } = useLanguage();
 
@@ -249,7 +255,7 @@ const Dashboard = () => {
   const location = useLocation();
   const { workspaces, selectedWorkspace, selectWorkspace } = useWorkspaces();
   const { fetchTaskDetails, selectedTask, tasks: workspaceTasks, fetchWorkspaceTasks: fetchTasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
-  const [enabledFeatures, setEnabledFeatures] = useState(['integration', 'dataweave', 'raml', 'munit', 'sampleData', 'document', 'diagram', 'exchange', 'jobBoard', 'codingAssistant']); //Initial enabled features.  Could be fetched from server
+  const [enabledFeatures] = useState(['dataweave', 'integration', 'raml']); // Only these features are enabled
 
 
   useEffect(() => {
