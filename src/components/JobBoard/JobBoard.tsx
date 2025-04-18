@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useJobBoard } from '@/hooks/useJobBoard';
@@ -14,7 +13,7 @@ import { usePeerJS } from '@/hooks/usePeerJS';
 import { toast } from 'sonner';
 
 export default function JobBoard() {
-  const { posts, loading, selectedPost, setSelectedPost, createPost } = useJobBoard();
+  const { posts, loading, selectedPost, setSelectedPost, createPost, supabase, setLoading, setPosts } = useJobBoard();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const { 
     videoRef, 
@@ -31,15 +30,15 @@ export default function JobBoard() {
     setActiveChat,
     chatMessages
   } = usePeerJS();
-  
+
   const [callModalOpen, setCallModalOpen] = useState(false);
   const [callType, setCallType] = useState<'video' | 'audio' | null>(null);
   const [callPeer, setCallPeer] = useState('');
   const [chatOpen, setChatOpen] = useState(false);
   const [chatPeer, setChatPeer] = useState({ id: '', name: '' });
-  
+
   const callModalRef = useRef<CallModalHandle>(null);
-  
+
   const handleCreatePost = async (values: { 
     title: string; 
     description: string; 
@@ -60,7 +59,7 @@ export default function JobBoard() {
     setCallType(type);
     setCallPeer(peerName);
     setCallModalOpen(true);
-    
+
     // Start the call
     if (type === 'video') {
       startVideo(userId, peerName);
@@ -68,7 +67,7 @@ export default function JobBoard() {
       startAudio(userId, peerName);
     }
   };
-  
+
   const handleChatInitiated = (userId: string, peerName: string) => {
     setChatPeer({ id: userId, name: peerName });
     setChatOpen(true);
@@ -79,24 +78,24 @@ export default function JobBoard() {
   const handleCloseCallModal = () => {
     setCallModalOpen(false);
     setCallType(null);
-    
+
     // Make sure to stop any active media streams
     if (videoRef.current?.srcObject) {
       (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
-    
+
     if (remoteVideoRef.current?.srcObject) {
       (remoteVideoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       remoteVideoRef.current.srcObject = null;
     }
   };
-  
+
   const handleCloseChatDialog = () => {
     setChatOpen(false);
     setActiveChat(null);
   };
-  
+
   const handleAcceptCall = () => {
     if (incomingCall) {
       setCallType(incomingCall.type);
@@ -105,6 +104,51 @@ export default function JobBoard() {
       answerCall(incomingCall.call);
     }
   };
+
+  useEffect(() => {
+    // Initial fetch of posts
+    const fetchPosts = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('apl_job_posts')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setPosts(data || []);
+      } catch (error) {
+        console.error('Error fetching posts:', error);
+        toast.error('Failed to load posts');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPosts();
+
+    // Subscribe to real-time changes
+    const subscription = supabase
+      .channel('job_posts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'apl_job_posts' }, payload => {
+        const newData = payload.new;
+        setPosts(prevPosts => {
+          if (payload.eventType === 'INSERT'){
+            return [newData, ...prevPosts];
+          } else if (payload.eventType === 'UPDATE'){
+            return prevPosts.map(post => post.id === newData.id ? newData : post);
+          } else if (payload.eventType === 'DELETE'){
+             return prevPosts.filter(post => post.id !== payload.old.id);
+          }
+          return prevPosts;
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
 
   return (
     <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-12">
@@ -118,7 +162,7 @@ export default function JobBoard() {
           <h2 className="text-3xl font-bold text-gray-800">Developer Community Board</h2>
           <p className="text-gray-500 mt-1">Connect with other developers and solve problems together</p>
         </div>
-        
+
         {!selectedPost && !showCreateForm && (
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button 
@@ -131,7 +175,7 @@ export default function JobBoard() {
             </Button>
           </motion.div>
         )}
-        
+
         {(selectedPost || showCreateForm) && (
           <Button 
             variant="outline" 
@@ -261,7 +305,7 @@ export default function JobBoard() {
         localVideoRef={videoRef}
         remoteVideoRef={remoteVideoRef}
       />
-      
+
       {/* Chat Dialog for messaging */}
       <ChatDialog
         isOpen={chatOpen}
