@@ -13,8 +13,10 @@ import { usePeerJS } from '@/hooks/usePeerJS';
 import { toast } from 'sonner';
 
 export default function JobBoard() {
-  const { posts, loading, selectedPost, setSelectedPost, createPost, supabase, setLoading, setPosts } = useJobBoard();
+  const { posts, selectedPost, setSelectedPost, createPost, setPosts } = useJobBoard();
+  const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const { supabase } = useAuth();
   const { 
     videoRef, 
     remoteVideoRef, 
