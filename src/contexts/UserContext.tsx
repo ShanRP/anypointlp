@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+
+import React, { createContext, useContext } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -13,51 +15,71 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+const CACHE_TIME = 1000 * 60 * 5; // 5 minutes
+const STALE_TIME = 1000 * 60 * 1; // 1 minute
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [credits, setCredits] = useState<any>(null);
-  const [workspaces, setWorkspaces] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchCredits = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("apl_user_credits")
-      .select("id, credits_used, credits_limit, reset_date, is_pro")
-      .eq("user_id", user.id)
-      .single();
-    setCredits(data);
-  };
+  const {
+    data: credits,
+    isLoading: isCreditsLoading,
+    refetch: refreshCredits
+  } = useQuery({
+    queryKey: ['userCredits', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from("apl_user_credits")
+        .select("id, credits_used, credits_limit, reset_date, is_pro")
+        .eq("user_id", user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user,
+    cacheTime: CACHE_TIME,
+    staleTime: STALE_TIME
+  });
 
-  const fetchWorkspaces = async () => {
-    if (!user) return;
-    const { data } = await supabase.rpc("apl_get_user_workspaces", {
-      user_id_param: user.id,
-    });
-    setWorkspaces(data || []);
-  };
+  const {
+    data: workspaces = [],
+    isLoading: isWorkspacesLoading,
+    refetch: refreshWorkspaces
+  } = useQuery({
+    queryKey: ['userWorkspaces', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase.rpc("apl_get_user_workspaces", {
+        user_id_param: user.id,
+      });
+      return data || [];
+    },
+    enabled: !!user,
+    cacheTime: CACHE_TIME,
+    staleTime: STALE_TIME
+  });
 
-  const fetchLogs = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("apl_auth_logs")
-      .select("id, timestamp, level, message")
-      .eq("user_id", user.id)
-      .order("timestamp", { ascending: false });
-    setLogs(data || []);
-  };
+  const {
+    data: logs = [],
+    isLoading: isLogsLoading,
+  } = useQuery({
+    queryKey: ['userLogs', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase
+        .from("apl_auth_logs")
+        .select("id, timestamp, level, message")
+        .eq("user_id", user.id)
+        .order("timestamp", { ascending: false });
+      return data || [];
+    },
+    enabled: !!user,
+    cacheTime: CACHE_TIME,
+    staleTime: STALE_TIME
+  });
 
-  useEffect(() => {
-    if (user) {
-      Promise.all([fetchCredits(), fetchWorkspaces(), fetchLogs()]).finally(
-        () => setLoading(false),
-      );
-    }
-  }, [user]);
-
-  // Set up real-time subscriptions
-  useEffect(() => {
+  // Set up real-time subscriptions for critical updates
+  React.useEffect(() => {
     if (!user) return;
 
     const creditsChannel = supabase
@@ -70,7 +92,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           table: "apl_user_credits",
           filter: `user_id=eq.${user.id}`,
         },
-        fetchCredits,
+        () => refreshCredits()
       )
       .subscribe();
 
@@ -84,7 +106,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           table: "apl_workspaces",
           filter: `user_id=eq.${user.id}`,
         },
-        fetchWorkspaces,
+        () => refreshWorkspaces()
       )
       .subscribe();
 
@@ -92,7 +114,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       supabase.removeChannel(creditsChannel);
       supabase.removeChannel(workspacesChannel);
     };
-  }, [user]);
+  }, [user, refreshCredits, refreshWorkspaces]);
+
+  const loading = isCreditsLoading || isWorkspacesLoading || isLogsLoading;
 
   return (
     <UserContext.Provider
@@ -101,8 +125,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         workspaces,
         logs,
         loading,
-        refreshCredits: fetchCredits,
-        refreshWorkspaces: fetchWorkspaces,
+        refreshCredits: async () => { await refreshCredits(); },
+        refreshWorkspaces: async () => { await refreshWorkspaces(); },
       }}
     >
       {children}
