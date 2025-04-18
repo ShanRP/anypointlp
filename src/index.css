@@ -68,16 +68,15 @@
 
 @layer base {
   * {
-    @apply border-border;
-    font-family: '__GeistSans_3a0388', '__GeistSans_Fallback_3a0388', system-ui, sans-serif;
+    @apply border-border font-geistSans;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-geistSans;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
   
-  h1, h2, h3, h4, h5 {
-    font-family: '__GeistMono_c1e5c9', '__GeistMono_Fallback_c1e5c9', ui-monospace, SFMono-Regular, monospace;
+  h1, h2, h3, h4, h5, pre, code {
+    @apply font-geistMono;
     letter-spacing: -0.02em;
     font-weight: 600;
   }
