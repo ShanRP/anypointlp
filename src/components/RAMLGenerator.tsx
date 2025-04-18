@@ -82,10 +82,13 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
   const { selectedWorkspace } = useWorkspaces();
   const workspaceId = selectedWorkspaceId || selectedWorkspace?.id || '';
   const { user } = useAuth();
-  const { saveRamlTask } = useWorkspaceTasks(workspaceId, {
-    staleTime: CACHE_CONFIG.STALE_TIME,
-    cacheTime: CACHE_CONFIG.TASKS_CACHE_TIME
-  });
+  const CACHE_CONFIG = {
+    STALE_TIME: 1000 * 60 * 5, // 5 minutes
+    CACHE_TIME: 1000 * 60 * 30, // 30 minutes
+    TASKS_CACHE_TIME: 1000 * 60 * 10 // 10 minutes
+  };
+
+  const { saveRamlTask } = useWorkspaceTasks(workspaceId);
   const { useCredit } = useUserCredits();
   
   // Prefetch data on mount
