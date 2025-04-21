@@ -261,36 +261,38 @@ const DashboardContent = ({
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-        {displayedCards.map((card) => (
-          <GeneratorCard
-            key={card.id || card.title}
-            title={card.title}
-            description={card.description}
-            icon={card.icon || <Code className="h-5 w-5" />}
-            type={card.id || card.category}
-            onClick={() => {
-              if (
-                card.id === "codingAssistant" ||
-                !enabledFeatures.includes(card.id || "")
-              ) {
-                toast("Coming Soon!", {
-                  description:
-                    "This feature is not yet available. Stay tuned for updates!",
-                  duration: 3000,
-                });
-                return;
-              }
-              onAgentSelect(card.id || card.category);
-            }}
-            badge={card.badge}
-            bgColor={card.bgColor}
-            badgeColor={card.badgeColor}
-            disabled={
-              card.id === "codingAssistant" ||
-              !enabledFeatures.includes(card.id || "")
-            }
-          />
-        ))}
+      
+{displayedCards.map((card) => (
+  <GeneratorCard
+    key={card.id || card.title}
+    title={card.title}
+    description={card.description}
+    icon={card.icon || <Code className="h-5 w-5" />}
+    type={card.id || card.category}
+    onClick={() => {
+      if (
+        card.id === "codingAssistant" ||
+        !enabledFeatures.includes(card.id || "")
+      ) {
+        toast("Coming Soon!", {
+          description:
+            "This feature is currently in development by AnypointLP_shanmathy. Stay tuned for updates!",
+          duration: 5000,
+        });
+        return;
+      }
+      onAgentSelect(card.id || card.category);
+    }}
+    badge={card.badge}
+    bgColor={card.bgColor}
+    badgeColor={card.badgeColor}
+    disabled={
+      card.id === "codingAssistant" ||
+      !enabledFeatures.includes(card.id || "")
+    }
+  />
+))}
+
       </div>
     </div>
   );
@@ -325,7 +327,7 @@ const Dashboard = () => {
   const [enabledFeatures] = useState([
     "dataweave",
     "integration",
-    "raml",
+    
     "munit",
     "diagram",
     "document",

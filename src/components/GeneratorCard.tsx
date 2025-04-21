@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Code } from 'lucide-react';
 import CodingAssistantDialog from './ai/CodingAssistantDialog';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 interface GeneratorCardProps {
   title: string;

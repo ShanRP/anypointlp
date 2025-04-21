@@ -78,8 +78,15 @@ const Newsletter: React.FC = () => {
   };
 
   return (
-    <div className="py-24 bg-gradient-to-b from-gray-900/95 to-gray-800/95 text-white relative z-10" id="subscribe">
-      <div className="container mx-auto px-4">
+    <div className="py-24 bg-gradient-to-b from-black to-gray-900 text-white relative z-10" id="subscribe">
+      {/* Background elements to match Hero */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-black to-transparent z-0"></div>
+      <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-radial from-amber-500/20 via-amber-700/5 to-transparent opacity-70 blur-3xl z-0"></div>
+      
+      {/* Grid pattern overlay to match Hero */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyMDIwMjAiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0aDR2MWgtNHYtMXptMC0yaDF2NGgtMXYtNHptMi0yaDF2MWgtMXYtMXptLTIgMmgxdjFoLTF2LTF6bS0yLTJoMXYxaC0xdi0xem0yLTJoMXYxaC0xdi0xem0tMiAyaDF2MWgtMXYtMXptLTItMmgxdjFoLTF2LTF6bTggMGgxdjFoLTF2LTF6bS0yIDBoMXYxaC0xdi0xem0tMi0yaDF2MWgtMXYtMXptLTIgMGgxdjFoLTF2LTF6bS0yIDBoMXYxaC0xdi0xem0xMC00aDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0xNi0xMGgxdjFoLTF2LTF6bS0yIDBoMXYxaC0xdi0xem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0xNi0xMGgxdjFoLTF2LTF6bS0yIDBoMXYxaC0xdi0xem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxem0tMiAwaDFWMWgtMXYxeiIvPjwvZz48L2c+PC9zdmc+')] opacity-40 z-0"></div>
+
+      <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-4xl mx-auto text-center">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
@@ -105,16 +112,19 @@ const Newsletter: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="bg-gray-800/50 p-8 rounded-2xl shadow-xl backdrop-blur-sm border border-gray-700"
+            className="bg-black/50 backdrop-blur-sm p-8 rounded-2xl shadow-xl border border-gray-800 relative overflow-hidden"
           >
-            <form onSubmit={handleSubmit} className="max-w-md mx-auto">
+            {/* Glow effect around the form */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/30 via-indigo-500/20 to-amber-500/30 blur-md rounded-xl"></div>
+            
+            <form onSubmit={handleSubmit} className="max-w-md mx-auto relative z-10">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                   <Input
                     type="email"
                     placeholder="Enter your email"
-                    className="flex-1 h-12 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400 pl-10"
+                    className="flex-1 h-12 bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 pl-10 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -122,7 +132,7 @@ const Newsletter: React.FC = () => {
                 </div>
                 <Button 
                   type="submit" 
-                  className="h-12 px-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  className="h-12 px-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg shadow-purple-500/20"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -139,6 +149,13 @@ const Newsletter: React.FC = () => {
             </form>
           </motion.div>
         </div>
+      </div>
+      
+      {/* Add subtle particle effect to match Hero */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 right-1/4 w-1 h-1 rounded-full bg-white animate-pulse opacity-70"></div>
+        <div className="absolute top-1/3 right-1/3 w-1 h-1 rounded-full bg-white animate-pulse opacity-50 animation-delay-300"></div>
+        <div className="absolute top-1/2 right-1/5 w-1 h-1 rounded-full bg-white animate-pulse opacity-60 animation-delay-700"></div>
       </div>
     </div>
   );
