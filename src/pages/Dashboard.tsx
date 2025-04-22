@@ -327,7 +327,7 @@ const Dashboard = () => {
   const [enabledFeatures] = useState([
     "dataweave",
     "integration",
-    
+    "raml",
     "munit",
     "diagram",
     "document",
