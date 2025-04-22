@@ -76,7 +76,7 @@ export default function Index() {
     <div className="flex flex-col min-h-screen relative">
       <VideoBackground />
       
-      <nav className="fixed top-0 w-full backdrop-blur-sm z-50 border-b border-white/10">
+      <nav className="fixed top-0 w-full backdrop-blur-md z-50 border-b border-white/10 bg-black/80">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center">
             <Logo className="text-2xl text-white" />

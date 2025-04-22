@@ -375,6 +375,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           setCurrentTab('preview');
         }
         toast.success('RAML specification generated successfully');
+        
 
         if (user) {
           try {
@@ -721,7 +722,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 <MonacoEditor
                   value={generatedRAML}
                   language="yaml"
-                  height="600px"
+                  height="500px"
                   options={{ readOnly: true, minimap: { enabled: true } }}
                 />
               </div>
