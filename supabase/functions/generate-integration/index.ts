@@ -52,7 +52,7 @@ serve(async (req)=>{
         }
       });
     }
-    const { description, runtime, diagrams } = body;
+    const { description, runtime, diagrams, raml } = body;
     // Validate required fields
     if (!description) {
       console.error('Missing required field: description');
@@ -72,6 +72,7 @@ serve(async (req)=>{
     console.log('Description:', description);
     console.log('Runtime:', runtime);
     console.log('Diagrams:', diagrams ? 'Provided' : 'Not provided');
+    console.log('RAML:', raml ? 'Provided' : 'Not provided');
     // Enhanced system prompt with explicit requirements for clean output
     const userPrompt = `
 You are an expert MuleSoft developer responsible for generating complete, production-ready integration solutions.
@@ -81,12 +82,26 @@ YOUR RESPONSE MUST INCLUDE ALL FIVE SECTIONS BELOW WITH DETAILED CONTENT:
 1. Flow Summary - 3-4 paragraphs explaining the implementation in business terms
 2. Flow Implementation - Complete Mule XML configuration with all necessary namespaces (IMPORTANT: DO NOT use markdown code blocks or backticks around XML, provide ONLY the raw XML)
 3. Flow Constants - List of all hostnames, ports, credentials, and environment variables
-4. POM Dependencies - Complete Maven pom.xml file with all necessary dependencies, properties, and build configurations compatible with Mule ${runtime || '4.4.0'}
+4. POM Dependencies - Only include valid Maven dependencies with correct groupId, artifactId, and version that are compatible with Mule ${runtime || '4.4.0'}
 5. Compilation Check - Troubleshooting steps for common issues
 
 Create a detailed MuleSoft integration flow based on this description:
 
 ${description}
+
+${raml ? `Here is the RAML specification to use as a reference for the API implementation:
+
+\`\`\`raml
+${raml}
+\`\`\`
+` : ''}
+
+${diagrams ? `Here are the diagrams that illustrate the flow structure and interactions:
+
+\`\`\`
+${diagrams}
+\`\`\`
+` : ''}
 
 YOU MUST FOLLOW THIS EXACT FORMAT WITH ALL FIVE SECTIONS CLEARLY LABELED:
 
@@ -100,7 +115,7 @@ YOU MUST FOLLOW THIS EXACT FORMAT WITH ALL FIVE SECTIONS CLEARLY LABELED:
 [List all hostnames, ports, credentials placeholders, and environment variables]
 
 # POM Dependencies
-[Provide a complete Maven pom.xml file with all necessary dependencies for Mule ${runtime || '4.4.0'}]
+[List ONLY valid Maven dependencies with groupId, artifactId, and correct version numbers compatible with Mule ${runtime || '4.4.0'}]
 
 # Compilation Check
 [Provide detailed troubleshooting steps for common issues]
@@ -108,12 +123,17 @@ YOU MUST FOLLOW THIS EXACT FORMAT WITH ALL FIVE SECTIONS CLEARLY LABELED:
 STRICT REQUIREMENTS:
 1. Every section MUST have substantial, detailed content
 2. Use the exact headings shown above (with the # prefix)
-3. Include complete XML namespace declarations in the Flow Implementation
+3. Include complete XML namespace declarations
 4. List at least 3-5 constants even if basic ones
-5. Provide a COMPLETE pom.xml file with all necessary dependencies, properties, and build configurations
+5. Include ONLY valid dependencies with correct coordinates for Mule ${runtime || '4.4.0'}
 6. Provide at least 5 compilation checks/troubleshooting steps
 7. DO NOT use markdown code blocks (or backticks) in your response
 8. XML should be provided as plain text, not wrapped in any formatting
+${raml ? '9. Ensure the implementation aligns with the provided RAML specification' : ''}
+${diagrams ? '10. Follow the flow structure shown in the provided diagrams' : ''}
+11.please use the proper mulesoft connectors instead of using some random connector
+12.always give the large standard flow implementation codewith proper dependencies and configurations
+13.please give the dependencies properly based on the given connectors and their java and maven versions
 `;
     console.log("Sending request to Mistral AI with enhanced prompt");
     try {
@@ -229,82 +249,19 @@ ${xmlContent.includes('database') ? 'database_url: ${db.url}\nusername: ${db.use
 retry_attempts: 3
 
 # POM Dependencies
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-
-    <groupId>com.mycompany</groupId>
-    <artifactId>mule-integration</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-    <packaging>mule-application</packaging>
-
-    <name>Mule Integration</name>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <app.runtime>${runtime || '4.4.0'}</app.runtime>
-        <mule.maven.plugin.version>3.8.0</mule.maven.plugin.version>
-    </properties>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-clean-plugin</artifactId>
-                <version>3.2.0</version>
-            </plugin>
-            <plugin>
-                <groupId>org.mule.tools.maven</groupId>
-                <artifactId>mule-maven-plugin</artifactId>
-                <version>\${mule.maven.plugin.version}</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <classifier>mule-application</classifier>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <dependencies>
-        <dependency>
-            <groupId>org.mule.connectors</groupId>
-            <artifactId>mule-http-connector</artifactId>
-            <version>1.7.1</version>
-            <classifier>mule-plugin</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.mule.connectors</groupId>
-            <artifactId>mule-sockets-connector</artifactId>
-            <version>1.2.2</version>
-            <classifier>mule-plugin</classifier>
-        </dependency>
-        ${xmlContent.includes('db:') ? '<dependency>\n            <groupId>org.mule.connectors</groupId>\n            <artifactId>mule-db-connector</artifactId>\n            <version>1.13.6</version>\n            <classifier>mule-plugin</classifier>\n        </dependency>' : ''}
-        <dependency>
-            <groupId>org.mule.modules</groupId>
-            <artifactId>mule-apikit-module</artifactId>
-            <version>1.6.1</version>
-            <classifier>mule-plugin</classifier>
-        </dependency>
-    </dependencies>
-
-    <repositories>
-        <repository>
-            <id>anypoint-exchange-v3</id>
-            <name>Anypoint Exchange</name>
-            <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-            <layout>default</layout>
-        </repository>
-        <repository>
-            <id>mulesoft-releases</id>
-            <name>MuleSoft Releases Repository</name>
-            <url>https://repository.mulesoft.org/releases/</url>
-            <layout>default</layout>
-        </repository>
-    </repositories>
-</project>
+<dependency>
+  <groupId>org.mule.connectors</groupId>
+  <artifactId>mule-http-connector</artifactId>
+  <version>1.7.1</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+${xmlContent.includes('db:') ? '<dependency>\n  <groupId>org.mule.connectors</groupId>\n  <artifactId>mule-db-connector</artifactId>\n  <version>1.13.6</version>\n  <classifier>mule-plugin</classifier>\n</dependency>' : '<dependency>\n  <groupId>org.mule.connectors</groupId>\n  <artifactId>mule-sockets-connector</artifactId>\n  <version>1.2.2</version>\n  <classifier>mule-plugin</classifier>\n</dependency>'}
+<dependency>
+  <groupId>org.mule.modules</groupId>
+  <artifactId>mule-apikit-module</artifactId>
+  <version>1.6.1</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
 
 # Compilation Check
 1. Ensure all property placeholders are defined in your properties file (${runtime || 'mule-app.properties'}).
@@ -332,7 +289,7 @@ The solution is designed to be scalable and maintainable, with clear separation 
       xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="
-               http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
         http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
         http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
     <http:listener-config name="HTTP_Listener_config" host="0.0.0.0" port="8081"/>
@@ -358,81 +315,24 @@ timeout_ms: 10000
 max_connections: 10
 retry_attempts: 3`;
             } else if (section === "POM Dependencies") {
-              placeholderContent = `<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-
-    <groupId>com.mycompany</groupId>
-    <artifactId>mule-integration</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-    <packaging>mule-application</packaging>
-
-    <name>Mule Integration</name>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <app.runtime>${runtime || '4.4.0'}</app.runtime>
-        <mule.maven.plugin.version>3.8.0</mule.maven.plugin.version>
-    </properties>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-clean-plugin</artifactId>
-                <version>3.2.0</version>
-            </plugin>
-            <plugin>
-                <groupId>org.mule.tools.maven</groupId>
-                <artifactId>mule-maven-plugin</artifactId>
-                <version>\${mule.maven.plugin.version}</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <classifier>mule-application</classifier>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <dependencies>
-        <dependency>
-            <groupId>org.mule.connectors</groupId>
-            <artifactId>mule-http-connector</artifactId>
-            <version>1.7.1</version>
-            <classifier>mule-plugin</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.mule.connectors</groupId>
-            <artifactId>mule-sockets-connector</artifactId>
-            <version>1.2.2</version>
-            <classifier>mule-plugin</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.mule.modules</groupId>
-            <artifactId>mule-apikit-module</artifactId>
-            <version>1.6.1</version>
-            <classifier>mule-plugin</classifier>
-        </dependency>
-    </dependencies>
-
-    <repositories>
-        <repository>
-            <id>anypoint-exchange-v3</id>
-            <name>Anypoint Exchange</name>
-            <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-            <layout>default</layout>
-        </repository>
-        <repository>
-            <id>mulesoft-releases</id>
-            <name>MuleSoft Releases Repository</name>
-            <url>https://repository.mulesoft.org/releases/</url>
-            <layout>default</layout>
-        </repository>
-    </repositories>
-</project>`;
+              placeholderContent = `<dependency>
+  <groupId>org.mule.connectors</groupId>
+  <artifactId>mule-http-connector</artifactId>
+  <version>1.7.1</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+<dependency>
+  <groupId>org.mule.connectors</groupId>
+  <artifactId>mule-sockets-connector</artifactId>
+  <version>1.2.2</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+<dependency>
+   <groupId>org.mule.modules</groupId>
+  <artifactId>mule-apikit-module</artifactId>
+  <version>1.6.1</version>
+  <classifier>mule-plugin</classifier>
+</dependency>`;
             } else if (section === "Compilation Check") {
               placeholderContent = `1. Ensure all property placeholders are defined in your properties file.
 2. Verify connector versions are compatible with your Mule runtime version (${runtime || '4.4.0'}).
@@ -460,28 +360,9 @@ retry_attempts: 3`;
       } else {
         console.log("All required sections are present in the response");
       }
-      // Parse the response to extract each section
-      const flowSummaryMatch = generatedCode.match(/# Flow Summary\n([\s\S]*?)(?=\n# Flow Implementation|\n# Flow Constants|\n# POM Dependencies|\n# Compilation Check|$)/);
-      const flowImplementationMatch = generatedCode.match(/# Flow Implementation\n([\s\S]*?)(?=\n# Flow Summary|\n# Flow Constants|\n# POM Dependencies|\n# Compilation Check|$)/);
-      const flowConstantsMatch = generatedCode.match(/# Flow Constants\n([\s\S]*?)(?=\n# Flow Summary|\n# Flow Implementation|\n# POM Dependencies|\n# Compilation Check|$)/);
-      const pomDependenciesMatch = generatedCode.match(/# POM Dependencies\n([\s\S]*?)(?=\n# Flow Summary|\n# Flow Implementation|\n# Flow Constants|\n# Compilation Check|$)/);
-      const compilationCheckMatch = generatedCode.match(/# Compilation Check\n([\s\S]*?)(?=\n# Flow Summary|\n# Flow Implementation|\n# Flow Constants|\n# POM Dependencies|$)/);
-      // Extract content from each section
-      const flowSummary = flowSummaryMatch ? flowSummaryMatch[1].trim() : '';
-      const flowImplementation = flowImplementationMatch ? flowImplementationMatch[1].trim() : '';
-      const flowConstants = flowConstantsMatch ? flowConstantsMatch[1].trim() : '';
-      const pomDependencies = pomDependenciesMatch ? pomDependenciesMatch[1].trim() : '';
-      const compilationCheck = compilationCheckMatch ? compilationCheckMatch[1].trim() : '';
-      // Return the generated MuleSoft integration code with structured sections
+      // Return the generated MuleSoft integration code
       return new Response(JSON.stringify({
         code: generatedCode,
-        sections: {
-          flowSummary,
-          flowImplementation,
-          flowConstants,
-          pomDependencies,
-          compilationCheck
-        },
         success: true
       }), {
         headers: {

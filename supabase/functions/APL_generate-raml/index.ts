@@ -112,31 +112,76 @@ async function generateWithMistral(
   types: any[] = [],
   endpoints: any[] = [], 
   mediaTypes: string[] = ["application/json"],
-  protocols: string[] = ["HTTPS"]
+  protocols: string[] = ["HTTPS"],
+  securitySchemes: any = {},
+  documentation: any = {},
+  termsOfService: string = ''
 ) {
   console.log('Generating RAML with Mistral AI');
   
-  // Prepare data for Mistral prompt
-  const typesSummary = types.map(type => {
-    return {
-      name: type.name,
-      baseType: type.baseType,
-      propertiesCount: type.properties?.length || 0,
-      hasExample: !!type.example
-    };
-  });
+  // Prepare detailed data for Mistral prompt
+  const typesSummary = types.map(type => ({
+    name: type.name,
+    baseType: type.baseType,
+    properties: type.properties?.map((prop: any) => ({
+      name: prop.name,
+      type: prop.type,
+      required: prop.required,
+      description: prop.description,
+      example: prop.example
+    })),
+    example: type.example
+  }));
   
-  const endpointsSummary = endpoints.map(endpoint => {
-    return {
-      path: endpoint.path,
-      methodsCount: endpoint.methods?.length || 0,
-      description: endpoint.description?.substring(0, 100)
-    };
-  });
+  const endpointsSummary = endpoints.map(endpoint => ({
+    path: endpoint.path,
+    description: endpoint.description,
+    uriParameters: endpoint.uriParams,
+    methods: endpoint.methods.map((method: any) => ({
+      type: method.type,
+      description: method.description,
+      queryParams: method.queryParams,
+      headers: method.headers,
+      requestBody: method.requestBody,
+      responses: method.responses
+    }))
+  }));
   
-  // Create a detailed prompt for Mistral
+  // Create an enhanced prompt for Mistral
   const prompt = `
-  You are a RAML (RESTful API Modeling Language) expert tasked with generating a complete, valid RAML 1.0 specification based on the following API details:
+  You are a RAML (RESTful API Modeling Language) expert tasked with generating a complete, valid RAML 1.0 specification.
+  Please generate a detailed, well-structured RAML that follows best practices and includes all necessary components.
+  
+  API DETAILS:
+  - Name: ${apiName}
+  - Version: ${apiVersion}
+  - Base URI: ${baseUri}
+  - Description: ${apiDescription}
+  - Media Types: ${JSON.stringify(mediaTypes)}
+  - Protocols: ${JSON.stringify(protocols)}
+  - Security Schemes: ${JSON.stringify(securitySchemes)}
+  - Documentation URL: ${documentation.url || ''}
+  - Terms of Service: ${termsOfService}
+  
+  TYPES:
+  ${JSON.stringify(typesSummary, null, 2)}
+  
+  ENDPOINTS:
+  ${JSON.stringify(endpointsSummary, null, 2)}
+  
+  Requirements:
+  1. Start with '#%RAML 1.0' header
+  2. Include comprehensive documentation
+  3. Define all types with properties, examples, and validations
+  4. Detail all endpoints with methods, parameters, request/response bodies
+  5. Include security schemes configuration
+  6. Add proper annotations and descriptions
+  7. Use proper YAML indentation (2 spaces)
+  8. Include examples for requests and responses
+  9. Add proper error responses for each endpoint
+  10. Include rate limiting headers if applicable
+  
+  Format the output as a complete RAML specification without any additional text or explanations.
 
   API Name: ${apiName}
   API Version: ${apiVersion || 'v1'}

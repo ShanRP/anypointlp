@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock, Code } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -72,8 +70,8 @@ interface RAMLGeneratorProps {
   onTaskCreated?: (task: any) => void;
 }
 
-const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ 
-  onBack, 
+const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
+  onBack,
   selectedWorkspaceId = 'default',
   onSaveTask,
   onTaskCreated
@@ -94,7 +92,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [types, setTypes] = useState<DataType[]>([]);
   const [generatedRAML, setGeneratedRAML] = useState('');
-  const [currentTab, setCurrentTab] = useState('editor');
+  const [currentTab, setCurrentTab] = useState('basic');
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [publishTitle, setPublishTitle] = useState('');
   const [publishDescription, setPublishDescription] = useState('');
@@ -110,6 +108,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
   const [newResponse, setNewResponse] = useState<Response>({ code: '200', description: 'Success response' });
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAddResponseDialog, setShowAddResponseDialog] = useState(false);
+  const [showTypeDialog, setShowTypeDialog] = useState(false);
+  const [editingType, setEditingType] = useState<DataType | null>(null);
+
 
   useEffect(() => {
     if (endpoints.length === 0) {
@@ -366,7 +367,13 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
       if (data && data.raml) {
         setGeneratedRAML(data.raml);
-        setCurrentTab('preview');
+        const tabsList = document.querySelector('[role="tablist"]');
+        const previewTab = tabsList?.querySelector('[data-state="inactive"][value="preview"]');
+        if (previewTab instanceof HTMLElement) {
+          previewTab.click();
+        } else {
+          setCurrentTab('preview');
+        }
         toast.success('RAML specification generated successfully');
 
         if (user) {
@@ -475,283 +482,224 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
     toast.success('RAML copied to clipboard');
   };
 
+  const handleAddType = () => {
+    setEditingType({ name: '', baseType: 'object', properties: [] });
+    setShowTypeDialog(true);
+  };
+
   return (
     <div className="p-6 max-w-screen-xl mx-auto">
       <div className="flex items-center mb-6">
         {onBack && (
-          <Button variant="outline" size="icon" className="mr-2" onClick={() => onBack()}>
+          <Button variant="outline" size="icon" className="mr-2" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
         <h1 className="text-2xl font-bold">RAML API Specification Generator</h1>
       </div>
 
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-8">
-          <TabsTrigger value="editor">Editor</TabsTrigger>
+      <Tabs defaultValue="basic" className="w-full space-y-6">
+        <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsTrigger value="basic">Basic Info</TabsTrigger>
+          <TabsTrigger value="types">Data Types</TabsTrigger>
+          <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="editor" className="space-y-8">
+        <TabsContent value="basic">
           <Card>
             <CardHeader>
-              <CardTitle>API Information</CardTitle>
+              <CardTitle>API Basic Information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">API Name*</label>
-                  <Input 
-                    value={apiName} 
-                    onChange={(e) => setApiName(e.target.value)} 
-                    placeholder="My API"
+                  <Input
+                    value={apiName}
+                    onChange={(e) => setApiName(e.target.value)}
+                    placeholder="Enter API name"
+                    className="w-full"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">API Version</label>
-                  <Input 
-                    value={apiVersion} 
-                    onChange={(e) => setApiVersion(e.target.value)} 
+                  <Input
+                    value={apiVersion}
+                    onChange={(e) => setApiVersion(e.target.value)}
                     placeholder="v1"
+                    className="w-full"
                   />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Base URI</label>
-                <Input 
-                  value={baseUri} 
-                  onChange={(e) => setBaseUri(e.target.value)} 
+                <Input
+                  value={baseUri}
+                  onChange={(e) => setBaseUri(e.target.value)}
                   placeholder="https://api.example.com/v1"
+                  className="w-full"
                 />
               </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
-                <Textarea 
-                  value={apiDescription} 
-                  onChange={(e) => setApiDescription(e.target.value)} 
+                <Textarea
+                  value={apiDescription}
+                  onChange={(e) => setApiDescription(e.target.value)}
                   placeholder="Describe your API"
-                  rows={3}
-                  className='resize-none'
+                  rows={4}
+                  className="w-full"
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Media Types</label>
-                  <div className="flex flex-wrap gap-2">
-                    {mediaTypes.map((type, index) => (
-                      <div key={index} className="flex items-center bg-blue-100 px-2 py-1 rounded-md">
-                        <span className="text-sm">{type}</span>
-                        <button 
-                          onClick={() => handleRemoveMediaType(index)}
-                          className="ml-2 text-red-500 hover:text-red-700"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                    <div className="flex items-center">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => handleAddMediaType('application/xml')}
-                        className="h-7"
-                      >
-                        <Plus className="h-3 w-3 mr-1" /> Add
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+
+              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Protocols</label>
-                  <div className="flex flex-wrap gap-2">
-                    {protocols.map((protocol, index) => (
-                      <div key={index} className="flex items-center bg-blue-100 px-2 py-1 rounded-md">
-                        <span className="text-sm">{protocol}</span>
-                        <button 
-                          onClick={() => handleRemoveProtocol(index)}
-                          className="ml-2 text-red-500 hover:text-red-700"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                    <div className="flex items-center">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => handleAddProtocol('HTTP')}
-                        className="h-7"
-                      >
-                        <Plus className="h-3 w-3 mr-1" /> Add
-                      </Button>
-                    </div>
-                  </div>
+                  <Select
+                    value={protocols[0]}
+                    onValueChange={(value) => setProtocols([value])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select protocol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="HTTP">HTTP</SelectItem>
+                      <SelectItem value="HTTPS">HTTPS</SelectItem>
+                      <SelectItem value="FTP">FTP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Media Types</label>
+                  <Select
+                    value={mediaTypes[0]}
+                    onValueChange={(value) => setMediaTypes([value])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select media type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="application/json">application/json</SelectItem>
+                      <SelectItem value="application/xml">application/xml</SelectItem>
+                      <SelectItem value="text/plain">text/plain</SelectItem>
+                      <SelectItem value="multipart/form-data">multipart/form-data</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
+        <TabsContent value="types">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Endpoints</CardTitle>
-              <Button onClick={handleAddEndpoint} size="sm">
-                <Plus className="h-4 w-4 mr-1" /> Create Endpoint
+              <CardTitle>Data Types</CardTitle>
+              <Button onClick={handleAddType}>
+                <Plus className="h-4 w-4 mr-2" /> Add Type
               </Button>
             </CardHeader>
             <CardContent>
-              {endpoints.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No endpoints defined. Click "Create Endpoint" to add one.
-                </div>
-              ) : (
-                <Accordion type="multiple" className="w-full">
-                  {endpoints.map((endpoint, endpointIndex) => (
-                    <AccordionItem value={`endpoint-${endpointIndex}`} key={endpointIndex}>
-                      <AccordionTrigger className="hover:bg-gray-50 px-4 py-2 rounded-md">
-                        <div className="flex items-center">
-                          <span className="font-mono text-blue-600 mr-2">/{endpoint.path}</span>
-                          <span className="text-gray-600 text-sm">{endpoint.description}</span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="px-4 py-2">
-                        <div className="space-y-4">
-                          <div className="flex justify-end space-x-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleEditEndpoint(endpointIndex)}
-                            >
-                              <Edit className="h-4 w-4 mr-1" /> Edit Endpoint
-                            </Button>
-                            <Button 
-                              variant="destructive" 
-                              size="sm"
-                              onClick={() => handleDeleteEndpoint(endpointIndex)}
-                            >
-                              <Trash className="h-4 w-4 mr-1" /> Delete
-                            </Button>
-                          </div>
-
-                          <div className="border-t pt-4">
-                            <div className="flex justify-between items-center mb-2">
-                              <h4 className="font-medium">Methods</h4>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleAddMethod(endpointIndex)}
-                              >
-                                <Plus className="h-4 w-4 mr-1" /> Add Method
-                              </Button>
-                            </div>
-
-                            <div className="space-y-4">
-                              {endpoint.methods.map((method, methodIndex) => (
-                                <div 
-                                  key={methodIndex}
-                                  className="border rounded-md p-4 bg-gray-50"
-                                >
-                                  <div className="flex justify-between items-center mb-2">
-                                    <div className="flex items-center">
-                                      <span className={`uppercase font-mono ${
-                                        method.type === 'get' ? 'text-green-600' :
-                                        method.type === 'post' ? 'text-blue-600' :
-                                        method.type === 'put' ? 'text-orange-600' :
-                                        method.type === 'delete' ? 'text-red-600' : 'text-gray-600'
-                                      }`}>
-                                        {method.type}
-                                      </span>
-                                      {method.description && (
-                                        <span className="ml-2 text-sm text-gray-600">
-                                          {method.description}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="flex space-x-2">
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm"
-                                        onClick={() => handleEditMethod(endpointIndex, methodIndex)}
-                                      >
-                                        <Edit className="h-3 w-3 mr-1" /> Edit
-                                      </Button>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm"
-                                        onClick={() => handleDeleteMethod(endpointIndex, methodIndex)}
-                                        className="text-red-500 hover:text-red-700"
-                                      >
-                                        <Trash className="h-3 w-3 mr-1" /> Delete
-                                      </Button>
-                                    </div>
-                                  </div>
-
-                                  {method.requestBody && (
-                                    <div className="mt-2 text-sm">
-                                      <div className="font-medium">Request Body:</div>
-                                      {method.requestType && (
-                                        <div className="text-gray-600">Type: {method.requestType}</div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {method.responses && method.responses.length > 0 && (
-                                    <div className="mt-2 text-sm">
-                                      <div className="font-medium">Responses:</div>
-                                      <div className="space-y-1 mt-1">
-                                        {method.responses.map((response, respIndex) => (
-                                          <div key={respIndex} className="text-gray-600">
-                                            {response.code}: {response.description}
-                                            {response.bodyType && ` (${response.bodyType})`}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {method.queryParams && method.queryParams.length > 0 && (
-                                    <div className="mt-2 text-sm">
-                                      <div className="font-medium">Query Parameters:</div>
-                                      <div className="space-y-1 mt-1">
-                                        {method.queryParams.map((param, paramIndex) => (
-                                          <div key={paramIndex} className="text-gray-600">
-                                            {param.name} ({param.type}){param.required ? ' *' : ''}
-                                            {param.description && `: ${param.description}`}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              )}
+              {/* Data types content */}
+              <ul>
+                {types.map((type, index) => (
+                  <li key={index} className="flex justify-between items-center mb-2">
+                    <span>{type.name}</span>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      // Add handler to delete data type
+                    }}>
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             </CardContent>
-            <CardFooter className="flex justify-end space-x-4 pt-6">
-              <Button 
-                variant="secondary" 
-                onClick={() => setCurrentTab('preview')}
-                disabled={!generatedRAML}
-              >
-                View Generated RAML
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="endpoints">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>API Endpoints</CardTitle>
+              <Button onClick={handleAddEndpoint}>
+                <Plus className="h-4 w-4 mr-2" /> Add Endpoint
               </Button>
-              <Button 
-                onClick={handleGenerateRAML}
-                disabled={isGenerating || !apiName.trim()}
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
-                    Generating...
-                  </>
-                ) : 'Generate RAML'}
-              </Button>
-            </CardFooter>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {endpoints.map((endpoint, index) => (
+                  <Card key={index} className="border border-gray-200">
+                    <CardHeader className="bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono text-blue-600">/{endpoint.path}</span>
+                          <span className="text-sm text-gray-500">{endpoint.description}</span>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEditEndpoint(index)}>
+                            <Edit className="h-4 w-4 mr-1" /> Edit
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDeleteEndpoint(index)}>
+                            <Trash className="h-4 w-4 mr-1" /> Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-medium">Methods</h4>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAddMethod(index)}
+                          >
+                            <Plus className="h-4 w-4 mr-1" /> Add Method
+                          </Button>
+                        </div>
+                        {endpoint.methods.map((method, methodIndex) => (
+                          <div key={methodIndex} className="border rounded-md p-4 bg-gray-50">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center space-x-2">
+                                <span className={`uppercase font-mono ${
+                                  method.type === 'get' ? 'text-green-600' :
+                                    method.type === 'post' ? 'text-blue-600' :
+                                    method.type === 'put' ? 'text-orange-600' :
+                                    method.type === 'delete' ? 'text-red-600' : 'text-gray-600'
+                                }`}>
+                                  {method.type}
+                                </span>
+                                <span className="text-sm text-gray-600">{method.description}</span>
+                              </div>
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditMethod(index, methodIndex)}
+                                >
+                                  <Edit className="h-3 w-3 mr-1" /> Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteMethod(index, methodIndex)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <Trash className="h-3 w-3 mr-1" /> Delete
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
           </Card>
         </TabsContent>
 
@@ -760,51 +708,46 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Generated RAML</CardTitle>
               <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setCurrentTab('editor')}
-                >
-                  Back to Editor
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={copyToClipboard}
-                >
+                <Button variant="outline" onClick={copyToClipboard}>
                   <Copy className="h-4 w-4 mr-1" /> Copy
                 </Button>
-                <Button 
-                  size="sm" 
-                  onClick={() => setShowPublishDialog(true)}
-                  disabled={!generatedRAML}
-                >
-                  <CheckCircle className="h-4 w-4 mr-1" /> Publish to Exchange
+                <Button onClick={() => setShowPublishDialog(true)}>
+                  <CheckCircle className="h-4 w-4 mr-1" /> Publish
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="border rounded-md overflow-hidden bg-gray-50">
-                {generatedRAML ? (
-                  <MonacoEditor
-                    value={generatedRAML}
-                    language="yaml"
-                    height="600px"
-                    readOnly={true}
-                    options={{
-                      minimap: { enabled: true }
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-60 text-gray-500">
-                    No RAML generated yet. Go to Editor tab and click "Generate RAML".
-                  </div>
-                )}
+                <MonacoEditor
+                  value={generatedRAML}
+                  language="yaml"
+                  height="600px"
+                  options={{ readOnly: true, minimap: { enabled: true } }}
+                />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="flex justify-end mt-6 space-x-4">
+        <Button variant="outline" onClick={() => setCurrentTab('preview')} disabled={!generatedRAML}>
+          View Generated RAML
+        </Button>
+        <Button
+          onClick={handleGenerateRAML}
+          disabled={isGenerating || !apiName.trim()}
+        >
+          {isGenerating ? (
+            <>
+              <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2" />
+              Generating...
+            </>
+          ) : (
+            'Generate RAML'
+          )}
+        </Button>
+      </div>
 
       <Dialog open={showEndpointDialog} onOpenChange={setShowEndpointDialog}>
         <DialogContent className="max-w-3xl">
@@ -816,17 +759,17 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Path*</label>
-                <Input 
+                <Input
                   value={editingEndpoint?.path || ''}
-                  onChange={(e) => setEditingEndpoint(prev => prev ? ({...prev, path: e.target.value}) : null)}
+                  onChange={(e) => setEditingEndpoint(prev => prev ? ({ ...prev, path: e.target.value }) : null)}
                   placeholder="resource/{id}"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
-                <Input 
+                <Input
                   value={editingEndpoint?.description || ''}
-                  onChange={(e) => setEditingEndpoint(prev => prev ? ({...prev, description: e.target.value}) : null)}
+                  onChange={(e) => setEditingEndpoint(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
                   placeholder="Description of this endpoint"
                 />
               </div>
@@ -836,15 +779,15 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">URI Parameters</label>
                 <div className="flex space-x-2 items-center">
-                  <Input 
+                  <Input
                     placeholder="Parameter name"
                     value={newParam.name}
-                    onChange={(e) => setNewParam({...newParam, name: e.target.value})}
+                    onChange={(e) => setNewParam({ ...newParam, name: e.target.value })}
                     className="w-32"
                   />
-                  <Select 
+                  <Select
                     value={newParam.type}
-                    onValueChange={(value) => setNewParam({...newParam, type: value})}
+                    onValueChange={(value) => setNewParam({ ...newParam, type: value })}
                   >
                     <SelectTrigger className="w-24">
                       <SelectValue placeholder="Type" />
@@ -912,9 +855,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Method Type*</label>
-                <Select 
+                <Select
                   value={editingMethod?.type || ''}
-                  onValueChange={(value) => setEditingMethod(prev => prev ? ({...prev, type: value}) : null)}
+                  onValueChange={(value) => setEditingMethod(prev => prev ? ({ ...prev, type: value }) : null)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select method type" />
@@ -932,9 +875,9 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
-                <Input 
+                <Input
                   value={editingMethod?.description || ''}
-                  onChange={(e) => setEditingMethod(prev => prev ? ({...prev, description: e.target.value}) : null)}
+                  onChange={(e) => setEditingMethod(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
                   placeholder="Description of this method"
                 />
               </div>
@@ -942,11 +885,11 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <input 
+                <input
                   type="checkbox"
                   id="requestBody"
                   checked={editingMethod?.requestBody || false}
-                  onChange={(e) => setEditingMethod(prev => prev ? ({...prev, requestBody: e.target.checked}) : null)}
+                  onChange={(e) => setEditingMethod(prev => prev ? ({ ...prev, requestBody: e.target.checked }) : null)}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <label htmlFor="requestBody" className="text-sm font-medium">Has Request Body</label>
@@ -956,17 +899,16 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 <div className="ml-6 space-y-2">
                   <div className="space-y-1">
                     <label className="text-sm font-medium">Content Type</label>
-                    <Input 
+                    <Input
                       value={editingMethod?.requestType || ''}
-                      onChange={(e) => setEditingMethod(prev => prev ? ({...prev, requestType: e.target.value}) : null)}
-                      placeholder="application/json"
+                      onChange={(e) => setEditingMethod(prev => prev ? ({ ...prev, requestType: e.target.value }) : null)}                    placeholder="application/json"
                     />
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium">Example (optional)</label>
-                    <Textarea 
+                    <Textarea
                       value={editingMethod?.requestExample || ''}
-                      onChange={(e) => setEditingMethod(prev => prev ? ({...prev, requestExample: e.target.value}) : null)}
+                      onChange={(e) => setEditingMethod(prev => prev ? ({ ...prev, requestExample: e.target.value }) : null)}
                       placeholder="Example request body"
                       rows={4}
                     />
@@ -1018,15 +960,15 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">Query Parameters</label>
                 <div className="flex space-x-2 items-center">
-                  <Input 
+                  <Input
                     placeholder="Parameter name"
                     value={newParam.name}
-                    onChange={(e) => setNewParam({...newParam, name: e.target.value})}
+                    onChange={(e) => setNewParam({ ...newParam, name: e.target.value })}
                     className="w-32"
                   />
-                  <Select 
+                  <Select
                     value={newParam.type}
-                    onValueChange={(value) => setNewParam({...newParam, type: value})}
+                    onValueChange={(value) => setNewParam({ ...newParam, type: value })}
                   >
                     <SelectTrigger className="w-24">
                       <SelectValue placeholder="Type" />
@@ -1080,15 +1022,15 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">URI Parameters (specific to this method)</label>
                 <div className="flex space-x-2 items-center">
-                  <Input 
+                  <Input
                     placeholder="Parameter name"
                     value={newParam.name}
-                    onChange={(e) => setNewParam({...newParam, name: e.target.value})}
+                    onChange={(e) => setNewParam({ ...newParam, name: e.target.value })}
                     className="w-32"
                   />
-                  <Select 
+                  <Select
                     value={newParam.type}
-                    onValueChange={(value) => setNewParam({...newParam, type: value})}
+                    onValueChange={(value) => setNewParam({ ...newParam, type: value })}
                   >
                     <SelectTrigger className="w-24">
                       <SelectValue placeholder="Type" />
@@ -1155,33 +1097,33 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           <div className="space-y-4 my-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Status Code*</label>
-              <Input 
+              <Input
                 value={newResponse.code}
-                onChange={(e) => setNewResponse({...newResponse, code: e.target.value})}
+                onChange={(e) => setNewResponse({ ...newResponse, code: e.target.value })}
                 placeholder="200"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Description*</label>
-              <Input 
+              <Input
                 value={newResponse.description}
-                onChange={(e) => setNewResponse({...newResponse, description: e.target.value})}
+                onChange={(e) => setNewResponse({ ...newResponse, description: e.target.value })}
                 placeholder="Success response"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Body Type (optional)</label>
-              <Input 
+              <Input
                 value={newResponse.bodyType || ''}
-                onChange={(e) => setNewResponse({...newResponse, bodyType: e.target.value})}
+                onChange={(e) => setNewResponse({ ...newResponse, bodyType: e.target.value })}
                 placeholder="application/json"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Example (optional)</label>
-              <Textarea 
+              <Textarea
                 value={newResponse.example || ''}
-                onChange={(e) => setNewResponse({...newResponse, example: e.target.value})}
+                onChange={(e) => setNewResponse({ ...newResponse, example: e.target.value })}
                 placeholder="Example response body"
                 rows={4}
               />
@@ -1204,7 +1146,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           <div className="space-y-4 my-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Title*</label>
-              <Input 
+              <Input
                 value={publishTitle}
                 onChange={(e) => setPublishTitle(e.target.value)}
                 placeholder="My API Specification"
@@ -1212,7 +1154,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Description</label>
-              <Textarea 
+              <Textarea
                 value={publishDescription}
                 onChange={(e) => setPublishDescription(e.target.value)}
                 placeholder="Description of this RAML specification"
@@ -1242,7 +1184,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Cancel</Button>
-            <Button 
+            <Button
               onClick={publishToExchange}
               disabled={isPublishing || !publishTitle.trim()}
             >
@@ -1253,6 +1195,139 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
                 </>
               ) : 'Publish'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingType?.name ? 'Edit Type' : 'Add New Type'}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 my-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Type Name*</label>
+                <Input
+                  value={editingType?.name || ''}
+                  onChange={(e) => setEditingType(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
+                  placeholder="UserType"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Base Type</label>
+                <Select
+                  value={editingType?.baseType || 'object'}
+                  onValueChange={(value) => setEditingType(prev => prev ? ({ ...prev, baseType: value }) : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select base type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="object">object</SelectItem>
+                    <SelectItem value="array">array</SelectItem>
+                    <SelectItem value="string">string</SelectItem>
+                    <SelectItem value="number">number</SelectItem>
+                    <SelectItem value="boolean">boolean</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Properties</label>
+                <div className="flex space-x-2 items-center">
+                  <Input
+                    placeholder="Property name"
+                    value={newParam.name}
+                    onChange={(e) => setNewParam({ ...newParam, name: e.target.value })}
+                    className="w-32"
+                  />
+                  <Select
+                    value={newParam.type}
+                    onValueChange={(value) => setNewParam({ ...newParam, type: value })}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="string">string</SelectItem>
+                      <SelectItem value="number">number</SelectItem>
+                      <SelectItem value="integer">integer</SelectItem>
+                      <SelectItem value="boolean">boolean</SelectItem>
+                      <SelectItem value="date">date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (!editingType) return;
+                      if (!newParam.name.trim()) {
+                        toast.error('Property name is required');
+                        return;
+                      }
+                      const updatedType = { ...editingType };
+                      updatedType.properties = [...(updatedType.properties || []), { ...newParam }];
+                      setEditingType(updatedType);
+                      setNewParam({ name: '', type: 'string', required: true, description: '' });
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {editingType?.properties && editingType.properties.length > 0 ? (
+                <div className="space-y-2 border rounded-md p-2">
+                  {editingType.properties.map((prop, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{prop.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({prop.type})</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const updatedProperties = [...editingType.properties];
+                          updatedProperties.splice(index, 1);
+                          setEditingType({ ...editingType, properties: updatedProperties });
+                        }}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No properties defined</div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTypeDialog(false)}>Cancel</Button>
+            <Button onClick={() => {
+              if (!editingType?.name.trim()) {
+                toast.error('Type name is required');
+                return;
+              }
+              const updatedTypes = [...types];
+              const existingIndex = types.findIndex(t => t.name === editingType.name);
+              if (existingIndex >= 0) {
+                updatedTypes[existingIndex] = editingType;
+              } else {
+                updatedTypes.push(editingType);
+              }
+              setTypes(updatedTypes);
+              setShowTypeDialog(false);
+              setEditingType(null);
+              toast.success(existingIndex >= 0 ? 'Type updated' : 'Type added');
+            }}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
