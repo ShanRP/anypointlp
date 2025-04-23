@@ -15,15 +15,17 @@ const corsHeaders = {
 
 const getPromptFromFile = async (filePath: string) => {
   try {
+    console.log("Attempting to read prompt file from path:", filePath);
     // For edge functions, we use a relative path under the function's bundled source directory.
-    // This will resolve to the deployed bundle root, so we must use the fully resolved path.
     const decoder = new TextDecoder("utf-8");
     // Deno.readFile returns Uint8Array
     const data = await Deno.readFile(filePath);
-    return decoder.decode(data);
+    const content = decoder.decode(data);
+    console.log("Successfully read prompt file. First 100 chars:", content.substring(0, 100));
+    return content;
   } catch (error) {
     console.error("Error reading prompt file:", filePath, error);
-    return "";
+    throw new Error(`Failed to read prompt file at ${filePath}: ${error.message}`);
   }
 };
 
@@ -69,7 +71,7 @@ serve(async (req)=>{
         }
       });
     }
-    const { description, runtime, diagrams, raml } = body;
+    const { description, runtime, diagrams, raml, notes } = body;
     // Validate required fields
     if (!description) {
       console.error('Missing required field: description');
@@ -88,11 +90,23 @@ serve(async (req)=>{
     console.log('Received request for integration generation:');
     console.log('Description:', description);
     console.log('Runtime:', runtime);
+    console.log('Notes:', notes || 'Not provided');
     console.log('Diagrams:', diagrams ? 'Provided' : 'Not provided');
     console.log('RAML:', raml ? 'Provided' : 'Not provided');
+    
     // Load the integration generator prompt from the txt file
-    const promptTemplate = await getPromptFromFile('./src/prompts/integrationGenerator.txt');
-    // Insert input values into the prompt as needed (subject to your requirements: this is flexible)
+    let promptTemplate;
+    try {
+      promptTemplate = await getPromptFromFile('./src/prompts/integrationGenerator.txt');
+      console.log("Prompt template loaded successfully with length:", promptTemplate.length);
+    } catch (error) {
+      console.error("Failed to load prompt template:", error);
+      // Fallback to a basic prompt if file can't be loaded
+      promptTemplate = "You are an AI assistant specialized in generating production-ready MuleSoft integration flows.";
+      console.log("Using fallback prompt template");
+    }
+    
+    // Insert input values into the prompt as needed
     // Optionally, replace placeholders with variables, here we dynamically inject information at the end
     const userPrompt =
       `${promptTemplate}
@@ -101,6 +115,7 @@ serve(async (req)=>{
 
 ${raml ? '## RAML:\n' + raml + '\n' : ''}
 ${diagrams ? '## Diagrams:\n' + diagrams + '\n' : ''}
+${notes ? '## Additional Notes:\n' + notes + '\n' : ''}
 ## Description:
 ${description}
 
@@ -160,6 +175,7 @@ ${runtime || '4.4.0'}
       generatedCode = generatedCode.replace(/```xml/g, '').replace(/```/g, '');
       // Log a sample of the response to verify all sections are present
       console.log("Response preview (first 300 chars):", generatedCode.substring(0, 300));
+      
       // Define required sections with strict heading format
       const requiredSections = [
         {
@@ -183,17 +199,21 @@ ${runtime || '4.4.0'}
           pattern: /# Compilation Check\n/i
         }
       ];
+      
       // Check if all required sections are present
       const missingSections = requiredSections.filter((section)=>!section.pattern.test(generatedCode)).map((section)=>section.name);
+      
       // If sections are missing, add placeholder content
       if (missingSections.length > 0) {
         console.warn(`Error: Response is missing required sections: ${missingSections.join(", ")}`);
         // Create an enhanced version of the code with all sections
         let enhancedCode = generatedCode;
+        
         // Extract the XML content if response is XML-only
         if (!enhancedCode.includes("# Flow Summary") && (enhancedCode.includes("<mule") || enhancedCode.startsWith("<?xml"))) {
           console.log("Detected XML-only response, extracting XML content");
           let xmlContent = enhancedCode;
+          
           // If wrapped in markdown code blocks, extract the content (should be already removed in post-processing)
           if (enhancedCode.startsWith("```xml")) {
             const xmlMatch = enhancedCode.match(/```xml\s*([\s\S]*?)```/);
@@ -201,8 +221,10 @@ ${runtime || '4.4.0'}
               xmlContent = xmlMatch[1].trim();
             }
           }
+          
           // Reset the enhanced code to start with a clean slate
           enhancedCode = "";
+          
           // Add the missing sections with the extracted XML in implementation
           enhancedCode += `# Flow Summary
 This integration flow implements a ${description.includes("CRUD") ? "CRUD" : "data processing"} service based on the requirements specified. The solution provides a RESTful API interface that handles the necessary business logic and data transformations.
