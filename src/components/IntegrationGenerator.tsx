@@ -15,9 +15,10 @@ import { RuntimeSettings } from './settings/RuntimeSettings';
 interface IntegrationGeneratorProps {
   onBack: () => void;
   selectedWorkspaceId: string;
+  onSaveTask: (taskId: string) => void;
 }
 
-const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack, selectedWorkspaceId }) => {
+const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack, selectedWorkspaceId, onSaveTask }) => {
   const [description, setDescription] = useState<string>('');
   const [generatedCode, setGeneratedCode] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -65,9 +66,10 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack, sel
         
         // Only save to history if we have a workspaceId
         if (selectedWorkspaceId) {
+          const taskId = crypto.randomUUID().substring(0, 8);
           await supabase.from('apl_integration_tasks').insert({
             workspace_id: selectedWorkspaceId,
-            task_id: crypto.randomUUID().substring(0, 8),
+            task_id: taskId,
             task_name: description.substring(0, 50),
             user_id: (await supabase.auth.getUser()).data.user?.id,
             description: description,
@@ -82,6 +84,10 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack, sel
             pom_dependencies: extractSection(data.code, "POM Dependencies"),
             compilation_check: extractSection(data.code, "Compilation Check")
           });
+          
+          if (onSaveTask) {
+            onSaveTask(taskId);
+          }
         }
       }
     } catch (error) {
@@ -134,9 +140,10 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack, sel
         
         // Only save to history if we have a workspaceId
         if (selectedWorkspaceId) {
+          const taskId = crypto.randomUUID().substring(0, 8);
           await supabase.from('apl_integration_tasks').insert({
             workspace_id: selectedWorkspaceId,
-            task_id: crypto.randomUUID().substring(0, 8),
+            task_id: taskId,
             task_name: description.substring(0, 50),
             user_id: (await supabase.auth.getUser()).data.user?.id,
             description: description,
@@ -151,6 +158,10 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack, sel
             pom_dependencies: extractSection(data.code, "POM Dependencies"),
             compilation_check: extractSection(data.code, "Compilation Check")
           });
+          
+          if (onSaveTask) {
+            onSaveTask(taskId);
+          }
         }
       }
     } catch (error) {
