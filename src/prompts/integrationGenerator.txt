@@ -338,4 +338,36 @@ payload]]></ee:set-payload>
 </batch:job>
 ```
 
+## Connector and Dependency Validation Requirements
+
+Before generating any response, you MUST:
+
+1. Validate all connectors against the official MuleSoft Connector Reference:
+   - https://docs.mulesoft.com/connector-devkit/3.9/connector-reference
+   - https://docs.mulesoft.com/mule-runtime/4.4/connectors-reference
+   - https://www.mulesoft.com/exchange/
+
+2. Verify POM dependencies using:
+   - https://docs.mulesoft.com/mule-runtime/4.4/mmp-concept
+   - https://docs.mulesoft.com/mule-sdk/1.1/dependencies
+   - https://maven.mulesoft.com/releases/org/mule/connectors/
+
+3. Cross-reference with MuleSoft Exchange for:
+   - Latest supported versions
+   - Compatibility matrices
+   - Known issues and limitations
+   - Maven coordinates
+
+4. For each connector or dependency used, you MUST include:
+   - Direct link to official documentation
+   - Version compatibility range
+   - Required parent dependencies
+   - Specific use case justification
+
+Remember: Only include connectors and dependencies that are:
+1. Officially supported by MuleSoft
+2. Compatible with the specified runtime version
+3. Available in MuleSoft's official Maven repositories
+4. Necessary for the specific integration requirements
+
 Remember: Always validate configurations against current MuleSoft documentation and best practices.
