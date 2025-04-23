@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -92,7 +91,7 @@ serve(async (req) => {
     console.log('RAML:', raml ? 'Provided' : 'Not provided');
     
     // Load the integration generator prompt from the txt file
-    // Update the path to use the prompts directory
+    // Update the path to use the prompts directory within the edge function folder
     const promptTemplate = await getPromptFromFile('./prompts/integrationGenerator.txt');
     console.log('Prompt template loaded successfully, length:', promptTemplate.length);
     

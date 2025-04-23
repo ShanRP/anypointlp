@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { debounce } from 'lodash';
 
@@ -54,7 +55,10 @@ export const paginatedQuery = async (
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        query = query.eq(key, value);
+        // Use if-statement instead of chaining to avoid type depth issues
+        if (key && value) {
+          query = query.eq(key, value);
+        }
       }
     });
   }
@@ -97,7 +101,10 @@ export const getCount = async (table: TableName, filters?: Record<string, any>) 
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        query = query.eq(key, value);
+        // Use if-statement instead of chaining to avoid type depth issues
+        if (key && value) {
+          query = query.eq(key, value);
+        }
       }
     });
   }

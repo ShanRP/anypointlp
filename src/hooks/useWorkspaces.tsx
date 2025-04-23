@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
@@ -9,11 +10,10 @@ export interface WorkspaceOption {
   initial: string;
   session_timeout?: string;
   invite_enabled?: boolean;
-  // Don't include timestamp in this interface
 }
 
 interface CachedWorkspace extends WorkspaceOption {
-  cachedAt: number; // Use a different property name for caching
+  cachedAt: number;
 }
 
 export const useWorkspaces = () => {
@@ -186,41 +186,31 @@ export const useWorkspaces = () => {
     if (!user) return false;
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('apl_workspaces')
         .update(updates)
         .eq('id', workspaceId)
-        .eq('user_id', user.id)
-        .select();
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
-      // Fetch updated workspace data to ensure we have the latest
-      const { data: refreshedData, error: refreshError } = await supabase
-        .from('apl_workspaces')
-        .select('*')
-        .eq('id', workspaceId)
-        .single();
-
-      if (refreshError) throw refreshError;
-
-      const updatedWorkspace = {
-        id: refreshedData.id,
-        name: refreshedData.name,
-        initial: refreshedData.initial,
-        session_timeout: refreshedData.session_timeout,
-        invite_enabled: refreshedData.invite_enabled,
-      };
-
       // Update local state
-      setWorkspaces(prev => prev.map(w => 
-        w.id === workspaceId ? updatedWorkspace : w
-      ));
-      setCache(prev => ({...prev, [user.id]: prev[user.id].map(w => w.id === workspaceId ? {...updatedWorkspace, cachedAt: Date.now()} : w)}));
+      const updatedWorkspaces = workspaces.map(w => 
+        w.id === workspaceId ? { ...w, ...updates } : w
+      );
+      
+      setWorkspaces(updatedWorkspaces);
+      
+      // Update cache with proper CachedWorkspace objects
+      const updatedCachedWorkspaces = cache[user.id]?.map(w => 
+        w.id === workspaceId ? { ...w, ...updates, cachedAt: Date.now() } : w
+      ) || [];
+      
+      setCache(prev => ({...prev, [user.id]: updatedCachedWorkspaces}));
 
       // Update selected workspace if it's the one being updated
       if (selectedWorkspace?.id === workspaceId) {
-        setSelectedWorkspace(updatedWorkspace);
+        setSelectedWorkspace({ ...selectedWorkspace, ...updates });
       }
 
       return true;
@@ -252,7 +242,10 @@ export const useWorkspaces = () => {
       // Update the workspaces list
       const updatedWorkspaces = workspaces.filter(w => w.id !== workspaceId);
       setWorkspaces(updatedWorkspaces);
-      setCache(prev => ({...prev, [user.id]: updatedWorkspaces}));
+      
+      // Update cache with proper CachedWorkspace objects
+      const updatedCachedWorkspaces = cache[user.id]?.filter(w => w.id !== workspaceId) || [];
+      setCache(prev => ({...prev, [user.id]: updatedCachedWorkspaces}));
 
       // If the deleted workspace was selected, select another one
       if (selectedWorkspace?.id === workspaceId) {
@@ -267,15 +260,10 @@ export const useWorkspaces = () => {
     }
   };
 
-  const selectWorkspace = (workspace: WorkspaceOption) => {
-    setSelectedWorkspace(workspace);
-  };
-
-  // Manually refetch workspaces (useful when we need to refresh the list)
   const refreshWorkspaces = async () => {
     console.log('Refreshing workspaces...');
-    setFetchComplete(false); // This will trigger a refetch in the useEffect
-    return fetchWorkspaces(); // Return the promise for cases where we want to await the refresh
+    setFetchComplete(false); 
+    return fetchWorkspaces();
   };
 
   return {
@@ -283,12 +271,9 @@ export const useWorkspaces = () => {
     selectedWorkspace,
     loading,
     createWorkspace,
-    updateWorkspace: async () => true, // Mock implementation
-    deleteWorkspace: async () => true,  // Mock implementation
+    updateWorkspace,
+    deleteWorkspace,
     selectWorkspace: (workspace: WorkspaceOption) => setSelectedWorkspace(workspace),
-    refreshWorkspaces: async () => {
-      setFetchComplete(false); 
-      return fetchWorkspaces();
-    }
+    refreshWorkspaces
   };
 };
