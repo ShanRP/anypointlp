@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -6,6 +5,7 @@ const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') || 'Ecm8fxCceYTwvPf9FoPkmZ
 if (!mistralApiKey) {
   console.error("MISTRAL_API_KEY is not set");
 }
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -15,10 +15,8 @@ const corsHeaders = {
 
 const getPromptFromFile = async (filePath: string) => {
   try {
-    // For edge functions, we use a relative path under the function's bundled source directory.
-    // This will resolve to the deployed bundle root, so we must use the fully resolved path.
+    // For edge functions, we use a relative path under the function's bundled source directory
     const decoder = new TextDecoder("utf-8");
-    // Deno.readFile returns Uint8Array
     const data = await Deno.readFile(filePath);
     return decoder.decode(data);
   } catch (error) {
@@ -27,7 +25,7 @@ const getPromptFromFile = async (filePath: string) => {
   }
 };
 
-serve(async (req)=>{
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request for CORS preflight');
@@ -36,6 +34,7 @@ serve(async (req)=>{
       headers: corsHeaders
     });
   }
+  
   try {
     // Validate Content-Type
     const contentType = req.headers.get('content-type');
@@ -91,7 +90,7 @@ serve(async (req)=>{
     console.log('Diagrams:', diagrams ? 'Provided' : 'Not provided');
     console.log('RAML:', raml ? 'Provided' : 'Not provided');
     // Load the integration generator prompt from the txt file
-    const promptTemplate = await getPromptFromFile('./src/prompts/integrationGenerator.txt');
+    const promptTemplate = await getPromptFromFile('./prompts/integrationGenerator.txt');
     // Insert input values into the prompt as needed (subject to your requirements: this is flexible)
     // Optionally, replace placeholders with variables, here we dynamically inject information at the end
     const userPrompt =
