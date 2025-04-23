@@ -340,6 +340,64 @@ payload]]></ee:set-payload>
 
 ## Connector and Dependency Validation Requirements
 
+CRITICAL: You MUST validate every connector against this official MuleSoft connector list before including it in any response. Only use connectors from these official sources:
+
+1. Core Runtime Connectors (Primary Set):
+   ```
+   org.mule.connectors:mule-http-connector
+   org.mule.connectors:mule-sockets-connector
+   org.mule.connectors:mule-file-connector
+   org.mule.connectors:mule-ftp-connector
+   org.mule.connectors:mule-sftp-connector
+   org.mule.connectors:mule-db-connector
+   org.mule.connectors:mule-jms-connector
+   org.mule.connectors:mule-vm-connector
+   org.mule.connectors:mule-email-connector
+   org.mule.modules:mule-validation-module
+   org.mule.modules:mule-scripting-module
+   org.mule.modules:mule-apikit-module
+   org.mule.modules:mule-oauth-module
+   org.mule.modules:mule-xml-module
+   ```
+
+2. Premium/Enterprise Connectors (Must verify license):
+   ```
+   com.mulesoft.connectors:mule-salesforce-connector
+   com.mulesoft.connectors:mule-sap-connector
+   com.mulesoft.connectors:mule-servicenow-connector
+   com.mulesoft.connectors:mule-workday-connector
+   com.mulesoft.connectors:mule-netsuite-connector
+   ```
+
+3. Protocol Connectors:
+   ```
+   org.mule.connectors:mule-amqp-connector
+   org.mule.connectors:mule-mqtt-connector
+   org.mule.connectors:mule-kafka-connector
+   ```
+
+VALIDATION PROCESS:
+1. For EVERY connector in your response:
+   - Check existence in MuleSoft Exchange: https://www.mulesoft.com/exchange/
+   - Verify current support status
+   - Confirm runtime compatibility
+   - Use EXACT groupId and artifactId
+   - Include ONLY stable versions
+
+2. PROHIBITED Items:
+   - Community connectors
+   - Custom connectors not in Exchange
+   - Deprecated connectors
+   - Beta/Preview versions
+   - Third-party connectors without official listing
+
+3. Required Documentation:
+   For each connector used, include:
+   - Direct link to Exchange page
+   - Latest stable version number
+   - Runtime compatibility range
+   - Link to official documentation
+
 Before generating any response, you MUST:
 
 1. Validate all connectors against the official MuleSoft Connector Reference:
@@ -364,10 +422,104 @@ Before generating any response, you MUST:
    - Required parent dependencies
    - Specific use case justification
 
-Remember: Only include connectors and dependencies that are:
-1. Officially supported by MuleSoft
-2. Compatible with the specified runtime version
-3. Available in MuleSoft's official Maven repositories
-4. Necessary for the specific integration requirements
+Remember: STRICTLY enforce these connector validation rules:
+
+1. Only use connectors from these official MuleSoft sources:
+   - MuleSoft Certified Connectors: https://www.mulesoft.com/exchange/org.mule.connectors/
+   - Core Runtime Connectors: https://docs.mulesoft.com/mule-runtime/4.4/connectors-reference
+   - Premium Connectors: https://www.mulesoft.com/exchange/?type=connector&filters=Premium
+
+2. For each connector, you MUST:
+   - Verify it exists in MuleSoft Exchange
+   - Check compatibility with specified runtime version
+   - Use exact groupId/artifactId from Exchange
+   - Use latest stable version for runtime
+   - Include link to connector's Exchange page
+
+3. Core Connectors and Operations (MUST use only these verified operations):
+
+   A. Database Connector (org.mule.connectors:mule-db-connector)
+      - Allowed Operations:
+        * select
+        * insert
+        * update
+        * delete
+        * bulk-insert
+        * bulk-update
+        * stored-procedure
+        * on-table-row
+      - NO upsert operation available
+
+   B. File Connector (org.mule.connectors:mule-file-connector)
+      - Allowed Operations:
+        * read
+        * write
+        * copy
+        * move
+        * delete
+        * list 
+        * create-directory
+      - NO direct listener available (use scheduler instead)
+
+   C. FTP/SFTP Connector (org.mule.connectors:mule-ftp-connector, mule-sftp-connector)
+      - Allowed Operations:
+        * read
+        * write
+        * copy
+        * move
+        * delete
+        * list
+
+   D. HTTP Connector (org.mule.connectors:mule-http-connector)
+      - Allowed Operations:
+        * listener
+        * request
+        * basic-security-filter
+        * load-static-resource
+
+   E. JMS Connector (org.mule.connectors:mule-jms-connector)
+      - Allowed Operations:
+        * publish
+        * consume
+        * publish-consume
+        * ack
+        * recover
+
+   F. VM Connector (org.mule.connectors:mule-vm-connector)
+      - Allowed Operations:
+        * publish
+        * publish-consumer
+
+   G. Email Connector (org.mule.connectors:mule-email-connector)
+      - Allowed Operations:
+        * send
+        * list
+        * forward
+        * delete
+        * mark-as-read
+        * mark-as-deleted
+
+   H. ObjectStore Connector (org.mule.connectors:mule-objectstore-connector)
+      - Allowed Operations:
+        * store
+        * retrieve
+        * remove
+        * contains
+        * clear
+
+4. NEVER include:
+   - Community connectors not in Exchange
+   - Deprecated connectors
+   - Beta/Preview versions
+   - Connectors incompatible with runtime
+   - Custom/Third-party connectors without Exchange listing
+
+5. Required Validation Steps:
+   a. Search connector in Exchange
+   b. Verify "Certified" or "Premium" badge
+   c. Check runtime compatibility matrix
+   d. Validate maven coordinates
+   e. Review latest stable version
+   f. Check for deprecation notices
 
 Remember: Always validate configurations against current MuleSoft documentation and best practices.
