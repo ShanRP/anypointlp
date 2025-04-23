@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, X, Trash, Edit, Save, CheckCircle, Copy, Globe, Lock, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -459,9 +460,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
           visibility: visibility,
           workspace_id: visibility === 'private' ? workspaceId : null
         })
-        .select('id, title, description, content, type')
-        .eq('type', 'raml')
-        .limit(20);
+        .select('id, title, description, content, type');
 
       if (error) throw error;
 
@@ -750,6 +749,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
         </Button>
       </div>
 
+      {/* Endpoint Dialog */}
       <Dialog open={showEndpointDialog} onOpenChange={setShowEndpointDialog}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -846,6 +846,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
         </DialogContent>
       </Dialog>
 
+      {/* Method Dialog */}
       <Dialog open={showMethodDialog} onOpenChange={setShowMethodDialog}>
         <DialogContent className="max-w-3xl max-h-screen overflow-y-auto">
           <DialogHeader>
@@ -920,4 +921,173 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-sm font-medium">
+                <label className="text-sm font-medium">Responses</label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddResponseDialog(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add Response
+                </Button>
+              </div>
+
+              {editingMethod?.responses && editingMethod.responses.length > 0 ? (
+                <div className="space-y-2">
+                  {editingMethod.responses.map((response, index) => (
+                    <div key={index} className="border rounded-md p-3 flex justify-between items-center">
+                      <div>
+                        <span className={`font-medium ${
+                          response.code.startsWith('2') ? 'text-green-600' :
+                          response.code.startsWith('4') ? 'text-orange-600' :
+                          response.code.startsWith('5') ? 'text-red-600' : 'text-blue-600'
+                        }`}>
+                          {response.code}
+                        </span>
+                        <span className="text-sm text-gray-600 ml-2">{response.description}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteResponse(index)}
+                        className="text-red-500"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No responses defined</div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMethodDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveMethod}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Response Dialog */}
+      <Dialog open={showAddResponseDialog} onOpenChange={setShowAddResponseDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Response</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status Code*</label>
+                <Select
+                  value={newResponse.code}
+                  onValueChange={(value) => setNewResponse({ ...newResponse, code: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status code" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="200">200 OK</SelectItem>
+                    <SelectItem value="201">201 Created</SelectItem>
+                    <SelectItem value="204">204 No Content</SelectItem>
+                    <SelectItem value="400">400 Bad Request</SelectItem>
+                    <SelectItem value="401">401 Unauthorized</SelectItem>
+                    <SelectItem value="403">403 Forbidden</SelectItem>
+                    <SelectItem value="404">404 Not Found</SelectItem>
+                    <SelectItem value="500">500 Server Error</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description*</label>
+                <Input
+                  value={newResponse.description}
+                  onChange={(e) => setNewResponse({ ...newResponse, description: e.target.value })}
+                  placeholder="Response description"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddResponseDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddResponse}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Publish Dialog */}
+      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publish to Exchange</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title*</label>
+              <Input
+                value={publishTitle}
+                onChange={(e) => setPublishTitle(e.target.value)}
+                placeholder="Title for your published specification"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={publishDescription}
+                onChange={(e) => setPublishDescription(e.target.value)}
+                placeholder="Description for your published specification"
+                rows={4}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Visibility</label>
+              <RadioGroup value={visibility} onValueChange={setVisibility}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="public" id="public" />
+                  <Label htmlFor="public" className="flex items-center">
+                    <Globe className="h-4 w-4 mr-2" />
+                    Public (visible to everyone)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="private" id="private" />
+                  <Label htmlFor="private" className="flex items-center">
+                    <Lock className="h-4 w-4 mr-2" />
+                    Private (visible only to workspace members)
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPublishDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={publishToExchange}
+              disabled={isPublishing || !publishTitle.trim()}
+            >
+              {isPublishing ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2" />
+                  Publishing...
+                </>
+              ) : (
+                'Publish'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default RAMLGenerator;
+
