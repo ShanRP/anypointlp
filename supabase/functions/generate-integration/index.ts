@@ -1,5 +1,7 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
 const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') || 'Ecm8fxCceYTwvPf9FoPkmZBlW4D1OejY';
 if (!mistralApiKey) {
   console.error("MISTRAL_API_KEY is not set");
@@ -10,6 +12,21 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Max-Age': '86400'
 };
+
+const getPromptFromFile = async (filePath: string) => {
+  try {
+    // For edge functions, we use a relative path under the function's bundled source directory.
+    // This will resolve to the deployed bundle root, so we must use the fully resolved path.
+    const decoder = new TextDecoder("utf-8");
+    // Deno.readFile returns Uint8Array
+    const data = await Deno.readFile(filePath);
+    return decoder.decode(data);
+  } catch (error) {
+    console.error("Error reading prompt file:", filePath, error);
+    return "";
+  }
+};
+
 serve(async (req)=>{
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -73,69 +90,25 @@ serve(async (req)=>{
     console.log('Runtime:', runtime);
     console.log('Diagrams:', diagrams ? 'Provided' : 'Not provided');
     console.log('RAML:', raml ? 'Provided' : 'Not provided');
-    // Enhanced system prompt with explicit requirements for clean output
-    const userPrompt = `
-You are an expert MuleSoft developer responsible for generating complete, production-ready integration solutions.
+    // Load the integration generator prompt from the txt file
+    const promptTemplate = await getPromptFromFile('./src/prompts/integrationGenerator.txt');
+    // Insert input values into the prompt as needed (subject to your requirements: this is flexible)
+    // Optionally, replace placeholders with variables, here we dynamically inject information at the end
+    const userPrompt =
+      `${promptTemplate}
 
-YOUR RESPONSE MUST INCLUDE ALL FIVE SECTIONS BELOW WITH DETAILED CONTENT:
+# === User Inputs ===
 
-1. Flow Summary - 3-4 paragraphs explaining the implementation in business terms
-2. Flow Implementation - Complete Mule XML configuration with all necessary namespaces (IMPORTANT: DO NOT use markdown code blocks or backticks around XML, provide ONLY the raw XML)
-3. Flow Constants - List of all hostnames, ports, credentials, and environment variables
-4. POM Dependencies - Only include valid Maven dependencies with correct groupId, artifactId, and version that are compatible with Mule ${runtime || '4.4.0'}
-5. Compilation Check - Troubleshooting steps for common issues
-
-Create a detailed MuleSoft integration flow based on this description:
-
+${raml ? '## RAML:\n' + raml + '\n' : ''}
+${diagrams ? '## Diagrams:\n' + diagrams + '\n' : ''}
+## Description:
 ${description}
 
-${raml ? `Here is the RAML specification to use as a reference for the API implementation:
-
-\`\`\`raml
-${raml}
-\`\`\`
-` : ''}
-
-${diagrams ? `Here are the diagrams that illustrate the flow structure and interactions:
-
-\`\`\`
-${diagrams}
-\`\`\`
-` : ''}
-
-YOU MUST FOLLOW THIS EXACT FORMAT WITH ALL FIVE SECTIONS CLEARLY LABELED:
-
-# Flow Summary
-[Provide 3-4 paragraphs explaining the integration purpose, approach, and benefits]
-
-# Flow Implementation
-[Provide complete, valid Mule ${runtime || '4.x'} XML with all required namespaces. DO NOT wrap XML in markdown code blocks or backticks]
-
-# Flow Constants
-[List all hostnames, ports, credentials placeholders, and environment variables]
-
-# POM Dependencies
-[List ONLY valid Maven dependencies with groupId, artifactId, and correct version numbers compatible with Mule ${runtime || '4.4.0'}]
-
-# Compilation Check
-[Provide detailed troubleshooting steps for common issues]
-
-STRICT REQUIREMENTS:
-1. Every section MUST have substantial, detailed content
-2. Use the exact headings shown above (with the # prefix)
-3. Include complete XML namespace declarations
-4. List at least 3-5 constants even if basic ones
-5. Include ONLY valid dependencies with correct coordinates for Mule ${runtime || '4.4.0'}
-6. Provide at least 5 compilation checks/troubleshooting steps
-7. DO NOT use markdown code blocks (or backticks) in your response
-8. XML should be provided as plain text, not wrapped in any formatting
-${raml ? '9. Ensure the implementation aligns with the provided RAML specification' : ''}
-${diagrams ? '10. Follow the flow structure shown in the provided diagrams' : ''}
-11.please use the proper mulesoft connectors instead of using some random connector
-12.always give the large standard flow implementation codewith proper dependencies and configurations
-13.please give the dependencies properly based on the given connectors and their java and maven versions
+## Runtime:
+${runtime || '4.4.0'}
 `;
-    console.log("Sending request to Mistral AI with enhanced prompt");
+
+    console.log("Sending request to Mistral AI with prompt from file");
     try {
       const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
