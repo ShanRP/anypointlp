@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -66,11 +67,20 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack, sel
         if (selectedWorkspaceId) {
           await supabase.from('apl_integration_tasks').insert({
             workspace_id: selectedWorkspaceId,
-            prompt: description,
+            task_id: crypto.randomUUID().substring(0, 8),
+            task_name: description.substring(0, 50),
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            description: description,
             result: data.code,
             raml: raml || null,
             diagrams: diagrams || null,
-            runtime_version: runtimeVersion
+            runtime_version: runtimeVersion,
+            generated_code: data.code,
+            flow_summary: extractSection(data.code, "Flow Summary"),
+            flow_implementation: extractSection(data.code, "Flow Implementation"),
+            flow_constants: extractSection(data.code, "Flow Constants"),
+            pom_dependencies: extractSection(data.code, "POM Dependencies"),
+            compilation_check: extractSection(data.code, "Compilation Check")
           });
         }
       }
@@ -126,12 +136,20 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({ onBack, sel
         if (selectedWorkspaceId) {
           await supabase.from('apl_integration_tasks').insert({
             workspace_id: selectedWorkspaceId,
-            prompt: description,
-            result: data.code,
+            task_id: crypto.randomUUID().substring(0, 8),
+            task_name: description.substring(0, 50),
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            description: description,
+            notes: regenerateNotes || null,
             raml: raml || null,
             diagrams: diagrams || null,
-            notes: regenerateNotes || null,
-            runtime_version: runtimeVersion
+            runtime_version: runtimeVersion,
+            generated_code: data.code,
+            flow_summary: extractSection(data.code, "Flow Summary"),
+            flow_implementation: extractSection(data.code, "Flow Implementation"),
+            flow_constants: extractSection(data.code, "Flow Constants"),
+            pom_dependencies: extractSection(data.code, "POM Dependencies"),
+            compilation_check: extractSection(data.code, "Compilation Check")
           });
         }
       }
