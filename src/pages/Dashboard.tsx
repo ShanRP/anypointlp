@@ -648,12 +648,10 @@ const Dashboard = () => {
                 transition={{ duration: 0.3 }}
               >
                 <IntegrationGenerator
+                  onTaskCreated={handleTaskCreated}
+                  selectedWorkspaceId={selectedWorkspace?.id}
                   onBack={handleBackToDashboard}
-                  selectedWorkspaceId={selectedWorkspace?.id || ""}
-                  onSaveTask={(id) => {
-                    refreshWorkspaceTasks();
-                    toast.success(`Integration saved with ID: ${id}`);
-                  }}
+                  onSaveTask={() => {}}
                 />
               </motion.div>
             )}

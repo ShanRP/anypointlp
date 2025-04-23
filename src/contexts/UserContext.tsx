@@ -16,6 +16,7 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 // Longer cache times for less frequently changing data
+const CACHE_TIME = 1000 * 60 * 30; // 30 minutes
 const STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 // Query keys for better cache management
@@ -54,7 +55,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return data;
     },
     enabled: !!user,
-    gcTime: 1000 * 60 * 30, // 30 minutes (gcTime replaces cacheTime)
+    cacheTime: CACHE_TIME,
     staleTime: STALE_TIME
   });
 
@@ -72,7 +73,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return data || [];
     },
     enabled: !!user,
-    gcTime: 1000 * 60 * 30, // 30 minutes
+    cacheTime: CACHE_TIME,
     staleTime: STALE_TIME
   });
 
@@ -85,13 +86,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (!user) return [];
       const { data } = await supabase
         .from("apl_auth_logs")
-        .select("id, created_at, level, message") // Changed timestamp to created_at based on schema
+        .select("id, timestamp, level, message")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("timestamp", { ascending: false });
       return data || [];
     },
     enabled: !!user,
-    gcTime: 1000 * 60 * 30, // 30 minutes
+    cacheTime: CACHE_TIME,
     staleTime: STALE_TIME
   });
 
