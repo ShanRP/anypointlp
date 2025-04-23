@@ -7,7 +7,13 @@ import { debounce } from 'lodash';
 
 type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 'apl_user_credits' | 'apl_auth_logs';
 
-const queryCache = new Map();
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+// Use a more specific type for the cache to avoid excessive type depth issues
+const queryCache = new Map<string, CacheEntry<any>>();
 
 export const clearCache = () => queryCache.clear();
 
@@ -34,7 +40,7 @@ export const paginatedQuery = async (
 
   if (queryCache.has(cacheKey)) {
     const cachedData = queryCache.get(cacheKey);
-    if (cachedData && cachedData.timestamp + cacheTime > Date.now()) {
+    if (cachedData && cachedData.timestamp + (cacheTime * 1000) > Date.now()) {
       return cachedData.data;
     }
   }
@@ -78,9 +84,11 @@ export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>
  */
 export const getCount = async (table: TableName, filters?: Record<string, any>) => {
   const cacheKey = `${table}-count-${JSON.stringify(filters)}`;
+  
   if (queryCache.has(cacheKey)) {
-    return queryCache.get(cacheKey);
+    return queryCache.get(cacheKey)?.data;
   }
+  
   let query = supabase
     .from(table)
     .select('id', { count: 'exact', head: true });
@@ -96,7 +104,7 @@ export const getCount = async (table: TableName, filters?: Record<string, any>) 
 
   const { count, error } = await query;
   const result = { count, error };
-  queryCache.set(cacheKey, result);
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
   return result;
 };
 
@@ -106,9 +114,11 @@ export const getCount = async (table: TableName, filters?: Record<string, any>) 
  */
 export const getWorkspaceDetails = async (workspaceId: string) => {
   const cacheKey = `workspace-${workspaceId}`;
+  
   if (queryCache.has(cacheKey)) {
-    return queryCache.get(cacheKey);
+    return queryCache.get(cacheKey)?.data;
   }
+  
   const { data, error } = await supabase
     .from('apl_workspaces')
     .select('id, name, invite_enabled')
@@ -116,7 +126,7 @@ export const getWorkspaceDetails = async (workspaceId: string) => {
     .single();
 
   const result = { data, error };
-  queryCache.set(cacheKey, result);
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
   return result;
 };
 

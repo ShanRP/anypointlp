@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -89,8 +90,12 @@ serve(async (req) => {
     console.log('Runtime:', runtime);
     console.log('Diagrams:', diagrams ? 'Provided' : 'Not provided');
     console.log('RAML:', raml ? 'Provided' : 'Not provided');
+    
     // Load the integration generator prompt from the txt file
+    // Update the path to use the prompts directory
     const promptTemplate = await getPromptFromFile('./prompts/integrationGenerator.txt');
+    console.log('Prompt template loaded successfully, length:', promptTemplate.length);
+    
     // Insert input values into the prompt as needed (subject to your requirements: this is flexible)
     // Optionally, replace placeholders with variables, here we dynamically inject information at the end
     const userPrompt =

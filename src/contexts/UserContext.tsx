@@ -1,148 +1,155 @@
 
-import React, { createContext, useContext } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
-interface UserContextType {
-  credits: any;
-  workspaces: any[];
-  logs: any[];
+interface UserContextProps {
+  user: any;
+  profile: any;
   loading: boolean;
-  refreshCredits: () => Promise<void>;
-  refreshWorkspaces: () => Promise<void>;
+  credits: {
+    used: number;
+    limit: number;
+    resetDate: string;
+    isPro: boolean;
+  } | null;
+  setUser: React.Dispatch<React.SetStateAction<any>>;
+  workspaces: any[];
+  signOut: () => Promise<void>;
+  refreshCredits: () => void;
+  refreshProfile: () => void;
 }
 
-const UserContext = createContext<UserContextType | undefined>(undefined);
+const UserContext = createContext<UserContextProps | undefined>(undefined);
 
-// Longer cache times for less frequently changing data
-const CACHE_TIME = 1000 * 60 * 30; // 30 minutes
-const STALE_TIME = 1000 * 60 * 5; // 5 minutes
-
-// Query keys for better cache management
-const QUERY_KEYS = {
-  credits: 'userCredits',
-  workspaces: 'userWorkspaces',
-  logs: 'userLogs',
-  tasks: {
-    all: 'tasks',
-    integration: 'integrationTasks',
-    raml: 'ramlTasks',
-    munit: 'munitTasks',
-    sampleData: 'sampleDataTasks',
-    document: 'documentTasks',
-    diagram: 'diagramTasks'
-  }
-};
-
-export function UserProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  const {
-    data: credits,
-    isLoading: isCreditsLoading,
-    refetch: refreshCredits
+export const UserProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Use React Query for fetching user credits
+  const { 
+    data: creditsData,
+    refetch: refreshCredits,
+    isLoading: creditsLoading
   } = useQuery({
-    queryKey: [QUERY_KEYS.credits, user?.id],
+    queryKey: ['user-credits', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data } = await supabase
-        .from("apl_user_credits")
-        .select("id, credits_used, credits_limit, reset_date, is_pro")
-        .eq("user_id", user.id)
-        .single();
+      const { data, error } = await supabase.from('apl_user_credits').select('*').eq('user_id', user.id).single();
+      
+      if (error) {
+        console.error('Error fetching credits:', error);
+        return null;
+      }
+      
+      return data ? {
+        id: data.id,
+        used: data.credits_used,
+        limit: data.credits_limit,
+        resetDate: data.reset_date,
+        isPro: data.is_pro
+      } : null;
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5 // 5 minutes
+  });
+
+  // Fetch workspaces
+  const {
+    data: workspaces,
+    refetch: refreshWorkspaces,
+    isLoading: workspacesLoading
+  } = useQuery({
+    queryKey: ['user-workspaces', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.rpc('apl_get_user_workspaces', { user_id_param: user.id });
+      
+      if (error) {
+        console.error('Error fetching workspaces:', error);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5 // 5 minutes
+  });
+
+  // Fetch user profile
+  const {
+    data: profile,
+    refetch: refreshProfile,
+    isLoading: profileLoading
+  } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase.from('apl_profiles').select('*').eq('id', user.id).single();
+      
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+      
       return data;
     },
     enabled: !!user,
-    cacheTime: CACHE_TIME,
-    staleTime: STALE_TIME
+    staleTime: 1000 * 60 * 5 // 5 minutes
   });
 
-  const {
-    data: workspaces = [],
-    isLoading: isWorkspacesLoading,
-    refetch: refreshWorkspaces
-  } = useQuery({
-    queryKey: [QUERY_KEYS.workspaces, user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data } = await supabase.rpc("apl_get_user_workspaces", {
-        user_id_param: user.id,
-      });
-      return data || [];
-    },
-    enabled: !!user,
-    cacheTime: CACHE_TIME,
-    staleTime: STALE_TIME
-  });
-
-  const {
-    data: logs = [],
-    isLoading: isLogsLoading,
-  } = useQuery({
-    queryKey: [QUERY_KEYS.logs, user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data } = await supabase
-        .from("apl_auth_logs")
-        .select("id, timestamp, level, message")
-        .eq("user_id", user.id)
-        .order("timestamp", { ascending: false });
-      return data || [];
-    },
-    enabled: !!user,
-    cacheTime: CACHE_TIME,
-    staleTime: STALE_TIME
-  });
-
-  // Set up real-time subscriptions for critical updates only
-  React.useEffect(() => {
-    if (!user) return;
-
-    const creditsChannel = supabase
-      .channel("credits-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "apl_user_credits",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.credits, user.id] });
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+        } else {
+          setUser(null);
         }
-      )
-      .subscribe();
+        setLoading(false);
+      }
+    );
+
+    // Check for initial session
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+      }
+      setLoading(false);
+    };
+
+    checkSession();
 
     return () => {
-      supabase.removeChannel(creditsChannel);
+      subscription.unsubscribe();
     };
-  }, [user, queryClient]);
+  }, []);
 
-  const loading = isCreditsLoading || isWorkspacesLoading || isLogsLoading;
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
-  return (
-    <UserContext.Provider
-      value={{
-        credits,
-        workspaces,
-        logs,
-        loading,
-        refreshCredits: async () => { await refreshCredits(); },
-        refreshWorkspaces: async () => { await refreshWorkspaces(); },
-      }}
-    >
-      {children}
-    </UserContext.Provider>
-  );
-}
+  const value = {
+    user,
+    profile,
+    loading: loading || creditsLoading || workspacesLoading || profileLoading,
+    credits: creditsData,
+    setUser,
+    workspaces: workspaces || [],
+    signOut,
+    refreshCredits,
+    refreshProfile
+  };
 
-export const useUserContext = () => {
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+};
+
+export const useUser = () => {
   const context = useContext(UserContext);
   if (context === undefined) {
-    throw new Error("useUserContext must be used within a UserProvider");
+    throw new Error('useUser must be used within a UserProvider');
   }
   return context;
 };
