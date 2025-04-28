@@ -303,10 +303,21 @@ const FeaturesContext = createContext<string[]>([]);
 const useFeatures = () => useContext(FeaturesContext);
 
 const Dashboard = () => {
-  const { user, loading: authLoading } = useAuth();
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [currentPage, setCurrentPage] = useState<PageType>("dashboard");
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<SidebarTask[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedExchangeItemId, setSelectedExchangeItemId] = useState<
+    string | null
+  >(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredAgents, setFilteredAgents] = useState<any[]>([]);
+  const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { workspaces, selectedWorkspace, selectWorkspace, loading: workspacesLoading } = useWorkspaces();
+  const { workspaces, selectedWorkspace, selectWorkspace } = useWorkspaces();
   const {
     fetchTaskDetails,
     selectedTask,
@@ -326,10 +337,10 @@ const Dashboard = () => {
   ]); // Only these features are enabled
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!loading && !user) {
       navigate("/auth");
     }
-  }, [user, authLoading, navigate]);
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     const path = location.pathname;
@@ -511,36 +522,7 @@ const Dashboard = () => {
     }
   };
 
-  const isLoading = authLoading || workspacesLoading;
-  
-  useEffect(() => {
-    console.log('Auth loading:', authLoading);
-    console.log('Workspaces loading:', workspacesLoading);
-    console.log('Selected workspace:', selectedWorkspace);
-  }, [authLoading, workspacesLoading, selectedWorkspace]);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-light dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800">
-        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="mt-4 text-gray-600 dark:text-gray-300">
-          Authenticating...
-        </p>
-      </div>
-    );
-  }
-  
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-light dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800">
-        <p className="mt-4 text-gray-600 dark:text-gray-300">
-          Redirecting to login...
-        </p>
-      </div>
-    );
-  }
-
-  if (workspacesLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-light dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800">
         <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -550,20 +532,10 @@ const Dashboard = () => {
       </div>
     );
   }
-  
-  if (!selectedWorkspace && workspaces.length > 0) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-light dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800">
-        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="mt-4 text-gray-600 dark:text-gray-300">
-          Setting up your workspace...
-        </p>
-      </div>
-    );
-  }
 
   return (
     <FeaturesContext.Provider value={enabledFeatures}>
+      {" "}
       {/* Features Context Provider */}
       <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden">
         <DashboardSidebar

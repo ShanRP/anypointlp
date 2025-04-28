@@ -1,214 +1,177 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { debounce } from 'lodash';
 
 /**
- * Batches array of items into smaller arrays
- * @param array The array to be batched
- * @param batchSize Size of each batch
- * @returns Array of batched arrays
+ * Utility functions to optimize Supabase queries and reduce egress usage
  */
-export const batchArray = <T>(array: T[], batchSize: number = 100): T[][] => {
-  const batches: T[][] = [];
-  for (let i = 0; i < array.length; i += batchSize) {
-    batches.push(array.slice(i, i + batchSize));
+
+type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 'apl_user_credits' | 'apl_auth_logs';
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+// Use a more specific type for the cache to avoid excessive type depth issues
+const queryCache = new Map<string, CacheEntry<any>>();
+
+export const clearCache = () => queryCache.clear();
+
+/**
+ * Performs a paginated query with column selection
+ * @param table The table to query
+ * @param columns Only the columns needed
+ * @param page Page number (1-based)
+ * @param pageSize Number of records per page
+ * @param filters Optional filters to apply
+ */
+export const paginatedQuery = async (
+  table: TableName,
+  columns: string,
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: Record<string, any>,
+  options: { cacheTime?: number } = {}
+) => {
+  const cacheTime = options.cacheTime || 300; // 5 minutes default
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize - 1;
+  const cacheKey = `${table}-${columns}-${page}-${pageSize}-${JSON.stringify(filters)}`;
+
+  if (queryCache.has(cacheKey)) {
+    const cachedData = queryCache.get(cacheKey);
+    if (cachedData && cachedData.timestamp + (cacheTime * 1000) > Date.now()) {
+      return cachedData.data;
+    }
   }
-  return batches;
+
+  let query = supabase
+    .from(table)
+    .select(columns, { count: 'exact' })
+    .range(start, end);
+
+  // Apply any filters
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        // Use if-statement instead of chaining to avoid type depth issues
+        if (key && value) {
+          query = query.eq(key, value);
+        }
+      }
+    });
+  }
+
+  const { data, count, error } = await query;
+  const result = { data, count, error, pageCount: count ? Math.ceil(count / pageSize) : 0 };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 };
 
 /**
- * Creates optimal RLS where clauses
- * @param columnName Column to filter on
- * @param values Values to include
- * @returns SQL where clause string
+ * Creates a debounced function for Supabase queries
+ * @param fn The function to debounce
+ * @param wait Wait time in milliseconds
  */
-export const createOptimalWhereClause = (columnName: string, values: string[]): string => {
-  if (values.length === 0) return '';
-  
-  if (values.length === 1) {
-    return `${columnName} = '${values[0]}'`;
-  }
-  
-  return `${columnName} IN ('${values.join("','")}')`;
+export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>(
+  fn: T,
+  wait: number = 300
+) => {
+  return debounce(fn, wait) as T;
 };
 
 /**
- * Logs authentication events to the database
- * @param userId User ID
- * @param action Action name
- * @param metadata Additional metadata
+ * Gets only a record count instead of fetching all records
+ * @param table The table to query
+ * @param filters Optional filters to apply
+ */
+export const getCount = async (table: TableName, filters?: Record<string, any>) => {
+  const cacheKey = `${table}-count-${JSON.stringify(filters)}`;
+  
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
+  }
+  
+  let query = supabase
+    .from(table)
+    .select('id', { count: 'exact', head: true });
+
+  // Apply any filters
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        // Use if-statement instead of chaining to avoid type depth issues
+        if (key && value) {
+          query = query.eq(key, value);
+        }
+      }
+    });
+  }
+
+  const { count, error } = await query;
+  const result = { count, error };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
+};
+
+/**
+ * Optimized query for WorkspaceDetailsDialog
+ * Only fetch necessary data for a workspace
+ */
+export const getWorkspaceDetails = async (workspaceId: string) => {
+  const cacheKey = `workspace-${workspaceId}`;
+  
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
+  }
+  
+  const { data, error } = await supabase
+    .from('apl_workspaces')
+    .select('id, name, invite_enabled')
+    .eq('id', workspaceId)
+    .single();
+
+  const result = { data, error };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
+};
+
+/**
+ * Log a security or audit event
+ * @param userId User ID 
+ * @param action Action being performed
+ * @param details Optional details about the action
  */
 export const logAuditEvent = async (
   userId: string, 
   action: string, 
-  metadata: Record<string, any> = {}
-): Promise<void> => {
+  details?: Record<string, any>
+) => {
   try {
+    const device = navigator?.userAgent || 'Unknown device';
+
     await supabase.from('apl_auth_logs').insert({
       user_id: userId,
       action,
-      device: metadata.device || 'unknown',
-      ip_address: metadata.ip_address || 'unknown'
+      device,
+      details: details ? JSON.stringify(details) : null
     });
   } catch (error) {
     console.error('Failed to log audit event:', error);
+    // Don't throw as we don't want to break app functionality due to logging failures
   }
 };
 
 /**
- * Simple throttling function to limit API calls
- * @param func Function to throttle
- * @param limit Time limit in milliseconds
- * @returns Throttled function
+ * Handles secure token management to avoid exposing sensitive keys
  */
-export function throttle<T extends (...args: any[]) => any>(func: T, limit: number): (...args: Parameters<T>) => void {
-  let lastFunc: ReturnType<typeof setTimeout>;
-  let lastRan: number;
-  
-  return function(...args: Parameters<T>): void {
-    if (!lastRan) {
-      func(...args);
-      lastRan = Date.now();
-    } else {
-      clearTimeout(lastFunc);
-      lastFunc = setTimeout(() => {
-        if (Date.now() - lastRan >= limit) {
-          func(...args);
-          lastRan = Date.now();
-        }
-      }, limit - (Date.now() - lastRan));
-    }
-  };
-}
+export const generateSecureRequestSignature = (payload: any): string => {
+  // In a real implementation, this would use crypto APIs to create a secure signature
+  // This is a simplified example
+  const timestamp = Date.now();
+  const requestId = crypto.randomUUID();
 
-/**
- * Processes errors from Supabase responses
- * @param error Error object
- * @returns Formatted error message
- */
-export const processSupabaseError = (error: any): string => {
-  if (!error) return 'Unknown error occurred';
-  
-  // Check for common error patterns
-  if (error.message) {
-    if (error.message.includes('JWT')) {
-      return 'Authentication error. Please log in again.';
-    }
-    if (error.message.includes('permission') || error.message.includes('RLS')) {
-      return 'You do not have permission to perform this action.';
-    }
-    return error.message;
-  }
-  
-  if (error.error_description) {
-    return error.error_description;
-  }
-  
-  return JSON.stringify(error);
-};
-
-/**
- * Creates a debounced query function
- * @param queryFn The query function to debounce
- * @param delay Delay in milliseconds
- * @returns Debounced query function
- */
-export const createDebouncedQuery = <T extends (...args: any[]) => any>(
-  queryFn: T, 
-  delay: number = 300
-): (...args: Parameters<T>) => Promise<ReturnType<T>> => {
-  let timeout: ReturnType<typeof setTimeout>;
-  
-  return (...args: Parameters<T>): Promise<ReturnType<T>> => {
-    return new Promise((resolve) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        resolve(queryFn(...args));
-      }, delay);
-    });
-  };
-};
-
-/**
- * Helper function for paginated queries
- * @param tableName Table name to query
- * @param options Query options
- * @returns Paginated results
- */
-export const paginatedQuery = async (
-  tableName: string, 
-  options: { 
-    page: number; 
-    pageSize: number; 
-    filterColumn?: string; 
-    filterValue?: string; 
-    orderBy?: string;
-    orderDirection?: 'asc' | 'desc';
-  }
-) => {
-  const {
-    page = 1,
-    pageSize = 10,
-    filterColumn,
-    filterValue,
-    orderBy = 'created_at',
-    orderDirection = 'desc'
-  } = options;
-  
-  // Use type assertion to handle the dynamic table name
-  let query = supabase
-    .from(tableName as any)
-    .select('*', { count: 'exact' })
-    .range((page - 1) * pageSize, page * pageSize - 1)
-    .order(orderBy, { ascending: orderDirection === 'asc' });
-    
-  if (filterColumn && filterValue) {
-    query = query.ilike(filterColumn, `%${filterValue}%`);
-  }
-  
-  const { data, count, error } = await query;
-  
-  if (error) {
-    console.error('Error in paginated query:', error);
-    throw error;
-  }
-  
-  return {
-    data,
-    total: count || 0,
-    page,
-    pageSize,
-    totalPages: Math.ceil((count || 0) / pageSize)
-  };
-};
-
-/**
- * Get workspace details including members
- * @param workspaceId Workspace ID
- * @returns Workspace details with members
- */
-export const getWorkspaceDetails = async (workspaceId: string) => {
-  try {
-    const { data: workspace, error: workspaceError } = await supabase
-      .from('apl_workspaces')
-      .select('*')
-      .eq('id', workspaceId)
-      .single();
-    
-    if (workspaceError) throw workspaceError;
-    
-    const { data: members, error: membersError } = await supabase
-      .from('apl_workspace_members')
-      .select('*, profiles:user_id(email, avatar_url)')
-      .eq('workspace_id', workspaceId);
-    
-    if (membersError) throw membersError;
-    
-    return {
-      ...workspace,
-      members: members || []
-    };
-  } catch (error) {
-    console.error('Error fetching workspace details:', error);
-    throw error;
-  }
+  // Concatenate timestamp and requestId to create a unique signature
+  return `${timestamp}.${requestId}`;
 };

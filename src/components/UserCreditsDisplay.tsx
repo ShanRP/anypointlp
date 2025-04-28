@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useUserCredits } from '@/hooks/useUserCredits';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +18,7 @@ import { toast } from 'sonner';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export function UserCreditsDisplay() {
-  const { credits, loading, creditsLimit, isPro, refreshCredits, showUpgradeDialog, setShowUpgradeDialog } = useUserCredits();
+  const { credits, loading, refreshCredits, showUpgradeDialog, setShowUpgradeDialog } = useUserCredits();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -42,12 +43,23 @@ export function UserCreditsDisplay() {
     }
   }, [location.search, navigate, refreshCredits]);
   
-  // Calculate credits remaining directly
-  const creditsRemaining = creditsLimit - credits;
+  // Get values directly from credits object
+  const getCreditsRemaining = () => {
+    if (!credits) return 0;
+    const limit = credits.is_pro ? 100 : 3;
+    return limit - credits.credits_used;
+  };
   
   const isLow = () => {
-    return creditsRemaining <= 1 && !isPro;
+    if (!credits) return false;
+    const remaining = getCreditsRemaining();
+    return remaining <= 1 && !credits.is_pro;
   };
+  
+  const isPro = () => credits?.is_pro || false;
+  
+  // Calculate once for this render
+  const creditsRemaining = getCreditsRemaining();
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);
@@ -89,6 +101,8 @@ export function UserCreditsDisplay() {
     );
   }
 
+  if (!credits) return null;
+
   return (
     <div className="flex items-center gap-2">
       <Badge 
@@ -99,16 +113,17 @@ export function UserCreditsDisplay() {
         <span>{creditsRemaining} credit{creditsRemaining !== 1 ? 's' : ''} left</span>
       </Badge>
 
-      {!isPro && (
+      {!isPro() && (
         <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
           <DialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
-            >
-              Upgrade
-            </Button>
+          <Button 
+  variant="outline" 
+  size="sm" 
+  className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
+>
+  Upgrade
+</Button>
+
           </DialogTrigger>
           <DialogContent className="font-geistSans">
             <DialogHeader>
