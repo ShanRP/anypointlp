@@ -16,6 +16,8 @@ import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserCredits } from '@/hooks/useUserCredits';
+import { documentGeneratorPrompt } from '@/prompts/documentGeneratorPrompt';
+
 
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 type DocumentType = 'flow-implementation' | 'flow-endpoints';
@@ -169,7 +171,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       if (sourceType === 'with-repository' && selectedRepository) {
         prompt += ` Based on the repository: ${selectedRepository.name}`;
       } else if (sourceType === 'upload' && fileContent) {
-        prompt += ` Based on the uploaded file.`;
+        prompt += ` Based on the uploaded file .`;
       }
       
       const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -183,7 +185,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
           messages: [
             {
               role: 'system',
-              content: 'You are a documentation expert. You create detailed, structured, and interactive documentation for Mule applications.'
+              content: documentGeneratorPrompt
             },
             {
               role: 'user',

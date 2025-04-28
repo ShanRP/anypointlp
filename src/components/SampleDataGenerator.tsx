@@ -17,7 +17,8 @@ import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { FileNode, isFileOfType, pathExistsInFileStructure, getNodeByPath } from '@/utils/githubUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
-import { useUserCredits } from '@/hooks/useUserCredits';
+import { sampleDataGeneratorPrompt } from '@/prompts/sampleDataPrompts';
+
 
 type GenerationType = 'JSON' | 'XML' | 'CSV' | 'YAML';
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
@@ -90,8 +91,7 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
           messages: [
             {
               role: 'system',
-              content: `You are a sample data generator. Generate realistic sample data based on the schema provided. 
-                       The output should be in ${generationType} format. Make the data realistic and varied.`
+              content: ` ${sampleDataGeneratorPrompt}/n  Generate in ${generationType} format`
             },
             {
               role: 'user',

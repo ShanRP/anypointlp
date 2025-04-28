@@ -188,7 +188,7 @@ const DiagramGenerator: React.FC<DiagramGeneratorProps> = ({
       }
       
       prompt += `Your response MUST have exactly these two sections with these exact headings:
-1. # Flow Diagram: Create a detailed flow diagram showing all connections and components in ASCII art or markdown format. Make sure it's properly structured and clear.
+1. # Flow Diagram: Create a detailed flow diagram showing all connections and components in ASCII art or markdown format with a proper backgroud colour and try to display the diagram in a detailed way. Make sure it's properly structured and clear.
 2. # Connection Steps: List all the necessary connection steps and configuration details for implementing this flow.
 
 Both sections MUST begin with the exact headings "# Flow Diagram" and "# Connection Steps". For both sections, be specific to MuleSoft implementation.`;

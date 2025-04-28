@@ -1,6 +1,8 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { munitTestGeneratorPrompt } from "./prompt";
+
 
 const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') || 'VQMG3mvcRrjf3UsHQMbjY0P6dbaonXil';
 if (!mistralApiKey) {
@@ -91,7 +93,7 @@ serve(async (req) => {
 
     // Construct the prompt for the Mistral API
     const userPrompt = `
-You are an expert MuleSoft developer specializing in MUnit test creation.
+${munitTestGeneratorPrompt}/n
 
 Your task is to generate a complete, production-ready MUnit test suite based on the following flow implementation:
 

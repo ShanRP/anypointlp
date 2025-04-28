@@ -1,6 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { ramlGeneratorPrompt } from "./prompt";
+
 
 const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') || 'EbjQ32KdE7j8qv1wTZWEZZyq0XQPqtiX';
 
@@ -149,8 +151,7 @@ async function generateWithMistral(
   
   // Create an enhanced prompt for Mistral
   const prompt = `
-  You are a RAML (RESTful API Modeling Language) expert tasked with generating a complete, valid RAML 1.0 specification.
-  Please generate a detailed, well-structured RAML that follows best practices and includes all necessary components.
+  ${ramlGeneratorPrompt}\n
   
   API DETAILS:
   - Name: ${apiName}
