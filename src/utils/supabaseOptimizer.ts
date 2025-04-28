@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { debounce } from 'lodash';
 
@@ -6,7 +5,8 @@ import { debounce } from 'lodash';
  * Utility functions to optimize Supabase queries and reduce egress usage
  */
 
-type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 'apl_user_credits' | 'apl_auth_logs' | 'apl_invitation_tokens';
+type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 
+                 'apl_user_credits' | 'apl_auth_logs' | 'apl_invitation_tokens';
 
 interface CacheEntry<T> {
   data: T;
@@ -51,8 +51,9 @@ export const paginatedQuery = async <T>(
     }
   }
 
+  // Use type assertion to prevent TypeScript errors with dynamic table names
   let query = supabase
-    .from(table)
+    .from(table as any)
     .select(columns, { count: 'exact' })
     .range(start, end);
 
@@ -104,8 +105,9 @@ export const getCount = async (table: TableName, filters?: Record<string, any>) 
     return queryCache.get(cacheKey)?.data;
   }
   
+  // Use type assertion for the table name
   let query = supabase
-    .from(table)
+    .from(table as any)
     .select('id', { count: 'exact', head: true });
 
   // Apply any filters
@@ -224,9 +226,9 @@ export const getInvitationDetails = async (token: string, workspaceId: string) =
     return queryCache.get(cacheKey)?.data;
   }
   
-  // Use direct query without type checking to avoid TypeScript errors
-  const { data, error } = await (supabase as any)
-    .from('apl_invitation_tokens')
+  // Use direct query with type assertion to avoid TypeScript errors
+  const { data, error } = await supabase
+    .from('apl_invitation_tokens' as any)
     .select('invitation_id, workspace_id, email, expires_at')
     .eq('token', token)
     .eq('workspace_id', workspaceId)

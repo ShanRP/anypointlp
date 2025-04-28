@@ -1,28 +1,31 @@
 
+/**
+ * Generates a properly formatted RAML prompt for API specification generation
+ */
 export const generateRAMLPrompt = (apiDetails: any): string => {
-  return `
-Generate a comprehensive RAML (RESTful API Modeling Language) specification based on the following API details:
+  const prompt = `
+Generate a complete RAML 1.0 specification for an API with the following details:
 
-API Name: ${apiDetails.name || 'API'}
-API Version: ${apiDetails.version || '1.0.0'}
-Base URI: ${apiDetails.baseUri || 'https://api.example.com/{version}'}
+API Name: ${apiDetails.name || 'Sample API'}
+API Version: ${apiDetails.version || '1.0'}
+Base URI: ${apiDetails.baseUri || '{baseUri}'}
 
-${apiDetails.description ? `API Description: ${apiDetails.description}` : ''}
+Description:
+${apiDetails.description || 'This API provides access to resources.'}
 
-Include the following in your RAML specification:
-- Proper RAML header with version specification
-- Title, version, and baseUri
-- Media types (application/json)
-- Appropriate security schemes if provided
-- Well-defined resources with URIs
-- Methods (GET, POST, PUT, DELETE) for each resource as appropriate
+Endpoints:
+${JSON.stringify(apiDetails.endpoints || [], null, 2)}
+
+Include proper:
+- Data types
 - Request and response examples
-- Data types/schemas for request and response bodies
-- Query parameters, URI parameters, and headers where needed
-- HTTP response codes with descriptions
+- Query parameters
+- Headers
+- Response codes
+- Security schemes
 
-Format the RAML in proper YAML syntax that is valid and parseable.
+Please format the RAML 1.0 specification with proper indentation.
 `;
-};
 
-export default generateRAMLPrompt;
+  return prompt;
+};
