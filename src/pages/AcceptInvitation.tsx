@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,9 +33,7 @@ const AcceptInvitation = () => {
       try {
         // Verify the invitation using our edge function
         const { data, error } = await supabase.functions.invoke('workspace_invitation', {
-          method: 'GET',
-          path: '/verify',
-          query: { workspaceId, token }
+          body: { token, workspaceId }
         });
 
         if (error) {
@@ -92,24 +89,15 @@ const AcceptInvitation = () => {
       
       // User is authenticated, proceed with accepting invitation
       const { data, error } = await supabase.functions.invoke('workspace_invitation', {
-        method: 'POST',
-        path: '/accept',
-        body: { workspaceId, token }
+        body: { 
+          token,
+          workspaceId,
+          email: user.email
+        }
       });
       
       if (error || (data && data.error)) {
-        const errorMsg = (data && data.error) || error?.message || 'Failed to accept invitation';
-        
-        if (data && data.needsAuth) {
-          // Handle authentication required error
-          const returnUrl = `/workspace/accept-invitation?workspaceId=${workspaceId}&token=${token}`;
-          navigate('/auth', { 
-            state: { returnUrl }
-          });
-          return;
-        }
-        
-        throw new Error(errorMsg);
+        throw new Error(data?.error || error?.message || 'Failed to accept invitation');
       }
       
       if (data.alreadyMember) {
@@ -184,9 +172,6 @@ const AcceptInvitation = () => {
                 <p className="text-gray-600 mb-6">
                   You have successfully joined the workspace. Redirecting to dashboard...
                 </p>
-                <Button onClick={() => navigate('/dashboard')} variant="outline">
-                  Go to Dashboard Now
-                </Button>
               </motion.div>
             ) : (
               <motion.div

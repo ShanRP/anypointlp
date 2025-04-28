@@ -83,8 +83,6 @@ const WorkspaceInvite = () => {
     try {
       // Create a request to invite the user to the workspace
       const { data, error } = await supabase.functions.invoke('workspace_invitation', {
-        method: 'POST',
-        path: '/send',
         body: {
           type: "tool",
           name: "send-invitation",
@@ -175,15 +173,24 @@ const WorkspaceInvite = () => {
           
           <Button 
             onClick={handleJoinWorkspace} 
+            disabled={loading}
             className="w-full"
           >
-            {user ? 'Join Workspace' : 'Sign in to Join Workspace'}
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              user ? 'Join Workspace' : 'Sign in to Join Workspace'
+            )}
           </Button>
           
           <Button 
             variant="outline" 
             onClick={() => navigate('/')} 
             className="w-full mt-4"
+            disabled={loading}
           >
             Cancel
           </Button>
