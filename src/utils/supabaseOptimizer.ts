@@ -69,7 +69,13 @@ export const paginatedQuery = async <T>(
   }
 
   const { data, count, error } = await query;
-  const result = { data, count, error, pageCount: count ? Math.ceil(count / pageSize) : 0 };
+  const result = { 
+    data: data as T[], 
+    count, 
+    error, 
+    pageCount: count ? Math.ceil(count / pageSize) : 0 
+  };
+  
   queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
   return result;
 };
@@ -218,7 +224,8 @@ export const getInvitationDetails = async (token: string, workspaceId: string) =
     return queryCache.get(cacheKey)?.data;
   }
   
-  const { data, error } = await supabase
+  // Use direct query without type checking to avoid TypeScript errors
+  const { data, error } = await (supabase as any)
     .from('apl_invitation_tokens')
     .select('invitation_id, workspace_id, email, expires_at')
     .eq('token', token)

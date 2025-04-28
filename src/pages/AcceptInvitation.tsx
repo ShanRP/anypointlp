@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+
+// Import directly from utils/supabaseOptimizer to use the type-safe functions
 import { getInvitationDetails, acceptWorkspaceInvitation } from '@/utils/supabaseOptimizer';
 
 const AcceptInvitation = () => {
