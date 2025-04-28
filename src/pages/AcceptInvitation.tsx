@@ -9,47 +9,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// Function to get invitation details
-const getInvitationDetails = async (token: string, workspaceId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from("apl_invitation_tokens")
-      .select("invitation_id, workspace_id, email, expires_at")
-      .eq("token", token)
-      .eq("workspace_id", workspaceId)
-      .single();
-      
-    if (error) {
-      console.error('Error fetching invitation token:', error);
-      return { data: null, error };
-    }
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error in getInvitationDetails:', error);
-    return { data: null, error };
-  }
-};
-
-// Function to accept workspace invitation
-const acceptWorkspaceInvitation = async (workspaceId: string, token: string) => {
-  try {
-    const { data, error } = await supabase.functions.invoke('accept-workspace-invitation', {
-      method: 'POST',
-      body: { workspaceId, token }
-    });
-    
-    if (error) {
-      console.error('Error accepting invitation:', error);
-      return { data: null, error };
-    }
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error in acceptWorkspaceInvitation:', error);
-    return { data: null, error: error };
-  }
-};
+// Import directly from utils/supabaseOptimizer to use the type-safe functions
+import { getInvitationDetails, acceptWorkspaceInvitation } from '@/utils/supabaseOptimizer';
 
 const AcceptInvitation = () => {
   const [searchParams] = useSearchParams();

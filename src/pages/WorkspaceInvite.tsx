@@ -94,7 +94,6 @@ const WorkspaceInvite = () => {
     checkWorkspace();
   }, [workspaceId, user, navigate]);
 
-  // This function now uses the proper invitation process
   const handleJoinWorkspace = async () => {
     if (!user || !workspaceId) {
       // Redirect to auth with return URL
@@ -105,40 +104,24 @@ const WorkspaceInvite = () => {
 
     setLoading(true);
     try {
-      console.log('Requesting invitation for workspace', { workspaceId, userId: user.id });
+      console.log('Joining workspace', { workspaceId, userId: user.id });
       
-      // Request an invitation to be sent to the user's email
-      const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
-        body: {
-          type: "tool",
-          name: "send-invitation",
-          arguments: {
-            workspaceId: workspaceId,
-            email: user.email,
-            inviterName: "Self-join"
-          }
-        }
-      });
+      // Add user as member directly with SQL insert
+      const { data, error: insertError } = await supabase
+        .from('apl_workspace_members')
+        .insert({
+          workspace_id: workspaceId,
+          user_id: user.id,
+          role: 'member'
+        });
 
-      if (error) {
-        console.error('Error requesting invitation:', error);
-        throw error;
+      if (insertError) {
+        console.error('Error joining workspace:', insertError);
+        throw insertError;
       }
 
-      const responseContent = JSON.parse(data.content[0].text);
-      
-      if (responseContent.error) {
-        // If the user is already a member, just redirect them
-        if (responseContent.error.includes("already a member")) {
-          toast.info("You are already a member of this workspace");
-          navigate('/dashboard');
-          return;
-        }
-        throw new Error(responseContent.error);
-      }
-      
-      console.log('Successfully requested invitation:', responseContent);
-      toast.success('Invitation sent to your email. Check your inbox.');
+      console.log('Successfully joined workspace:', data);
+      toast.success('Successfully joined workspace!');
       navigate('/dashboard');
     } catch (err: any) {
       console.error('Error joining workspace:', err);
