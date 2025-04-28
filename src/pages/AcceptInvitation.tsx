@@ -2,20 +2,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-
-// Import directly from utils/supabaseOptimizer to use the type-safe functions
-import { getInvitationDetails, acceptWorkspaceInvitation } from '@/utils/supabaseOptimizer';
+import { toast } from 'sonner';
 
 const AcceptInvitation = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user, session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +24,7 @@ const AcceptInvitation = () => {
   const token = searchParams.get('token');
 
   useEffect(() => {
-    const checkInvitation = async () => {
+    const verifyInvitation = async () => {
       if (!workspaceId || !token) {
         setError('Invalid invitation link. Missing workspace ID or token.');
         setLoading(false);
@@ -36,44 +32,31 @@ const AcceptInvitation = () => {
       }
 
       try {
-        // First, check if the workspace exists
-        const { data: workspace, error: workspaceError } = await supabase
-          .from('apl_workspaces')
-          .select('name')
-          .eq('id', workspaceId)
-          .single();
+        // Verify the invitation using our edge function
+        const { data, error } = await supabase.functions.invoke('workspace_invitation', {
+          method: 'GET',
+          path: '/verify',
+          query: { workspaceId, token }
+        });
 
-        if (workspaceError || !workspace) {
-          console.error('Error fetching workspace:', workspaceError);
-          setError('Workspace not found. The invitation link may be invalid.');
+        if (error) {
+          console.error('Error verifying invitation:', error);
+          setError('Failed to verify the invitation. It may be invalid or expired.');
           setLoading(false);
           return;
         }
 
-        setWorkspaceName(workspace.name);
-        
-        // Check if the token exists and is valid
-        const result = await getInvitationDetails(token, workspaceId);
-        
-        if (result.error || !result.data) {
-          console.error('Error validating invitation token:', result.error);
-          setError('The invitation token is invalid or has expired.');
+        if (!data.valid) {
+          setError(data.error || 'The invitation is invalid or has expired.');
           setLoading(false);
           return;
         }
-        
-        const tokenData = result.data;
-        
-        // Check if token is expired
-        if (new Date(tokenData.expires_at) < new Date()) {
-          setError('This invitation has expired. Please request a new invitation.');
-          setLoading(false);
-          return;
-        }
+
+        setWorkspaceName(data.workspaceName || 'Unnamed workspace');
         
         // If user is logged in, check if their email matches the invitation
-        if (user && user.email && tokenData.email.toLowerCase() !== user.email.toLowerCase()) {
-          setError(`This invitation was sent to ${tokenData.email}. Please sign in with that email address.`);
+        if (user && user.email && data.email && data.email.toLowerCase() !== user.email.toLowerCase()) {
+          setError(`This invitation was sent to ${data.email}. Please sign in with that email address.`);
           setLoading(false);
           return;
         }
@@ -87,7 +70,7 @@ const AcceptInvitation = () => {
       }
     };
 
-    checkInvitation();
+    verifyInvitation();
   }, [workspaceId, token, user]);
 
   const handleAcceptInvitation = async () => {
@@ -101,29 +84,38 @@ const AcceptInvitation = () => {
       if (!user || !session) {
         // If not authenticated, redirect to auth page with return URL
         const returnUrl = `/workspace/accept-invitation?workspaceId=${workspaceId}&token=${token}`;
-        navigate(`/auth`, { 
+        navigate('/auth', { 
           state: { returnUrl }
         });
         return;
       }
       
       // User is authenticated, proceed with accepting invitation
-      const { data, error } = await acceptWorkspaceInvitation(workspaceId, token);
+      const { data, error } = await supabase.functions.invoke('workspace_invitation', {
+        method: 'POST',
+        path: '/accept',
+        body: { workspaceId, token }
+      });
       
-      if (error) {
-        throw new Error(error.message || 'Failed to accept invitation');
+      if (error || (data && data.error)) {
+        const errorMsg = (data && data.error) || error?.message || 'Failed to accept invitation';
+        
+        if (data && data.needsAuth) {
+          // Handle authentication required error
+          const returnUrl = `/workspace/accept-invitation?workspaceId=${workspaceId}&token=${token}`;
+          navigate('/auth', { 
+            state: { returnUrl }
+          });
+          return;
+        }
+        
+        throw new Error(errorMsg);
       }
       
       if (data.alreadyMember) {
-        toast({
-          title: "Already a member",
-          description: "You are already a member of this workspace."
-        });
+        toast.info("You are already a member of this workspace.");
       } else {
-        toast({
-          title: "Success",
-          description: "You have successfully joined the workspace."
-        });
+        toast.success("You have successfully joined the workspace.");
       }
       
       setSuccess(true);
@@ -135,11 +127,7 @@ const AcceptInvitation = () => {
     } catch (error: any) {
       console.error('Error accepting invitation:', error);
       setError(error.message || 'Failed to accept invitation');
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || 'Failed to accept invitation'
-      });
+      toast.error(error.message || 'Failed to accept invitation');
     } finally {
       setProcessingAcceptance(false);
     }
