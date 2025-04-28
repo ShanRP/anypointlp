@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { dataWeaveGeneratorPrompt } from "./prompt.ts";
 const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') || 'gxZ7ckfclmIryLjoCFW0XT3erqtEFEoX';
 if (!mistralApiKey) {
   console.error("MISTRAL_API_KEY is not set");
@@ -21,22 +22,10 @@ serve(async (req)=>{
     const { inputFormat, inputSamples, outputSamples, notes, previousScript } = await req.json();
     const formattedInputSamples = inputSamples.map((sample, i)=>`Input Sample ${i + 1}:\n${JSON.stringify(sample.value, null, 2)}`).join('\n\n');
     const formattedOutputSamples = outputSamples.map((sample, i)=>`Expected Output ${i + 1}:\n${JSON.stringify(sample.value, null, 2)}`).join('\n\n');
-    const userPrompt = `Create a DataWeave script (DataWeave 2.0) that transforms the input to the expected output.
-
-Input:\n${formattedInputSamples}\n\nExpected Output:\n${formattedOutputSamples}
-    
-${notes ? `Additional requirements: ${notes}\n\n` : ''}
-
-IMPORTANT: Return ONLY the DataWeave script with the following strict requirements:
-1. Start with "%dw 2.0" line
-2. Include "output application/json" line
-3. Include the "---" separator line
-4. Write the transformation logic
-5. DO NOT include any explanations, markdown formatting, or additional text
-6. DO NOT include multiple %dw 2.0 directives
-7. STRICTLY PROVIDE ONLY the executable script - nothing else before or after
-
-The script must be optimized for production use in MuleSoft Anypoint Studio.`;
+    const userPrompt = `${dataWeaveGeneratorPrompt}\n\n
+    Create a DataWeave script (DataWeave 2.0) that transforms the input to the expected output.
+    Input:\n${formattedInputSamples}\n\nExpected Output:\n${formattedOutputSamples}
+    ${notes ? `Additional requirements: ${notes}\n\n` : ''} `;
     console.log("User prompt:", userPrompt);
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
