@@ -154,8 +154,9 @@ export const paginatedQuery = async (
     orderDirection = 'desc'
   } = options;
   
+  // Use type assertion to handle the dynamic table name
   let query = supabase
-    .from(tableName)
+    .from(tableName as any)
     .select('*', { count: 'exact' })
     .range((page - 1) * pageSize, page * pageSize - 1)
     .order(orderBy, { ascending: orderDirection === 'asc' });
@@ -211,4 +212,3 @@ export const getWorkspaceDetails = async (workspaceId: string) => {
     throw error;
   }
 };
-

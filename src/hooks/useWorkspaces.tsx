@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
@@ -20,22 +19,27 @@ export const useWorkspaces = () => {
   const { user } = useAuth();
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState<WorkspaceOption | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [fetchComplete, setFetchComplete] = useState(false);
   const [cache, setCache] = useState<{[key:string]: CachedWorkspace[]}>({});
+  const [fetchAttempted, setFetchAttempted] = useState(false);
 
-  // Fetch workspaces when user is available
   const fetchWorkspaces = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
+    console.log('Fetching workspaces for user:', user.id);
     setLoading(true);
     try {
       const cacheKey = user.id;
       if(cache[cacheKey] && 
          cache[cacheKey].length > 0 && 
          cache[cacheKey][0].cachedAt && 
-         Date.now() - cache[cacheKey][0].cachedAt < 300000) { // Check cache expiry (5 minutes)
+         Date.now() - cache[cacheKey][0].cachedAt < 300000) {
         
+        console.log('Using cached workspaces');
         const cachedWorkspaces = cache[cacheKey].map(w => {
           const { cachedAt, ...workspace } = w;
           return workspace;
@@ -54,15 +58,22 @@ export const useWorkspaces = () => {
           }
         }
         setFetchComplete(true);
+        setLoading(false);
         return;
       }
 
+      console.log('Fetching workspaces from API');
       const { data, error } = await supabase
         .rpc('apl_get_user_workspaces', { 
           user_id_param: user.id 
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching workspaces:', error);
+        throw error;
+      }
+
+      console.log('Workspaces data received:', data);
 
       if (data && data.length > 0) {
         const formattedWorkspaces = data.map((workspace: any) => ({
@@ -82,32 +93,33 @@ export const useWorkspaces = () => {
           cachedAt: Date.now()
         }));
 
+        console.log('Formatted workspaces:', formattedWorkspaces);
         setWorkspaces(formattedWorkspaces);
         setCache(prev => ({...prev, [cacheKey]: cachedWorkspaces}));
 
-        // Set selected workspace if not already set or update it if it exists
         if (!selectedWorkspace && formattedWorkspaces.length > 0) {
+          console.log('Setting initial selected workspace:', formattedWorkspaces[0]);
           setSelectedWorkspace(formattedWorkspaces[0]);
         } else if (selectedWorkspace) {
-          // Find and update the currently selected workspace with fresh data
           const updatedSelected = formattedWorkspaces.find(w => w.id === selectedWorkspace.id);
           if (updatedSelected) {
+            console.log('Updating selected workspace:', updatedSelected);
             setSelectedWorkspace(updatedSelected);
           } else if (formattedWorkspaces.length > 0) {
-            // If previously selected workspace doesn't exist anymore, select first one
+            console.log('Previous workspace not found, selecting first:', formattedWorkspaces[0]);
             setSelectedWorkspace(formattedWorkspaces[0]);
           }
         }
       } else {
-        // If no workspaces found, create a default workspace
         console.log("No workspaces found, creating default workspace");
         const newWorkspace = await createWorkspace("Personal Workspace");
         if (newWorkspace) {
+          console.log('Created default workspace:', newWorkspace);
           setWorkspaces([newWorkspace]);
           setSelectedWorkspace(newWorkspace);
           setCache(prev => ({...prev, [cacheKey]: [{...newWorkspace, cachedAt: Date.now()}]}));
         } else {
-          // If workspace creation failed, set empty array
+          console.warn('Failed to create default workspace');
           setWorkspaces([]);
           setSelectedWorkspace(null);
           setCache(prev => ({...prev, [cacheKey]: []}));
@@ -118,25 +130,27 @@ export const useWorkspaces = () => {
       console.error('Error fetching workspaces:', error);
       toast.error('Failed to load workspaces');
     } finally {
+      setFetchAttempted(true);
       setLoading(false);
     }
   }, [user, selectedWorkspace, cache]);
 
-  // Reset state when user changes or logs out
   useEffect(() => {
+    console.log('User state changed:', user?.id, 'fetchComplete:', fetchComplete);
     if (user) {
-      // Only fetch if we haven't fetched yet or user changed
-      if (!fetchComplete) {
+      if (!fetchComplete || !fetchAttempted) {
         fetchWorkspaces();
       }
     } else {
-      // Clear workspaces when user logs out
+      console.log('Clearing workspace state');
       setWorkspaces([]);
       setSelectedWorkspace(null);
       setFetchComplete(false);
+      setFetchAttempted(false);
       setCache({});
+      setLoading(false);
     }
-  }, [user, fetchWorkspaces, fetchComplete]);
+  }, [user, fetchWorkspaces, fetchComplete, fetchAttempted]);
 
   const createWorkspace = async (name: string) => {
     if (!user) return null;
@@ -144,6 +158,7 @@ export const useWorkspaces = () => {
     try {
       const initial = name.charAt(0).toUpperCase();
 
+      console.log('Creating workspace:', name);
       const { data, error } = await supabase
         .from('apl_workspaces')
         .insert([
@@ -160,6 +175,7 @@ export const useWorkspaces = () => {
 
       if (error) throw error;
 
+      console.log('Workspace created:', data);
       const newWorkspace: WorkspaceOption = {
         id: data.id,
         name: data.name,
@@ -173,14 +189,12 @@ export const useWorkspaces = () => {
         cachedAt: Date.now()
       };
 
-      // Update workspaces array with new workspace
       setWorkspaces(prev => [...prev, newWorkspace]);
       setCache(prev => ({
         ...prev, 
         [user.id]: [...(prev[user.id] || []), cachedWorkspace]
       }));
 
-      // Set as selected workspace
       setSelectedWorkspace(newWorkspace);
       toast.success(`Workspace "${name}" created successfully`);
       return newWorkspace;
@@ -203,21 +217,18 @@ export const useWorkspaces = () => {
 
       if (error) throw error;
 
-      // Update local state
       const updatedWorkspaces = workspaces.map(w => 
         w.id === workspaceId ? { ...w, ...updates } : w
       );
       
       setWorkspaces(updatedWorkspaces);
       
-      // Update cache with proper CachedWorkspace objects
       const updatedCachedWorkspaces = cache[user.id]?.map(w => 
         w.id === workspaceId ? { ...w, ...updates, cachedAt: Date.now() } : w
       ) || [];
       
       setCache(prev => ({...prev, [user.id]: updatedCachedWorkspaces}));
 
-      // Update selected workspace if it's the one being updated
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace({ ...selectedWorkspace, ...updates });
       }
@@ -234,7 +245,6 @@ export const useWorkspaces = () => {
     if (!user) return false;
 
     try {
-      // Don't allow deletion if it's the only workspace
       if (workspaces.length <= 1) {
         toast.error('Cannot delete the only workspace. Please create another workspace first.');
         return false;
@@ -248,15 +258,12 @@ export const useWorkspaces = () => {
 
       if (error) throw error;
 
-      // Update the workspaces list
       const updatedWorkspaces = workspaces.filter(w => w.id !== workspaceId);
       setWorkspaces(updatedWorkspaces);
       
-      // Update cache with proper CachedWorkspace objects
       const updatedCachedWorkspaces = cache[user.id]?.filter(w => w.id !== workspaceId) || [];
       setCache(prev => ({...prev, [user.id]: updatedCachedWorkspaces}));
 
-      // If the deleted workspace was selected, select another one
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace(updatedWorkspaces[0]);
       }
@@ -272,6 +279,7 @@ export const useWorkspaces = () => {
   const refreshWorkspaces = async () => {
     console.log('Refreshing workspaces...');
     setFetchComplete(false); 
+    setFetchAttempted(false);
     return fetchWorkspaces();
   };
 

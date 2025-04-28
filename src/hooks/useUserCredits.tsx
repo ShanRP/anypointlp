@@ -38,6 +38,10 @@ export function useUserCredits() {
         setIsPro(data.is_pro);
       } else {
         // If no credits record exists, create one
+        // Convert Date to ISO string for reset_date
+        const resetDate = new Date();
+        resetDate.setDate(resetDate.getDate() + 30); // Set reset date 30 days from now
+        
         const { data: newData, error: insertError } = await supabase
           .from('apl_user_credits')
           .insert({
@@ -45,7 +49,7 @@ export function useUserCredits() {
             credits_used: 0,
             credits_limit: 3,
             is_pro: false,
-            reset_date: new Date().toISOString() // Convert Date to ISO string
+            reset_date: resetDate.toISOString()
           })
           .select()
           .single();
@@ -77,6 +81,7 @@ export function useUserCredits() {
 
     if (credits >= creditsLimit && !isPro) {
       toast.error('You have reached your daily credit limit. Upgrade to Pro for unlimited usage.');
+      setShowUpgradeDialog(true);
       return false;
     }
 
