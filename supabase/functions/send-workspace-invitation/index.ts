@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as z from "https://deno.land/x/zod@v3.21.4/mod.ts";
@@ -110,12 +109,14 @@ serve(async (req) => {
     await supabase.from("apl_auth_logs").insert({
       user_id: user.id,
       action: "WORKSPACE_INVITATION",
-      details: JSON.stringify({
+      device: req.headers.get("user-agent") || "Unknown",
+      ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
+      details: {
         workspaceId,
         invitedEmail: email,
         requestId,
         timestamp: new Date().toISOString()
-      })
+      }
     });
     
     // Get the workspace details - only select what's needed
@@ -334,13 +335,15 @@ serve(async (req) => {
       await supabase.from("apl_auth_logs").insert({
         user_id: user.id,
         action: "WORKSPACE_INVITATION_SUCCESS",
-        details: JSON.stringify({
+        device: req.headers.get("user-agent") || "Unknown",
+        ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
+        details: {
           workspaceId,
           invitedEmail: email,
           invitationId: inviteData?.id,
           requestId,
           timestamp: new Date().toISOString()
-        })
+        }
       });
 
       return new Response(
@@ -364,14 +367,16 @@ serve(async (req) => {
       await supabase.from("apl_auth_logs").insert({
         user_id: user.id,
         action: "WORKSPACE_INVITATION_EMAIL_FAILED",
-        details: JSON.stringify({
+        device: req.headers.get("user-agent") || "Unknown",
+        ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
+        details: {
           workspaceId,
           invitedEmail: email,
           invitationId: inviteData?.id,
           requestId,
           error: emailError.message,
           timestamp: new Date().toISOString()
-        })
+        }
       });
 
       // Even if the email fails, we've created the invitation record

@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           action: string
           created_at: string
+          details: Json | null
           device: string | null
           id: string
           ip_address: string | null
@@ -21,6 +22,7 @@ export type Database = {
         Insert: {
           action: string
           created_at?: string
+          details?: Json | null
           device?: string | null
           id?: string
           ip_address?: string | null
@@ -29,6 +31,7 @@ export type Database = {
         Update: {
           action?: string
           created_at?: string
+          details?: Json | null
           device?: string | null
           id?: string
           ip_address?: string | null
