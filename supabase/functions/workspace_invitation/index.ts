@@ -21,10 +21,11 @@ const inviteRequestSchema = z.object({
   })
 });
 
-// Schema for accepting invitation
-const acceptRequestSchema = z.object({
+// Schema for verifying/accepting invitation
+const invitationActionSchema = z.object({
   token: z.string().uuid(),
-  workspaceId: z.string().uuid()
+  workspaceId: z.string().uuid(),
+  email: z.string().email().optional()
 });
 
 // Main handler function
@@ -40,7 +41,7 @@ serve(async (req) => {
     // Get environment variables
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const APP_URL = Deno.env.get("APP_URL") || "https://anypointlp.lovable.app";
+    const APP_URL = Deno.env.get("APP_URL") || "http://localhost:3000";
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Missing Supabase environment variables");
@@ -56,529 +57,242 @@ serve(async (req) => {
 
     // Generate request ID for logging
     const requestId = crypto.randomUUID();
-    const url = new URL(req.url);
-    const path = url.pathname;
-    
-    console.log(`Request ${requestId}: Processing request for path: ${path}`);
+    console.log(`Processing request ${requestId}`);
 
-    // SENDING INVITATIONS
-    if (path.endsWith("/send")) {
-      // Parse and validate request body
-      const body = await req.json();
-      console.log(`Request ${requestId}: Received send invitation payload:`, JSON.stringify(body));
-      
+    // Parse request body
+    const body = await req.json();
+    console.log(`Request body:`, body);
+
+    // Handle sending invitation
+    if (body.type === "tool" && body.name === "send-invitation") {
       const validationResult = inviteRequestSchema.safeParse(body);
       if (!validationResult.success) {
-        console.error(`Request ${requestId} validation error:`, validationResult.error);
-        return new Response(JSON.stringify({ error: "Invalid request format" }), { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400
-        });
+        console.error(`Invalid request format:`, validationResult.error);
+        return new Response(
+          JSON.stringify({ error: "Invalid request format" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
       }
 
       const { workspaceId, email, inviterName } = validationResult.data.arguments;
 
-      // Check JWT authorization
+      // Verify JWT token
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
-        console.error(`Request ${requestId}: Missing authorization header`);
-        return new Response(JSON.stringify({ error: "Unauthorized request" }), { 
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+        );
       }
 
-      // Extract and verify JWT token
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user }, error: jwtError } = await supabase.auth.getUser(token);
-      if (jwtError || !user) {
-        console.error(`Request ${requestId}: Invalid JWT token`, jwtError);
-        return new Response(JSON.stringify({ error: "Unauthorized request" }), { 
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-
-      console.log(`Request ${requestId}: User ${user.id} is inviting ${email} to workspace ${workspaceId}`);
-
-      // Log invitation attempt
-      await supabase.from("apl_auth_logs").insert({
-        user_id: user.id,
-        action: "WORKSPACE_INVITATION",
-        device: req.headers.get("user-agent") || "Unknown",
-        ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
-        details: {
-          workspaceId,
-          invitedEmail: email,
-          requestId,
-          timestamp: new Date().toISOString()
-        }
-      });
-
-      // Get workspace details
-      const { data: workspace, error: workspaceError } = await supabase
-        .from("apl_workspaces")
-        .select("name, user_id")
-        .eq("id", workspaceId)
-        .single();
-
-      if (workspaceError || !workspace) {
-        console.error(`Request ${requestId}: Error fetching workspace:`, workspaceError);
-        return new Response(JSON.stringify({ error: "Workspace not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-
-      console.log(`Request ${requestId}: Workspace found: ${workspace.name}`);
-
-      // Check if user already exists
-      const { data: existingUsers, error: userCheckError } = await supabase.auth.admin.listUsers({
-        perPage: 1,
-        page: 1,
-        filter: { email: email }
-      });
-
-      if (userCheckError) {
-        console.error(`Request ${requestId}: Error checking user existence:`, userCheckError);
-      }
-
-      let existingUserId = null;
-      if (existingUsers && existingUsers.users && existingUsers.users.length > 0) {
-        existingUserId = existingUsers.users[0].id;
-        console.log(`Request ${requestId}: User already exists with ID: ${existingUserId}`);
-
-        // Check if user is already a member
-        if (existingUserId) {
-          const { data: membershipCheck, error: membershipError } = await supabase
-            .from("apl_workspace_members")
-            .select("id")
-            .eq("workspace_id", workspaceId)
-            .eq("user_id", existingUserId)
-            .maybeSingle();
-
-          if (membershipError) {
-            console.error(`Request ${requestId}: Error checking workspace membership:`, membershipError);
-          }
-
-          if (membershipCheck) {
-            console.log(`Request ${requestId}: User ${existingUserId} is already a member of workspace ${workspaceId}`);
-            return new Response(JSON.stringify({ error: "User is already a member of this workspace" }), {
-              status: 400,
-              headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
-          }
-        }
-      }
-
-      // Generate unique token for invitation
-      const inviteToken = crypto.randomUUID();
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       
-      // Create invitation record in database
-      const { data: inviteData, error: inviteError } = await supabase
-        .from("apl_workspace_invitations")
-        .insert([{
-          workspace_id: workspaceId,
-          email: email,
-          status: "pending",
-          created_by: user.id,
-          token: inviteToken
-        }])
-        .select("id")
-        .single();
-
-      if (inviteError) {
-        console.error(`Request ${requestId}: Error creating invitation record:`, inviteError);
-        
-        // Check if it's a unique constraint violation (already invited)
-        if (inviteError.code === "23505") {
-          return new Response(JSON.stringify({ error: "User has already been invited to this workspace" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-        }
-
-        return new Response(JSON.stringify({ error: inviteError.message || "Failed to create invitation" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: "Invalid authentication" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+        );
       }
 
-      console.log(`Request ${requestId}: Invitation record created successfully: ${inviteData?.id}`);
-
-      // Generate the appropriate invite link with token
-      const inviteLink = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}&token=${inviteToken}`;
-      console.log(`Request ${requestId}: Created invite link: ${inviteLink}`);
-
-      // Prepare email content
-      const inviterDisplay = inviterName || "A user";
-      const subject = `Invitation to join workspace "${workspace.name}"`;
-      const emailHtml = `
-        <h1>Workspace Invitation</h1>
-        <p>${inviterDisplay} has invited you to join the workspace "${workspace.name}".</p>
-        <p>Click the button below to accept the invitation:</p>
-        <p>
-          <a href="${inviteLink}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
-            Accept Invitation
-          </a>
-        </p>
-        <p>If the button doesn't work, copy and paste this URL into your browser:</p>
-        <p>${inviteLink}</p>
-        <p>This invitation will expire in 7 days.</p>
-      `;
-
-      // Send email using Nodemailer
-      try {
-        console.log(`Request ${requestId}: Attempting to send email via SMTP to ${email}`);
-        
-        // Get SMTP settings
-        const SMTP_HOSTNAME = Deno.env.get("SMTP_HOSTNAME");
-        const SMTP_PORT = Deno.env.get("SMTP_PORT");
-        const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME");
-        const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD");
-        const SMTP_FROM = Deno.env.get("SMTP_FROM") || "noreply@anypointlearningplatform.com";
-        
-        // Check if SMTP settings are available
-        if (!SMTP_HOSTNAME || !SMTP_PORT || !SMTP_USERNAME || !SMTP_PASSWORD) {
-          throw new Error("Missing SMTP configuration");
-        }
-        
-        const transport = nodemailer.createTransport({
-          host: SMTP_HOSTNAME,
-          port: Number(SMTP_PORT),
-          secure: Boolean(Deno.env.get("SMTP_SECURE") === "true"), 
-          auth: {
-            user: SMTP_USERNAME,
-            pass: SMTP_PASSWORD
-          }
-        });
-        
-        await new Promise<void>((resolve, reject) => {
-          transport.sendMail({
-            from: SMTP_FROM,
-            to: email,
-            subject: subject,
-            html: emailHtml
-          }, (error) => {
-            if (error) {
-              console.error(`Request ${requestId}: SMTP email error:`, error);
-              return reject(error);
-            }
-            console.log(`Request ${requestId}: SMTP email sent successfully to ${email}`);
-            resolve();
-          });
-        });
-
-        // Log successful invitation
-        await supabase.from("apl_auth_logs").insert({
-          user_id: user.id,
-          action: "WORKSPACE_INVITATION_SUCCESS",
-          device: req.headers.get("user-agent") || "Unknown",
-          ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
-          details: {
-            workspaceId,
-            invitedEmail: email,
-            invitationId: inviteData?.id,
-            requestId,
-            timestamp: new Date().toISOString()
-          }
-        });
-
-        return new Response(JSON.stringify({ 
-          success: true, 
-          message: "Invitation sent successfully" 
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      } catch (emailError) {
-        console.error(`Request ${requestId}: Error sending invitation email:`, emailError);
-        
-        // Log the failed email sending
-        await supabase.from("apl_auth_logs").insert({
-          user_id: user.id,
-          action: "WORKSPACE_INVITATION_EMAIL_FAILED",
-          device: req.headers.get("user-agent") || "Unknown",
-          ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
-          details: {
-            workspaceId,
-            invitedEmail: email,
-            invitationId: inviteData?.id,
-            requestId,
-            error: emailError.message,
-            timestamp: new Date().toISOString()
-          }
-        });
-
-        // Even if the email fails, we've created the invitation record
-        return new Response(JSON.stringify({
-          success: true,
-          warning: "Invitation created but email could not be sent",
-          message: "The invitation has been created, but we couldn't send the email. The user can still access it through the workspace page."
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-    } 
-    // VERIFYING INVITATIONS (used by frontend)
-    else if (path.endsWith("/verify")) {
-      const token = url.searchParams.get("token");
-      const workspaceId = url.searchParams.get("workspaceId");
-      
-      if (!token || !workspaceId) {
-        return new Response(JSON.stringify({ 
-          error: "Missing token or workspaceId parameters" 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      
-      console.log(`Request ${requestId}: Verifying invitation token: ${token} for workspace: ${workspaceId}`);
-      
-      // Check if the invitation exists and is valid
-      const { data: invitation, error: inviteError } = await supabase
-        .from("apl_workspace_invitations")
-        .select("id, email, status, expires_at, workspace_id")
-        .eq("token", token)
-        .eq("workspace_id", workspaceId)
-        .single();
-      
-      if (inviteError || !invitation) {
-        console.error(`Request ${requestId}: Invalid invitation token:`, inviteError);
-        return new Response(JSON.stringify({ 
-          error: "Invalid invitation token" 
-        }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      
-      // Check if invitation is expired
-      if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
-        console.log(`Request ${requestId}: Invitation token expired`);
-        return new Response(JSON.stringify({ 
-          error: "Invitation has expired",
-          status: "expired"
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      
-      // Check if invitation has already been used
-      if (invitation.status !== "pending") {
-        console.log(`Request ${requestId}: Invitation already ${invitation.status}`);
-        return new Response(JSON.stringify({ 
-          error: `Invitation has already been ${invitation.status}`,
-          status: invitation.status
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      
-      // Get workspace details for displaying
+      // Check if workspace exists
       const { data: workspace, error: workspaceError } = await supabase
         .from("apl_workspaces")
         .select("name")
         .eq("id", workspaceId)
         .single();
-        
-      if (workspaceError) {
-        console.error(`Request ${requestId}: Error fetching workspace details:`, workspaceError);
+
+      if (workspaceError || !workspace) {
+        return new Response(
+          JSON.stringify({ error: "Workspace not found" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        );
       }
-      
-      // Return invitation details
-      return new Response(JSON.stringify({
-        valid: true,
-        workspaceName: workspace?.name,
-        email: invitation.email,
-        workspaceId: invitation.workspace_id,
-        status: invitation.status
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-    // ACCEPTING INVITATIONS (called from frontend)
-    else if (path.endsWith("/accept")) {
-      const body = await req.json();
-      const { token, workspaceId } = body;
-      
-      if (!token || !workspaceId) {
-        return new Response(JSON.stringify({ 
-          error: "Missing token or workspaceId" 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      
-      // Check JWT authorization
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader) {
-        console.error(`Request ${requestId}: Missing authorization header`);
-        return new Response(JSON.stringify({ 
-          error: "Unauthorized request",
-          needsAuth: true
-        }), { 
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-      
-      // Extract JWT token
-      const authToken = authHeader.replace("Bearer ", "");
-      
-      // Get the current authenticated user
-      const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
-      
-      if (authError || !user) {
-        console.error(`Request ${requestId}: Invalid authentication token`, authError);
-        return new Response(JSON.stringify({ 
-          error: "Authentication failed",
-          needsAuth: true
-        }), { 
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-      
-      console.log(`Request ${requestId}: User ${user.id} is accepting invitation to workspace ${workspaceId}`);
-      
-      // Verify the token and get invitation details
-      const { data: invitation, error: inviteError } = await supabase
-        .from("apl_workspace_invitations")
-        .select("id, email, status, expires_at")
-        .eq("token", token)
-        .eq("workspace_id", workspaceId)
-        .single();
-      
-      if (inviteError || !invitation) {
-        console.error(`Request ${requestId}: Invalid or expired token`, inviteError);
-        return new Response(JSON.stringify({ 
-          error: "Invalid or expired invitation token" 
-        }), { 
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-      
-      // Check if token is expired
-      if (new Date(invitation.expires_at) < new Date()) {
-        console.error(`Request ${requestId}: Token expired`);
-        return new Response(JSON.stringify({ 
-          error: "Invitation has expired" 
-        }), { 
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-      
-      // Check if user's email matches invitation email
-      if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
-        console.error(`Request ${requestId}: Email mismatch. Invitation for ${invitation.email}, but user is ${user.email}`);
-        return new Response(JSON.stringify({ 
-          error: "This invitation was sent to a different email address",
-          details: "Please sign in with the email address that received the invitation" 
-        }), { 
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-      
+
       // Check if user is already a member
-      const { data: existingMembership, error: membershipError } = await supabase
+      const { data: membership } = await supabase
         .from("apl_workspace_members")
         .select("id")
         .eq("workspace_id", workspaceId)
         .eq("user_id", user.id)
         .maybeSingle();
-        
-      if (membershipError) {
-        console.error(`Request ${requestId}: Error checking existing membership`, membershipError);
+
+      if (membership) {
+        return new Response(
+          JSON.stringify({ error: "User is already a member of this workspace" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
       }
-      
-      if (existingMembership) {
-        console.log(`Request ${requestId}: User ${user.id} is already a member of workspace ${workspaceId}`);
-        return new Response(JSON.stringify({ 
-          success: true,
-          message: "You are already a member of this workspace",
-          alreadyMember: true 
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      
-      // Begin transaction to update invitation status and add user to workspace
-      // 1. Add user to workspace members
-      const { error: addMemberError } = await supabase
-        .from("apl_workspace_members")
+
+      // Generate invitation token
+      const inviteToken = crypto.randomUUID();
+
+      // Create invitation record
+      const { error: inviteError } = await supabase
+        .from("apl_workspace_invitations")
         .insert({
           workspace_id: workspaceId,
-          user_id: user.id,
-          role: "member" // Default role for invited members
+          email: email,
+          status: "pending",
+          created_by: user.id,
+          token: inviteToken
         });
-        
-      if (addMemberError) {
-        console.error(`Request ${requestId}: Failed to add user to workspace`, addMemberError);
-        return new Response(JSON.stringify({ 
-          error: "Failed to add user to workspace" 
-        }), { 
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+
+      if (inviteError) {
+        console.error("Error creating invitation:", inviteError);
+        return new Response(
+          JSON.stringify({ error: "Failed to create invitation" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+
+      // Send email
+      try {
+        const transport = nodemailer.createTransport({
+          host: Deno.env.get("SMTP_HOSTNAME"),
+          port: Number(Deno.env.get("SMTP_PORT")),
+          secure: Boolean(Deno.env.get("SMTP_SECURE") === "true"),
+          auth: {
+            user: Deno.env.get("SMTP_USERNAME"),
+            pass: Deno.env.get("SMTP_PASSWORD")
+          }
         });
-      }
-      
-      // 2. Update invitation status to accepted
-      const { error: updateInviteError } = await supabase
-        .from("apl_workspace_invitations")
-        .update({
-          status: "accepted",
-          accepted_at: new Date().toISOString(),
-          accepted_by: user.id
-        })
-        .eq("id", invitation.id);
+
+        const inviteUrl = `${APP_URL}/workspace/accept-invitation?workspaceId=${workspaceId}&token=${inviteToken}`;
         
-      if (updateInviteError) {
-        console.error(`Request ${requestId}: Failed to update invitation status`, updateInviteError);
-        // Don't return error here since the user was already added to the workspace
+        await transport.sendMail({
+          from: Deno.env.get("SMTP_FROM") || "noreply@example.com",
+          to: email,
+          subject: `Invitation to join workspace "${workspace.name}"`,
+          html: `
+            <h1>Workspace Invitation</h1>
+            <p>${inviterName || "Someone"} has invited you to join the workspace "${workspace.name}"</p>
+            <p><a href="${inviteUrl}">Click here to accept the invitation</a></p>
+          `
+        });
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (emailError) {
+        console.error("Error sending email:", emailError);
+        return new Response(
+          JSON.stringify({ error: "Failed to send invitation email" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
       }
-      
-      // Log the successful invitation acceptance
-      await supabase.from("apl_auth_logs").insert({
-        user_id: user.id,
-        action: "WORKSPACE_INVITATION_ACCEPTED",
-        details: JSON.stringify({
-          workspaceId,
-          requestId,
-          timestamp: new Date().toISOString()
-        })
-      });
-      
-      // Return success response
-      return new Response(JSON.stringify({
-        success: true,
-        message: "You have successfully joined the workspace",
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
+    } 
+    // Handle verifying/accepting invitation
     else {
-      // Invalid endpoint
-      return new Response(JSON.stringify({ 
-        error: "Invalid endpoint. Use /send, /verify, or /accept" 
-      }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      const validationResult = invitationActionSchema.safeParse(body);
+      if (!validationResult.success) {
+        return new Response(
+          JSON.stringify({ error: "Invalid request format" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+
+      const { token, workspaceId, email } = validationResult.data;
+
+      // Get invitation details
+      const { data: invitation, error: inviteError } = await supabase
+        .from("apl_workspace_invitations")
+        .select("*")
+        .eq("token", token)
+        .eq("workspace_id", workspaceId)
+        .single();
+
+      if (inviteError || !invitation) {
+        return new Response(
+          JSON.stringify({ error: "Invalid invitation" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        );
+      }
+
+      // Verify JWT token if accepting invitation
+      if (email) {
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+          );
+        }
+
+        const jwtToken = authHeader.replace("Bearer ", "");
+        const { data: { user }, error: authError } = await supabase.auth.getUser(jwtToken);
+        
+        if (authError || !user || user.email !== email) {
+          return new Response(
+            JSON.stringify({ error: "Invalid authentication" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+          );
+        }
+
+        // Check if already a member
+        const { data: existingMember } = await supabase
+          .from("apl_workspace_members")
+          .select()
+          .eq("workspace_id", workspaceId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (existingMember) {
+          return new Response(
+            JSON.stringify({ alreadyMember: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Add to workspace
+        const { error: memberError } = await supabase
+          .from("apl_workspace_members")
+          .insert({
+            workspace_id: workspaceId,
+            user_id: user.id,
+            role: "member"
+          });
+
+        if (memberError) {
+          console.error("Error adding member:", memberError);
+          return new Response(
+            JSON.stringify({ error: "Failed to add member to workspace" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+          );
+        }
+
+        // Update invitation status
+        await supabase
+          .from("apl_workspace_invitations")
+          .update({
+            status: "accepted",
+            accepted_at: new Date().toISOString(),
+            accepted_by: user.id
+          })
+          .eq("id", invitation.id);
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Just verifying invitation
+      return new Response(
+        JSON.stringify({
+          valid: true,
+          email: invitation.email,
+          status: invitation.status
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
   } catch (error) {
-    console.error("Error in workspace invitation function:", error);
-    return new Response(JSON.stringify({ 
-      error: error.message || "An unexpected error occurred" 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    console.error("Unexpected error:", error);
+    return new Response(
+      JSON.stringify({ error: "An unexpected error occurred" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+    );
   }
 });
