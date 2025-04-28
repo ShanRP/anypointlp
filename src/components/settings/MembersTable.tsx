@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MoreVertical, UserPlus, AlertTriangle, Shield } from 'lucide-react';
@@ -18,11 +17,12 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from '@/components/ui/pagination';
-import { paginatedQuery, logAuditEvent } from '@/utils/supabaseOptimizer';
+import { logAuditEvent } from '@/utils/supabaseOptimizer';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Member {
   id: number;
@@ -49,13 +49,11 @@ export const MembersTable: React.FC = () => {
     
     setLoading(true);
     try {
-      // Optimized query using paginatedQuery utility
-      const { data, count, pageCount, error } = await paginatedQuery(
-        'apl_workspace_members',
-        'id, user_id, role, created_at',
-        page,
-        pageSize
-      );
+      // Query workspace members directly
+      const { data, count, error } = await supabase
+        .from('apl_workspace_members')
+        .select('id, user_id, role, created_at', { count: 'exact' })
+        .range((page - 1) * pageSize, page * pageSize - 1);
       
       if (error) {
         throw error;
@@ -71,14 +69,14 @@ export const MembersTable: React.FC = () => {
       // Simulate data transformation - in a real app you would process the actual data
       const mappedData = data ? data.map((item: any) => ({
         id: item.id,
-        name: 'User ' + item.id.substring(0, 4),
-        email: `user${item.id.substring(0, 4)}@example.com`,
+        name: 'User ' + (item.user_id?.substring(0, 4) || 'unknown'),
+        email: `user${item.user_id?.substring(0, 4) || 'unknown'}@example.com`,
         role: item.role || 'Member',
         lastActive: new Date(item.created_at).toLocaleString()
       })) : members;
       
       setMembers(mappedData);
-      setTotalPages(pageCount || 1);
+      setTotalPages(Math.ceil((count || 0) / pageSize) || 1);
     } catch (error) {
       console.error('Error fetching members:', error);
       toast({
@@ -89,7 +87,7 @@ export const MembersTable: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, members, toast]);
+  }, [user, members, toast, pageSize]);
   
   // Load members on initial render and page change
   useEffect(() => {

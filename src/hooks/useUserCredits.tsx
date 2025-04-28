@@ -4,11 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
+export interface UserCredits {
+  credits_used: number;
+  credits_limit: number;
+  is_pro: boolean;
+  reset_date: string;
+}
+
 export function useUserCredits() {
   const [credits, setCredits] = useState<number>(0);
   const [creditsLimit, setCreditsLimit] = useState<number>(3);
   const [isPro, setIsPro] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState<boolean>(false);
   const { user } = useAuth();
 
   const fetchUserCredits = useCallback(async () => {
@@ -37,7 +45,7 @@ export function useUserCredits() {
             credits_used: 0,
             credits_limit: 3,
             is_pro: false,
-            reset_date: new Date(new Date().setDate(new Date().getDate() + 1))
+            reset_date: new Date().toISOString() // Convert Date to ISO string
           })
           .select()
           .single();
@@ -89,6 +97,11 @@ export function useUserCredits() {
     }
   };
 
+  // Add refreshCredits function
+  const refreshCredits = () => {
+    fetchUserCredits();
+  };
+
   return {
     credits,
     creditsLimit,
@@ -96,6 +109,9 @@ export function useUserCredits() {
     loading,
     useCredit,
     fetchUserCredits,
-    creditsRemaining: creditsLimit - credits
+    refreshCredits,
+    creditsRemaining: creditsLimit - credits,
+    showUpgradeDialog,
+    setShowUpgradeDialog
   };
 }

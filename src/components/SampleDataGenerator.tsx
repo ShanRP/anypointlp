@@ -1,5 +1,5 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, RefreshCw, Copy, FolderTree, Upload, Folder, File, Check, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
@@ -18,7 +18,7 @@ import { FileNode, isFileOfType, pathExistsInFileStructure, getNodeByPath } from
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { sampleDataGeneratorPrompt } from '@/prompts/sampleDataPrompts';
-
+import { useUserCredits } from '@/hooks/useUserCredits';
 
 type GenerationType = 'JSON' | 'XML' | 'CSV' | 'YAML';
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
