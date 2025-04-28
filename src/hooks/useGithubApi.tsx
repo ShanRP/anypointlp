@@ -68,7 +68,7 @@ export function useGithubApi(): UseGithubApiReturn {
       return repos;
     } catch (error: any) {
       console.error('Error fetching repositories:', error);
-      toast.error(`Failed to load repositories: ${error.message}`);
+      // toast.error(`Failed to load repositories: ${error.message}`);
       return [];
     } finally {
       setLoadingRepositories(false);
@@ -105,7 +105,7 @@ export function useGithubApi(): UseGithubApiReturn {
       return structure;
     } catch (error: any) {
       console.error('Error fetching file structure:', error);
-      toast.error(`Failed to load repository structure: ${error.message}`);
+      // toast.error(`Failed to load repository structure: ${error.message}`);
       return [];
     } finally {
       setLoadingFileStructure(false);
@@ -125,7 +125,7 @@ export function useGithubApi(): UseGithubApiReturn {
       return content;
     } catch (error: any) {
       console.error('Error fetching file content:', error);
-      toast.error(`Failed to fetch file content: ${error.message}`);
+      // toast.error(`Failed to fetch file content: ${error.message}`);
       return null;
     }
   }, []);

@@ -175,7 +175,7 @@ export function useJobBoard() {
       return data as JobPost;
     } catch (error) {
       console.error("Error creating job post:", error);
-      toast.error("Failed to create job post");
+      // toast.error("Failed to create job post");
       return null;
     }
   };
@@ -195,7 +195,7 @@ export function useJobBoard() {
       return true;
     } catch (error) {
       console.error("Error updating post status:", error);
-      toast.error("Failed to update status");
+      // toast.error("Failed to update status");
       return false;
     }
   };

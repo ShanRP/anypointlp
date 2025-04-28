@@ -60,7 +60,7 @@ export function useMUnitRepositoryData() {
         setFiles(fileStructure);
       } catch (error) {
         console.error('Error fetching branches:', error);
-        toast.error('Failed to fetch repository branches');
+        // toast.error('Failed to fetch repository branches');
       } finally {
         setLoading(false);
       }
@@ -87,7 +87,7 @@ export function useMUnitRepositoryData() {
         }
       } catch (error) {
         console.error('Error fetching file content:', error);
-        toast.error('Failed to fetch file content');
+        // toast.error('Failed to fetch file content');
       } finally {
         setLoading(false);
       }

@@ -336,7 +336,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } catch (err: any) {
       console.error('Error fetching workspace tasks:', err);
       setError(err.message);
-      toast.error('Failed to load tasks');
+      // toast.error('Failed to load tasks');
     } finally {
       setLoading(false);
     }
@@ -836,12 +836,12 @@ export const useWorkspaceTasks = (workspaceId: string) => {
         console.log('Found task in regular tasks table');
       } else {
         setSelectedTask(null);
-        toast.warning('Task not found');
+        // toast.warning('Task not found');
       }
     } catch (err: any) {
       console.error('Error fetching task details:', err);
       setError(err.message);
-      toast.error('Failed to load task details');
+      // toast.error('Failed to load task details');
     } finally {
       setLoading(false);
     }
@@ -878,7 +878,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       return data;
     } catch (error: any) {
       console.error('Error saving document task:', error);
-      toast.error('Failed to save document task');
+      // toast.error('Failed to save document task');
       throw error;
     }
   };
@@ -914,7 +914,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       return data;
     } catch (error: any) {
       console.error('Error saving diagram task:', error);
-      toast.error('Failed to save diagram task');
+      // toast.error('Failed to save diagram task');
       throw error;
     }
   };
@@ -946,7 +946,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       return data;
     } catch (error: any) {
       console.error('Error in saveSampleDataTask:', error);
-      toast.error('Failed to save sample data task');
+      // toast.error('Failed to save sample data task');
       throw error;
     }
   };
@@ -984,7 +984,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       return data;
     } catch (error: any) {
       console.error('Error in saveRamlTask:', error);
-      toast.error('Failed to save RAML task');
+      // toast.error('Failed to save RAML task');
       throw error;
     }
   };
@@ -1019,7 +1019,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       return data;
     } catch (error: any) {
       console.error('Error in saveMunitTask:', error);
-      toast.error('Failed to save MUnit task');
+      // toast.error('Failed to save MUnit task');
       throw error;
     }
   };
@@ -1094,7 +1094,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       return data;
     } catch (error: any) {
       console.error('Error fetching task details:', error);
-      toast.error('Failed to fetch task details');
+      // toast.error('Failed to fetch task details');
       return null;
     }
   };
@@ -1162,7 +1162,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
     } catch (err: any) {
       console.error('Error fetching workspace tasks:', err);
       setError(err.message);
-      toast.error('Failed to load tasks');
+      // toast.error('Failed to load tasks');
     } finally {
       setLoading(false);
     }
@@ -1234,7 +1234,7 @@ export const useWorkspaceTasks = (workspaceId: string) => {
       await fetchTasks();
     } catch (error: any) {
       console.error('Error deleting task:', error);
-      toast.error('Failed to delete task');
+      // toast.error('Failed to delete task');
       throw error;
     }
   }, [workspaceId, fetchTasks, tasks]);

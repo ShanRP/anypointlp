@@ -107,7 +107,7 @@ export const useWorkspaces = () => {
       setFetchComplete(true);
     } catch (error) {
       console.error('Error fetching workspaces:', error);
-      toast.error('Failed to load workspaces');
+      // toast.error('Failed to load workspaces');
     } finally {
       setLoading(false);
     }
@@ -177,7 +177,7 @@ export const useWorkspaces = () => {
       return newWorkspace;
     } catch (error) {
       console.error('Error creating workspace:', error);
-      toast.error('Failed to create workspace');
+      // toast.error('Failed to create workspace');
       return null;
     }
   };
@@ -216,7 +216,7 @@ export const useWorkspaces = () => {
       return true;
     } catch (error) {
       console.error('Error updating workspace:', error);
-      toast.error('Failed to update workspace');
+      // toast.error('Failed to update workspace');
       return false;
     }
   };
@@ -227,7 +227,7 @@ export const useWorkspaces = () => {
     try {
       // Don't allow deletion if it's the only workspace
       if (workspaces.length <= 1) {
-        toast.error('Cannot delete the only workspace. Please create another workspace first.');
+        // toast.error('Cannot delete the only workspace. Please create another workspace first.');
         return false;
       }
 
@@ -255,7 +255,7 @@ export const useWorkspaces = () => {
       return true;
     } catch (error) {
       console.error('Error deleting workspace:', error);
-      toast.error('Failed to delete workspace');
+      // toast.error('Failed to delete workspace');
       return false;
     }
   };
