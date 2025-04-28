@@ -204,11 +204,13 @@ serve(async (req) => {
     await supabase.from("apl_auth_logs").insert({
       user_id: user.id,
       action: "WORKSPACE_INVITATION_ACCEPTED",
-      details: JSON.stringify({
+      device: req.headers.get("user-agent") || "Unknown",
+      ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
+      details: {
         workspaceId,
         requestId,
         timestamp: new Date().toISOString()
-      })
+      }
     });
     
     // Return success response

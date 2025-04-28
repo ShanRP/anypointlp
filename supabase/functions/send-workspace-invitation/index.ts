@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as z from "https://deno.land/x/zod@v3.21.4/mod.ts";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 // Set up CORS headers for browser requests
 const corsHeaders = {
@@ -33,8 +34,20 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const APP_URL = Deno.env.get("APP_URL") || "https://app.anypointlearningplatform.com";
 
+    // Setup SMTP environment variables
+    const SMTP_HOSTNAME = Deno.env.get("SMTP_HOSTNAME");
+    const SMTP_PORT = Deno.env.get("SMTP_PORT");
+    const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME");
+    const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD");
+    const SMTP_FROM = Deno.env.get("SMTP_FROM") || "noreply@anypointlearningplatform.com";
+    const SMTP_SECURE = Deno.env.get("SMTP_SECURE") === "true";
+
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Missing Supabase environment variables");
+    }
+
+    if (!SMTP_HOSTNAME || !SMTP_PORT || !SMTP_USERNAME || !SMTP_PASSWORD) {
+      console.warn("SMTP environment variables are not fully configured");
     }
 
     // Create Supabase admin client
@@ -262,54 +275,67 @@ serve(async (req) => {
     `;
 
     try {
-      // Always use Supabase Auth Email to send invitation as that's more reliable in Deno environment
-      console.log(`Request ${requestId}: Sending invitation via Supabase Auth Email to: ${email}`);
-      
-      const { data, error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: inviteLink,
-        data: {
-          workspace_id: workspaceId,
-          workspace_name: workspace.name,
-          invitation_token: invitationToken,
-          inviter_name: inviterDisplay,
-        },
-      });
-
-      if (emailError) {
-        throw emailError;
-      }
-      
-      console.log(`Request ${requestId}: Invitation email sent successfully to: ${email}`);
-      
-      // Log successful invitation for audit
-      await supabase.from("apl_auth_logs").insert({
-        user_id: user.id,
-        action: "WORKSPACE_INVITATION_SUCCESS",
-        device: req.headers.get("user-agent") || "Unknown",
-        ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
-        details: {
-          workspaceId,
-          invitedEmail: email,
-          invitationId: inviteData?.id,
-          requestId,
-          timestamp: new Date().toISOString()
-        }
-      });
-
-      return new Response(
-        JSON.stringify({
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: true,
-                message: "Invitation sent successfully",
-              }),
+      // Send email via Denomailer SMTP client
+      if (SMTP_HOSTNAME && SMTP_PORT && SMTP_USERNAME && SMTP_PASSWORD) {
+        console.log(`Request ${requestId}: Attempting to send email via SMTP to ${email}`);
+        
+        // Configure the SMTP client with the given settings
+        const client = new SMTPClient({
+          connection: {
+            hostname: SMTP_HOSTNAME,
+            port: Number(SMTP_PORT),
+            tls: SMTP_SECURE,
+            auth: {
+              username: SMTP_USERNAME,
+              password: SMTP_PASSWORD,
             },
-          ],
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+          },
+        });
+
+        // Send the email
+        await client.send({
+          from: SMTP_FROM,
+          to: email,
+          subject: subject,
+          html: emailHtml,
+        });
+
+        await client.close();
+        
+        console.log(`Request ${requestId}: Email sent successfully to: ${email}`);
+        
+        // Log successful invitation for audit
+        await supabase.from("apl_auth_logs").insert({
+          user_id: user.id,
+          action: "WORKSPACE_INVITATION_SUCCESS",
+          device: req.headers.get("user-agent") || "Unknown",
+          ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "Unknown",
+          details: {
+            workspaceId,
+            invitedEmail: email,
+            invitationId: inviteData?.id,
+            requestId,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        return new Response(
+          JSON.stringify({
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  success: true,
+                  message: "Invitation sent successfully",
+                }),
+              },
+            ],
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } else {
+        throw new Error("SMTP configuration is incomplete");
+      }
     } catch (emailError) {
       console.error(`Request ${requestId}: Error sending invitation email:`, emailError);
       
