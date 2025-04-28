@@ -748,7 +748,6 @@ export type Database = {
           expires_at: string | null
           id: string
           status: string
-          token: string | null
           workspace_id: string
         }
         Insert: {
@@ -760,7 +759,6 @@ export type Database = {
           expires_at?: string | null
           id?: string
           status: string
-          token?: string | null
           workspace_id: string
         }
         Update: {
@@ -772,7 +770,6 @@ export type Database = {
           expires_at?: string | null
           id?: string
           status?: string
-          token?: string | null
           workspace_id?: string
         }
         Relationships: [

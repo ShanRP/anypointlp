@@ -1,16 +1,60 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { toast } from 'sonner';
+
+// Function to get invitation details
+const getInvitationDetails = async (token: string, workspaceId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("apl_invitation_tokens")
+      .select("invitation_id, workspace_id, email, expires_at")
+      .eq("token", token)
+      .eq("workspace_id", workspaceId)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching invitation token:', error);
+      return { data: null, error };
+    }
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error in getInvitationDetails:', error);
+    return { data: null, error };
+  }
+};
+
+// Function to accept workspace invitation
+const acceptWorkspaceInvitation = async (workspaceId: string, token: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('accept-workspace-invitation', {
+      method: 'POST',
+      body: { workspaceId, token }
+    });
+    
+    if (error) {
+      console.error('Error accepting invitation:', error);
+      return { data: null, error };
+    }
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error in acceptWorkspaceInvitation:', error);
+    return { data: null, error: error };
+  }
+};
 
 const AcceptInvitation = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { user, session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +67,7 @@ const AcceptInvitation = () => {
   const token = searchParams.get('token');
 
   useEffect(() => {
-    const verifyInvitation = async () => {
+    const checkInvitation = async () => {
       if (!workspaceId || !token) {
         setError('Invalid invitation link. Missing workspace ID or token.');
         setLoading(false);
@@ -31,29 +75,44 @@ const AcceptInvitation = () => {
       }
 
       try {
-        // Verify the invitation using our edge function
-        const { data, error } = await supabase.functions.invoke('workspace_invitation', {
-          body: { token, workspaceId }
-        });
+        // First, check if the workspace exists
+        const { data: workspace, error: workspaceError } = await supabase
+          .from('apl_workspaces')
+          .select('name')
+          .eq('id', workspaceId)
+          .single();
 
-        if (error) {
-          console.error('Error verifying invitation:', error);
-          setError('Failed to verify the invitation. It may be invalid or expired.');
+        if (workspaceError || !workspace) {
+          console.error('Error fetching workspace:', workspaceError);
+          setError('Workspace not found. The invitation link may be invalid.');
           setLoading(false);
           return;
         }
 
-        if (!data.valid) {
-          setError(data.error || 'The invitation is invalid or has expired.');
+        setWorkspaceName(workspace.name);
+        
+        // Check if the token exists and is valid
+        const result = await getInvitationDetails(token, workspaceId);
+        
+        if (result.error || !result.data) {
+          console.error('Error validating invitation token:', result.error);
+          setError('The invitation token is invalid or has expired.');
           setLoading(false);
           return;
         }
-
-        setWorkspaceName(data.workspaceName || 'Unnamed workspace');
+        
+        const tokenData = result.data;
+        
+        // Check if token is expired
+        if (new Date(tokenData.expires_at) < new Date()) {
+          setError('This invitation has expired. Please request a new invitation.');
+          setLoading(false);
+          return;
+        }
         
         // If user is logged in, check if their email matches the invitation
-        if (user && user.email && data.email && data.email.toLowerCase() !== user.email.toLowerCase()) {
-          setError(`This invitation was sent to ${data.email}. Please sign in with that email address.`);
+        if (user && user.email && tokenData.email.toLowerCase() !== user.email.toLowerCase()) {
+          setError(`This invitation was sent to ${tokenData.email}. Please sign in with that email address.`);
           setLoading(false);
           return;
         }
@@ -67,7 +126,7 @@ const AcceptInvitation = () => {
       }
     };
 
-    verifyInvitation();
+    checkInvitation();
   }, [workspaceId, token, user]);
 
   const handleAcceptInvitation = async () => {
@@ -81,29 +140,29 @@ const AcceptInvitation = () => {
       if (!user || !session) {
         // If not authenticated, redirect to auth page with return URL
         const returnUrl = `/workspace/accept-invitation?workspaceId=${workspaceId}&token=${token}`;
-        navigate('/auth', { 
+        navigate(`/auth`, { 
           state: { returnUrl }
         });
         return;
       }
       
       // User is authenticated, proceed with accepting invitation
-      const { data, error } = await supabase.functions.invoke('workspace_invitation', {
-        body: { 
-          token,
-          workspaceId,
-          email: user.email
-        }
-      });
+      const { data, error } = await acceptWorkspaceInvitation(workspaceId, token);
       
-      if (error || (data && data.error)) {
-        throw new Error(data?.error || error?.message || 'Failed to accept invitation');
+      if (error) {
+        throw new Error(error.message || 'Failed to accept invitation');
       }
       
       if (data.alreadyMember) {
-        toast.info("You are already a member of this workspace.");
+        toast({
+          title: "Already a member",
+          description: "You are already a member of this workspace."
+        });
       } else {
-        toast.success("You have successfully joined the workspace.");
+        toast({
+          title: "Success",
+          description: "You have successfully joined the workspace."
+        });
       }
       
       setSuccess(true);
@@ -115,7 +174,11 @@ const AcceptInvitation = () => {
     } catch (error: any) {
       console.error('Error accepting invitation:', error);
       setError(error.message || 'Failed to accept invitation');
-      toast.error(error.message || 'Failed to accept invitation');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || 'Failed to accept invitation'
+      });
     } finally {
       setProcessingAcceptance(false);
     }
@@ -172,6 +235,9 @@ const AcceptInvitation = () => {
                 <p className="text-gray-600 mb-6">
                   You have successfully joined the workspace. Redirecting to dashboard...
                 </p>
+                <Button onClick={() => navigate('/dashboard')} variant="outline">
+                  Go to Dashboard Now
+                </Button>
               </motion.div>
             ) : (
               <motion.div

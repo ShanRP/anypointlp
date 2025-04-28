@@ -25,6 +25,8 @@ const WorkspaceInvite = () => {
       }
 
       try {
+        console.log('Checking workspace with ID:', workspaceId);
+        
         // First check if the workspace exists
         const { data: workspaceData, error: workspaceError } = await supabase
           .from('apl_workspaces')
@@ -32,21 +34,35 @@ const WorkspaceInvite = () => {
           .eq('id', workspaceId)
           .single();
 
-        if (workspaceError || !workspaceData) {
+        console.log('Workspace query result:', { workspaceData, workspaceError });
+
+        if (workspaceError) {
+          console.error('Error fetching workspace:', workspaceError);
           setError('Workspace not found or invitation link is invalid');
           setLoading(false);
           return;
         }
 
+        if (!workspaceData) {
+          console.error('No workspace data found');
+          setError('Workspace not found or invitation link is invalid');
+          setLoading(false);
+          return;
+        }
+
+        console.log('Found workspace:', workspaceData);
         setWorkspace(workspaceData);
 
         // If user is logged in, check if they're already a member
         if (user) {
+          console.log('User is logged in, checking membership');
           const { data: memberData, error: memberError } = await supabase
             .from('apl_workspace_members')
             .select('*')
             .eq('workspace_id', workspaceId)
             .eq('user_id', user.id);
+
+          console.log('Membership check result:', { memberData, memberError });
 
           if (memberError) {
             console.error('Error checking membership:', memberError);
@@ -54,13 +70,20 @@ const WorkspaceInvite = () => {
 
           if (memberData && memberData.length > 0) {
             // User is already a member, redirect to dashboard
+            console.log('User is already a member');
             toast.info('You are already a member of this workspace');
             navigate('/dashboard');
             return;
           }
+
+          // User is not a member, they can join
+          console.log('User is not a member, can join');
+          setLoading(false);
+        } else {
+          // User is not logged in, they need to authenticate
+          console.log('User is not logged in');
+          setLoading(false);
         }
-        
-        setLoading(false);
       } catch (err) {
         console.error('Error checking workspace:', err);
         setError('Failed to verify workspace invitation');
@@ -71,8 +94,9 @@ const WorkspaceInvite = () => {
     checkWorkspace();
   }, [workspaceId, user, navigate]);
 
+  // This function now uses the proper invitation process
   const handleJoinWorkspace = async () => {
-    if (!user) {
+    if (!user || !workspaceId) {
       // Redirect to auth with return URL
       const redirectPath = `/invite/${workspaceId}`;
       navigate(`/auth?redirect=${encodeURIComponent(redirectPath)}`);
@@ -81,39 +105,40 @@ const WorkspaceInvite = () => {
 
     setLoading(true);
     try {
-      // Create a request to invite the user to the workspace
-      const { data, error } = await supabase.functions.invoke('workspace_invitation', {
+      console.log('Requesting invitation for workspace', { workspaceId, userId: user.id });
+      
+      // Request an invitation to be sent to the user's email
+      const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
         body: {
           type: "tool",
           name: "send-invitation",
           arguments: {
-            workspaceId,
+            workspaceId: workspaceId,
             email: user.email,
-            inviterName: "System" // Since this is a direct join
+            inviterName: "Self-join"
           }
         }
       });
-      
-      if (error || (data && data.error)) {
-        const errorMsg = (data && data.error) || error?.message || 'Failed to join workspace';
-        throw new Error(errorMsg);
-      }
-      
-      // Add user as member directly
-      const { error: insertError } = await supabase
-        .from('apl_workspace_members')
-        .insert({
-          workspace_id: workspaceId,
-          user_id: user.id,
-          role: 'member'
-        });
 
-      if (insertError) {
-        console.error('Error joining workspace:', insertError);
-        throw insertError;
+      if (error) {
+        console.error('Error requesting invitation:', error);
+        throw error;
       }
 
-      toast.success('Successfully joined workspace!');
+      const responseContent = JSON.parse(data.content[0].text);
+      
+      if (responseContent.error) {
+        // If the user is already a member, just redirect them
+        if (responseContent.error.includes("already a member")) {
+          toast.info("You are already a member of this workspace");
+          navigate('/dashboard');
+          return;
+        }
+        throw new Error(responseContent.error);
+      }
+      
+      console.log('Successfully requested invitation:', responseContent);
+      toast.success('Invitation sent to your email. Check your inbox.');
       navigate('/dashboard');
     } catch (err: any) {
       console.error('Error joining workspace:', err);
@@ -173,24 +198,15 @@ const WorkspaceInvite = () => {
           
           <Button 
             onClick={handleJoinWorkspace} 
-            disabled={loading}
             className="w-full"
           >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              user ? 'Join Workspace' : 'Sign in to Join Workspace'
-            )}
+            {user ? 'Join Workspace' : 'Sign in to Join Workspace'}
           </Button>
           
           <Button 
             variant="outline" 
             onClick={() => navigate('/')} 
             className="w-full mt-4"
-            disabled={loading}
           >
             Cancel
           </Button>
