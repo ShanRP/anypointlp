@@ -6,7 +6,7 @@ import { debounce } from 'lodash';
  * Utility functions to optimize Supabase queries and reduce egress usage
  */
 
-type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 'apl_user_credits' | 'apl_auth_logs';
+type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 'apl_user_credits' | 'apl_auth_logs' | 'apl_invitation_tokens';
 
 interface CacheEntry<T> {
   data: T;
@@ -174,4 +174,67 @@ export const generateSecureRequestSignature = (payload: any): string => {
 
   // Concatenate timestamp and requestId to create a unique signature
   return `${timestamp}.${requestId}`;
+};
+
+/**
+ * Verify if a user has permission to access a specific workspace
+ * @param workspaceId The workspace to check
+ * @param userId The user ID to verify
+ */
+export const verifyWorkspaceAccess = async (workspaceId: string, userId: string): Promise<boolean> => {
+  const cacheKey = `workspace-access-${workspaceId}-${userId}`;
+  
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
+  }
+  
+  // Check if user is the owner or a member
+  const { data: membership, error } = await supabase
+    .from('apl_workspace_members')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .maybeSingle();
+    
+  const hasAccess = !!membership;
+  queryCache.set(cacheKey, { data: hasAccess, timestamp: Date.now() });
+  
+  return hasAccess;
+};
+
+/**
+ * Get invitation details
+ * @param token The invitation token
+ */
+export const getInvitationDetails = async (token: string, workspaceId: string) => {
+  const cacheKey = `invitation-${token}-${workspaceId}`;
+  
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
+  }
+  
+  const { data, error } = await supabase
+    .from('apl_invitation_tokens')
+    .select('invitation_id, workspace_id, email, expires_at')
+    .eq('token', token)
+    .eq('workspace_id', workspaceId)
+    .single();
+    
+  const result = { data, error };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  
+  return result;
+};
+
+/**
+ * Accept a workspace invitation
+ * @param workspaceId The workspace ID
+ * @param token The invitation token
+ * @param userId The user accepting the invitation
+ */
+export const acceptWorkspaceInvitation = async (workspaceId: string, token: string) => {
+  return await supabase.functions.invoke('accept-workspace-invitation', {
+    method: 'POST',
+    body: { workspaceId, token }
+  });
 };

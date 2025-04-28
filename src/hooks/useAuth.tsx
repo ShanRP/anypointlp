@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User, Provider } from '@supabase/supabase-js';
@@ -129,6 +128,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               await logAuthEvent(session.user.id, 'SIGN IN');
               sessionCache.current = [];
               sessionCacheTime.current = 0;
+              
+              // Check for pending invitation
+              const pendingInviteUrl = localStorage.getItem('pendingInviteUrl');
+              if (pendingInviteUrl) {
+                // Clear the stored invitation
+                localStorage.removeItem('pendingInviteUrl');
+                // Redirect to the invitation URL
+                window.location.href = pendingInviteUrl;
+              }
             } catch (error) {
               console.error("Error handling sign in:", error);
             }
