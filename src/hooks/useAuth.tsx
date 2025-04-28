@@ -94,55 +94,60 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [session, lastActivity]);
 
   useEffect(() => {
-    const fetchSession = async () => {
+    const setupAuth = async () => {
+      setLoading(true);
       try {
+        // First set up the auth state change listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log("Auth state changed:", event, session?.user?.email);
+            setSession(session);
+            setUser(session?.user ?? null);
+            
+            if (event === 'SIGNED_IN' && session?.user) {
+              // Update last activity on sign in
+              updateLastActivity();
+              
+              try {
+                await logAuthEvent(session.user.id, 'SIGN IN');
+                sessionCache.current = [];
+                sessionCacheTime.current = 0;
+              } catch (error) {
+                console.error("Error handling sign in:", error);
+              }
+            } else if (event === 'SIGNED_OUT' && user) {
+              await logAuthEvent(user.id, 'SIGN OUT');
+            }
+          }
+        );
+
+        // Then check for an existing session
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
         
         // If session exists, update last activity
         if (session) {
           updateLastActivity();
         }
-      } catch (error) {
-        console.error("Error fetching session:", error);
-        setLoading(false);
-      }
-    };
-
-    fetchSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.email);
-        setSession(session);
-        setUser(session?.user ?? null);
+        
         setLoading(false);
         
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Update last activity on sign in
-          updateLastActivity();
-          
-          setTimeout(async () => {
-            try {
-              await logAuthEvent(session.user.id, 'SIGN IN');
-              sessionCache.current = [];
-              sessionCacheTime.current = 0;
-            } catch (error) {
-              console.error("Error handling sign in:", error);
-            }
-          }, 0);
-        } else if (event === 'SIGNED_OUT' && user) {
-          logAuthEvent(user.id, 'SIGN OUT');
-        }
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error("Error setting up auth:", error);
+        setLoading(false);
+        return () => {};
       }
-    );
-
-    return () => {
-      subscription.unsubscribe();
     };
-  }, [user]);
+
+    const cleanup = setupAuth();
+    return () => {
+      cleanup.then(unsubscribe => unsubscribe && unsubscribe());
+    };
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -215,6 +220,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await logAuthEvent(user.id, 'SIGN OUT');
       }
       await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
     } catch (error) {
       console.error("Error signing out:", error);
     }

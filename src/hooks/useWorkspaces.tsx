@@ -43,13 +43,13 @@ export const useWorkspaces = () => {
         
         setWorkspaces(cachedWorkspaces);
         
-        if (!selectedWorkspace) {
+        if (!selectedWorkspace && cachedWorkspaces.length > 0) {
           setSelectedWorkspace(cachedWorkspaces[0]);
-        } else {
+        } else if (selectedWorkspace) {
           const updatedSelected = cachedWorkspaces.find(w => w.id === selectedWorkspace.id);
           if (updatedSelected) {
             setSelectedWorkspace(updatedSelected);
-          } else {
+          } else if (cachedWorkspaces.length > 0) {
             setSelectedWorkspace(cachedWorkspaces[0]);
           }
         }
@@ -86,28 +86,37 @@ export const useWorkspaces = () => {
         setCache(prev => ({...prev, [cacheKey]: cachedWorkspaces}));
 
         // Set selected workspace if not already set or update it if it exists
-        if (!selectedWorkspace) {
+        if (!selectedWorkspace && formattedWorkspaces.length > 0) {
           setSelectedWorkspace(formattedWorkspaces[0]);
-        } else {
+        } else if (selectedWorkspace) {
           // Find and update the currently selected workspace with fresh data
           const updatedSelected = formattedWorkspaces.find(w => w.id === selectedWorkspace.id);
           if (updatedSelected) {
             setSelectedWorkspace(updatedSelected);
-          } else {
+          } else if (formattedWorkspaces.length > 0) {
             // If previously selected workspace doesn't exist anymore, select first one
             setSelectedWorkspace(formattedWorkspaces[0]);
           }
         }
       } else {
-        // If no workspaces, set empty array
-        setWorkspaces([]);
-        setSelectedWorkspace(null);
-        setCache(prev => ({...prev, [cacheKey]: []}));
+        // If no workspaces found, create a default workspace
+        console.log("No workspaces found, creating default workspace");
+        const newWorkspace = await createWorkspace("Personal Workspace");
+        if (newWorkspace) {
+          setWorkspaces([newWorkspace]);
+          setSelectedWorkspace(newWorkspace);
+          setCache(prev => ({...prev, [cacheKey]: [{...newWorkspace, cachedAt: Date.now()}]}));
+        } else {
+          // If workspace creation failed, set empty array
+          setWorkspaces([]);
+          setSelectedWorkspace(null);
+          setCache(prev => ({...prev, [cacheKey]: []}));
+        }
       }
       setFetchComplete(true);
     } catch (error) {
       console.error('Error fetching workspaces:', error);
-      // toast.error('Failed to load workspaces');
+      toast.error('Failed to load workspaces');
     } finally {
       setLoading(false);
     }
@@ -173,11 +182,11 @@ export const useWorkspaces = () => {
 
       // Set as selected workspace
       setSelectedWorkspace(newWorkspace);
-
+      toast.success(`Workspace "${name}" created successfully`);
       return newWorkspace;
     } catch (error) {
       console.error('Error creating workspace:', error);
-      // toast.error('Failed to create workspace');
+      toast.error('Failed to create workspace');
       return null;
     }
   };
@@ -216,7 +225,7 @@ export const useWorkspaces = () => {
       return true;
     } catch (error) {
       console.error('Error updating workspace:', error);
-      // toast.error('Failed to update workspace');
+      toast.error('Failed to update workspace');
       return false;
     }
   };
@@ -227,7 +236,7 @@ export const useWorkspaces = () => {
     try {
       // Don't allow deletion if it's the only workspace
       if (workspaces.length <= 1) {
-        // toast.error('Cannot delete the only workspace. Please create another workspace first.');
+        toast.error('Cannot delete the only workspace. Please create another workspace first.');
         return false;
       }
 
@@ -255,7 +264,7 @@ export const useWorkspaces = () => {
       return true;
     } catch (error) {
       console.error('Error deleting workspace:', error);
-      // toast.error('Failed to delete workspace');
+      toast.error('Failed to delete workspace');
       return false;
     }
   };
