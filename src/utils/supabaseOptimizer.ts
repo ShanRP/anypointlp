@@ -26,14 +26,19 @@ export const clearCache = () => queryCache.clear();
  * @param pageSize Number of records per page
  * @param filters Optional filters to apply
  */
-export const paginatedQuery = async (
+export const paginatedQuery = async <T>(
   table: TableName,
   columns: string,
   page: number = 1,
   pageSize: number = 10,
   filters?: Record<string, any>,
   options: { cacheTime?: number } = {}
-) => {
+): Promise<{
+  data: T[];
+  count: number | null;
+  error: any;
+  pageCount: number;
+}> => {
   const cacheTime = options.cacheTime || 300; // 5 minutes default
   const start = (page - 1) * pageSize;
   const end = start + pageSize - 1;
