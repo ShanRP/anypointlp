@@ -1,53 +1,42 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') || 'Ecm8fxCceYTwvPf9FoPkmZBlW4D1OejY';
+import { integrationPrompt } from "./prompt.ts";
+const mistralApiKey = Deno.env.get("MISTRAL_API_KEY") || "Ecm8fxCceYTwvPf9FoPkmZBlW4D1OejY";
 if (!mistralApiKey) {
   console.error("MISTRAL_API_KEY is not set");
 }
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Max-Age': '86400'
 };
-
-const getPromptFromFile = async (filePath: string) => {
-  try {
-    // For edge functions, we use a relative path under the function's bundled source directory
-    const decoder = new TextDecoder("utf-8");
-    const data = await Deno.readFile(filePath);
-    return decoder.decode(data);
-  } catch (error) {
-    console.error("Error reading prompt file:", filePath, error);
-    return "";
-  }
+const getPromptFromFile = async (filePath)=>{
+  return integrationPrompt;
 };
-
-serve(async (req) => {
+serve(async (req)=>{
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request for CORS preflight');
+  if (req.method === "OPTIONS") {
+    console.log("Handling OPTIONS request for CORS preflight");
     return new Response(null, {
       status: 204,
       headers: corsHeaders
     });
   }
-  
   try {
     // Validate Content-Type
-    const contentType = req.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      console.error('Invalid Content-Type, expected application/json');
+    const contentType = req.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      console.error("Invalid Content-Type, expected application/json");
       return new Response(JSON.stringify({
-        error: 'Invalid Content-Type, expected application/json',
+        error: "Invalid Content-Type, expected application/json",
         success: false
       }), {
         status: 400,
         headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json"
         }
       });
     }
@@ -56,74 +45,70 @@ serve(async (req) => {
     try {
       body = await req.json();
     } catch (error) {
-      console.error('Error parsing request body:', error);
+      console.error("Error parsing request body:", error);
       return new Response(JSON.stringify({
-        error: 'Invalid JSON in request body',
+        error: "Invalid JSON in request body",
         success: false
       }), {
         status: 400,
         headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json"
         }
       });
     }
     const { description, runtime, diagrams, raml } = body;
     // Validate required fields
     if (!description) {
-      console.error('Missing required field: description');
+      console.error("Missing required field: description");
       return new Response(JSON.stringify({
-        error: 'Missing required field: description',
+        error: "Missing required field: description",
         success: false
       }), {
         status: 400,
         headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json"
         }
       });
     }
     // Log inputs for debugging
-    console.log('Received request for integration generation:');
-    console.log('Description:', description);
-    console.log('Runtime:', runtime);
-    console.log('Diagrams:', diagrams ? 'Provided' : 'Not provided');
-    console.log('RAML:', raml ? 'Provided' : 'Not provided');
-    
+    console.log("Received request for integration generation:");
+    console.log("Description:", description);
+    console.log("Runtime:", runtime);
+    console.log("Diagrams:", diagrams ? "Provided" : "Not provided");
+    console.log("RAML:", raml ? "Provided" : "Not provided");
     // Load the integration generator prompt from the txt file
     // Update the path to use the prompts directory within the edge function folder
-    const promptTemplate = await getPromptFromFile('./prompts/integrationGenerator.txt');
-    console.log('Prompt template loaded successfully, length:', promptTemplate.length);
-    
+    const promptTemplate = await getPromptFromFile("./prompts/integrationGenerator.txt");
+    console.log("Prompt template loaded successfully, length:", promptTemplate.length);
     // Insert input values into the prompt as needed (subject to your requirements: this is flexible)
     // Optionally, replace placeholders with variables, here we dynamically inject information at the end
-    const userPrompt =
-      `${promptTemplate}
+    const userPrompt = `${promptTemplate}
 
 # === User Inputs ===
 
-${raml ? '## RAML:\n' + raml + '\n' : ''}
-${diagrams ? '## Diagrams:\n' + diagrams + '\n' : ''}
+${raml ? "## RAML:\n" + raml + "\n" : ""}
+${diagrams ? "## Diagrams:\n" + diagrams + "\n" : ""}
 ## Description:
 ${description}
 
 ## Runtime:
-${runtime || '4.4.0'}
+${runtime || "4.4.0"}
 `;
-
     console.log("Sending request to Mistral AI with prompt from file");
     try {
-      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
+      const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${mistralApiKey}`,
-          'Content-Type': 'application/json'
+          "Authorization": `Bearer ${mistralApiKey}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: 'mistral-large-latest',
+          model: "mistral-large-latest",
           messages: [
             {
-              role: 'user',
+              role: "user",
               content: userPrompt
             }
           ],
@@ -143,15 +128,15 @@ ${runtime || '4.4.0'}
             }
           };
         }
-        console.error('Mistral AI API error:', errorData);
+        console.error("Mistral AI API error:", errorData);
         return new Response(JSON.stringify({
-          error: `Mistral AI API error: ${errorData.error?.message || 'Unknown error'}`,
+          error: `Mistral AI API error: ${errorData.error?.message || "Unknown error"}`,
           success: false
         }), {
           status: 502,
           headers: {
             ...corsHeaders,
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json"
           }
         });
       }
@@ -160,7 +145,7 @@ ${runtime || '4.4.0'}
       // Extract the generated code from the response
       let generatedCode = data.choices[0].message.content.trim();
       // Post-process to remove any remaining code blocks
-      generatedCode = generatedCode.replace(/```xml/g, '').replace(/```/g, '');
+      generatedCode = generatedCode.replace(/```xml/g, "").replace(/```/g, "");
       // Log a sample of the response to verify all sections are present
       console.log("Response preview (first 300 chars):", generatedCode.substring(0, 300));
       // Define required sections with strict heading format
@@ -220,8 +205,8 @@ ${xmlContent}
 # Flow Constants
 host: 0.0.0.0
 port: 8081
-api_path: ${xmlContent.includes('path=') ? xmlContent.match(/path="([^"]+)"/)?.[1] || '/api' : '/api'}
-${xmlContent.includes('database') ? 'database_url: ${db.url}\nusername: ${db.username}\npassword: ${db.password}' : 'timeout_ms: 10000\nmax_connections: 10'}
+api_path: ${xmlContent.includes("path=") ? xmlContent.match(/path="([^"]+)"/)?.[1] || "/api" : "/api"}
+${xmlContent.includes("database") ? "database_url: ${db.url}\nusername: ${db.username}\npassword: ${db.password}" : "timeout_ms: 10000\nmax_connections: 10"}
 retry_attempts: 3
 
 # POM Dependencies
@@ -231,7 +216,7 @@ retry_attempts: 3
   <version>1.7.1</version>
   <classifier>mule-plugin</classifier>
 </dependency>
-${xmlContent.includes('db:') ? '<dependency>\n  <groupId>org.mule.connectors</groupId>\n  <artifactId>mule-db-connector</artifactId>\n  <version>1.13.6</version>\n  <classifier>mule-plugin</classifier>\n</dependency>' : '<dependency>\n  <groupId>org.mule.connectors</groupId>\n  <artifactId>mule-sockets-connector</artifactId>\n  <version>1.2.2</version>\n  <classifier>mule-plugin</classifier>\n</dependency>'}
+${xmlContent.includes("db:") ? "<dependency>\n  <groupId>org.mule.connectors</groupId>\n  <artifactId>mule-db-connector</artifactId>\n  <version>1.13.6</version>\n  <classifier>mule-plugin</classifier>\n</dependency>" : "<dependency>\n  <groupId>org.mule.connectors</groupId>\n  <artifactId>mule-sockets-connector</artifactId>\n  <version>1.2.2</version>\n  <classifier>mule-plugin</classifier>\n</dependency>"}
 <dependency>
   <groupId>org.mule.modules</groupId>
   <artifactId>mule-apikit-module</artifactId>
@@ -240,8 +225,8 @@ ${xmlContent.includes('db:') ? '<dependency>\n  <groupId>org.mule.connectors</gr
 </dependency>
 
 # Compilation Check
-1. Ensure all property placeholders are defined in your properties file (${runtime || 'mule-app.properties'}).
-2. Verify connector versions are compatible with your Mule runtime version (${runtime || '4.4.0'}).
+1. Ensure all property placeholders are defined in your properties file (${runtime || "mule-app.properties"}).
+2. Verify connector versions are compatible with your Mule runtime version (${runtime || "4.4.0"}).
 3. Check that all required dependencies are included in your pom.xml.
 4. Validate that any referenced configuration files exist in the project structure.
 5. Confirm that all required credentials are properly configured for external systems.
@@ -311,7 +296,7 @@ retry_attempts: 3`;
 </dependency>`;
             } else if (section === "Compilation Check") {
               placeholderContent = `1. Ensure all property placeholders are defined in your properties file.
-2. Verify connector versions are compatible with your Mule runtime version (${runtime || '4.4.0'}).
+2. Verify connector versions are compatible with your Mule runtime version (${runtime || "4.4.0"}).
 3. Check that all required dependencies are included in your pom.xml.
 4. Validate that any referenced configuration files exist in the project structure.
 5. Confirm that all required credentials are properly configured for external systems.
@@ -329,7 +314,7 @@ retry_attempts: 3`;
         }), {
           headers: {
             ...corsHeaders,
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json"
           },
           status: 200
         });
@@ -343,12 +328,12 @@ retry_attempts: 3`;
       }), {
         headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json"
         },
         status: 200
       });
     } catch (mistralError) {
-      console.error('Error calling Mistral AI API:', mistralError);
+      console.error("Error calling Mistral AI API:", mistralError);
       return new Response(JSON.stringify({
         error: `Error calling Mistral AI API: ${mistralError.message}`,
         success: false
@@ -356,12 +341,12 @@ retry_attempts: 3`;
         status: 502,
         headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json"
         }
       });
     }
   } catch (error) {
-    console.error('Fatal error in generate-integration function:', error);
+    console.error("Fatal error in generate-integration function:", error);
     return new Response(JSON.stringify({
       error: `Server error: ${error.message}`,
       success: false
@@ -369,7 +354,7 @@ retry_attempts: 3`;
       status: 500,
       headers: {
         ...corsHeaders,
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json"
       }
     });
   }
