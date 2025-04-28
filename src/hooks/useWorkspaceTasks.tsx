@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -11,6 +12,7 @@ export type WorkspaceTask = {
   category: string;
   created_at: string;
   description?: string;
+  workspace_id?: string;
 };
 
 export type TaskDetails = {
@@ -165,8 +167,7 @@ export function useWorkspaceTasks(workspaceId: string) {
           connection_steps: diagramData.connection_steps || '',
           result_content: diagramData.result_content || ''
         })
-        .select()
-        .eq('user_id', user.id);
+        .select();
 
       if (error) throw error;
       
@@ -196,12 +197,13 @@ export function useWorkspaceTasks(workspaceId: string) {
           task_id: taskId,
           task_name: taskData.task_name || 'Untitled DataWeave Task',
           workspace_id: taskData.workspace_id || workspaceId,
-          input_data: taskData.input_data || '',
-          output_data: taskData.output_data || '',
-          dataweave_code: taskData.dataweave_code || '',
+          input_format: taskData.input_format || 'json',
+          input_samples: taskData.input_samples || {},
+          output_samples: taskData.output_samples || {},
+          generated_scripts: taskData.generated_scripts || {},
+          notes: taskData.notes || ''
         })
-        .select()
-        .eq('user_id', user.id);
+        .select();
 
       if (error) throw error;
       
@@ -232,11 +234,10 @@ export function useWorkspaceTasks(workspaceId: string) {
           task_name: integrationData.task_name || 'Untitled Integration Task',
           workspace_id: integrationData.workspace_id || workspaceId,
           description: integrationData.description || '',
-          flow_code: integrationData.flow_code || '',
-          flow_diagram: integrationData.flow_diagram || '',
+          flow_implementation: integrationData.flow_code || '',
+          flow_summary: integrationData.flow_summary || ''
         })
-        .select()
-        .eq('user_id', user.id);
+        .select();
 
       if (error) throw error;
       
@@ -269,9 +270,9 @@ export function useWorkspaceTasks(workspaceId: string) {
           raml_content: ramlData.raml_content || '',
           api_name: ramlData.api_name || '',
           api_version: ramlData.api_version || '',
+          description: ramlData.description || ''
         })
-        .select()
-        .eq('user_id', user.id);
+        .select();
 
       if (error) throw error;
       
@@ -301,11 +302,11 @@ export function useWorkspaceTasks(workspaceId: string) {
           task_id: taskId,
           task_name: munitData.task_name || 'Untitled MUnit Task',
           workspace_id: munitData.workspace_id || workspaceId,
-          flow_code: munitData.flow_code || '',
-          munit_code: munitData.munit_code || '',
+          flow_implementation: munitData.flow_code || '',
+          munit_content: munitData.munit_code || '',
+          description: munitData.description || ''
         })
-        .select()
-        .eq('user_id', user.id);
+        .select();
 
       if (error) throw error;
       
@@ -335,11 +336,13 @@ export function useWorkspaceTasks(workspaceId: string) {
           task_id: taskId,
           task_name: sampleDataTask.task_name || 'Untitled Sample Data Task',
           workspace_id: sampleDataTask.workspace_id || workspaceId,
-          dataweave_code: sampleDataTask.dataweave_code || '',
-          sample_data: sampleDataTask.sample_data || '',
+          source_format: sampleDataTask.source_format || 'JSON',
+          schema_content: sampleDataTask.schema_content || '',
+          result_content: sampleDataTask.sample_data || '',
+          notes: sampleDataTask.notes || '',
+          description: sampleDataTask.description || ''
         })
-        .select()
-        .eq('user_id', user.id);
+        .select();
 
       if (error) throw error;
       
@@ -369,11 +372,11 @@ export function useWorkspaceTasks(workspaceId: string) {
           task_id: taskId,
           task_name: documentData.task_name || 'Untitled Document Task',
           workspace_id: documentData.workspace_id || workspaceId,
-          content_uri: documentData.content_uri || '',
-          document_content: documentData.document_content || '',
+          document_type: documentData.document_type || '',
+          result_content: documentData.document_content || '',
+          description: documentData.description || ''
         })
-        .select()
-        .eq('user_id', user.id);
+        .select();
 
       if (error) throw error;
       

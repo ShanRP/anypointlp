@@ -1,248 +1,101 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-export interface UserCredits {
-  id: string;
-  user_id: string;
-  credits_used: number;
-  credits_limit: number;
-  reset_date: string;
-  is_pro: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export const useUserCredits = () => {
-  const [credits, setCredits] = useState<UserCredits | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function useUserCredits() {
+  const [credits, setCredits] = useState<number>(0);
+  const [creditsLimit, setCreditsLimit] = useState<number>(3);
+  const [isPro, setIsPro] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const { user } = useAuth();
-  
-  // Track if fetch has been performed to prevent multiple calls
-  const [hasFetched, setHasFetched] = useState(false);
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const fetchUserCredits = useCallback(async () => {
-    // Skip if no user
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
 
     setLoading(true);
-    setError(null);
-
     try {
-      console.log("Fetching user credits for user:", user.id);
-      // First check if the user already has a credits record
-      const { data, error: fetchError } = await supabase
+      const { data, error } = await supabase
         .from('apl_user_credits')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-        throw fetchError;
-      }
+      if (error) throw error;
 
-      // If no record exists, create one
-      if (!data) {
-        console.log("No credits record found, creating new one");
-        const today = new Date();
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0);
-
+      if (data) {
+        setCredits(data.credits_used);
+        setCreditsLimit(data.credits_limit);
+        setIsPro(data.is_pro);
+      } else {
+        // If no credits record exists, create one
         const { data: newData, error: insertError } = await supabase
           .from('apl_user_credits')
           .insert({
             user_id: user.id,
             credits_used: 0,
             credits_limit: 3,
-            reset_date: tomorrow.toISOString(),
-            is_pro: false
+            is_pro: false,
+            reset_date: new Date(new Date().setDate(new Date().getDate() + 1))
           })
           .select()
           .single();
 
         if (insertError) throw insertError;
-        console.log("New credits record created:", newData);
-        setCredits(newData as UserCredits);
-      } else {
-        console.log("Credits record found:", data);
-        // Check if we need to reset credits (reset_date has passed)
-        const resetDate = new Date(data.reset_date);
-        const now = new Date();
 
-        if (now > resetDate) {
-          console.log("Reset date has passed, resetting credits");
-          // Reset credits and set new reset date
-          const tomorrow = new Date(now);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          tomorrow.setHours(0, 0, 0, 0);
-
-          const { data: updatedData, error: updateError } = await supabase
-            .from('apl_user_credits')
-            .update({
-              credits_used: 0,
-              reset_date: tomorrow.toISOString()
-            })
-            .eq('id', data.id)
-            .select()
-            .single();
-
-          if (updateError) throw updateError;
-          console.log("Credits reset, new data:", updatedData);
-          setCredits(updatedData as UserCredits);
-        } else {
-          setCredits(data as UserCredits);
+        if (newData) {
+          setCredits(newData.credits_used);
+          setCreditsLimit(newData.credits_limit);
+          setIsPro(newData.is_pro);
         }
       }
-      
-      // Mark as fetched
-      setHasFetched(true);
-    } catch (err: any) {
-      console.error('Error fetching user credits:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error('Error fetching user credits:', error);
     } finally {
       setLoading(false);
     }
-  }, [user]); // Only depend on user
-
-  const useCredit = useCallback(async () => {
-    if (!user || !credits) {
-      toast.error('You need to be logged in to use credits');
-      return false;
-    }
-
-    // Check if user is pro, pro users have 100 credits per month
-    const proLimit = credits.is_pro ? 100 : 3;
-    
-    // Check if user has reached the limit
-    if (credits.credits_used >= proLimit) {
-      toast.error(`You've reached your daily credit limit of ${proLimit} tasks. Upgrade to Pro for more!`);
-      // Trigger the upgrade dialog
-      setShowUpgradeDialog(true);
-      return false;
-    }
-
-    try {
-      // Increment credits used
-      const newCreditsUsed = credits.credits_used + 1;
-      
-      const { data, error } = await supabase
-        .from('apl_user_credits')
-        .update({ 
-          credits_used: newCreditsUsed,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', credits.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      console.log("Credit used, updated data:", data);
-      setCredits(data as UserCredits);
-      
-      // If this is their last credit, show a warning and open upgrade dialog for non-pro users
-      if (newCreditsUsed === proLimit) {
-        toast.warning(`You've used your last credit for today. Credits will reset tomorrow.`);
-        // Also show upgrade dialog for non-pro users
-        if (!credits.is_pro) {
-          setShowUpgradeDialog(true);
-        }
-      } else if (proLimit - newCreditsUsed <= 2) {
-        toast.info(`You have ${proLimit - newCreditsUsed} credits remaining today.`);
-      }
-      
-      return true;
-    } catch (err: any) {
-      console.error('Error using credit:', err);
-      toast.error('Failed to use credit. Please try again.');
-      return false;
-    }
-  }, [user, credits]);
-
-  // For test purposes only - the real upgrade will be through Stripe
-  const upgradeToProPlan = useCallback(async () => {
-    if (!user || !credits) {
-      toast.error('You need to be logged in to upgrade');
-      return false;
-    }
-
-    try {
-      // This function now just triggers the Stripe checkout
-      // The actual upgrade happens after webhook confirmation
-      // We don't modify the database here anymore
-      return true;
-    } catch (err: any) {
-      console.error('Error upgrading to pro:', err);
-      toast.error('Failed to upgrade to Pro Plan. Please try again.');
-      return false;
-    }
-  }, [user, credits]);
-
-  // Set up realtime subscription to credit changes
-  useEffect(() => {
-    if (!user) return;
-    
-    // console.log("Setting up realtime subscription for user credits");
-    const channel = supabase
-      .channel('credits-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'apl_user_credits',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log('Credits updated in realtime:', payload);
-          // Update local state with the new data
-          setCredits(payload.new as UserCredits);
-        }
-      )
-      .subscribe();
-      
-    return () => {
-      // console.log("Cleaning up realtime subscription");
-      supabase.removeChannel(channel);
-    };
   }, [user]);
 
-  // Initialize credits only once when the user is set
   useEffect(() => {
-    if (user && !hasFetched) {
-      console.log("Initializing user credits");
-      fetchUserCredits();
-    } else if (!user) {
-      // Reset state when user logs out
-      setCredits(null);
-      setLoading(false);
-      setHasFetched(false);
-    }
-  }, [user, fetchUserCredits, hasFetched]);
-
-  // Refresh function that can be called externally
-  const refreshCredits = useCallback(() => {
-    console.log("Manually refreshing credits");
-    setHasFetched(false);
     fetchUserCredits();
   }, [fetchUserCredits]);
 
+  const useCredit = async (): Promise<boolean> => {
+    if (!user) {
+      toast.error('You must be logged in to use credits');
+      return false;
+    }
+
+    if (credits >= creditsLimit && !isPro) {
+      toast.error('You have reached your daily credit limit. Upgrade to Pro for unlimited usage.');
+      return false;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('apl_user_credits')
+        .update({ credits_used: credits + 1 })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setCredits(prev => prev + 1);
+      return true;
+    } catch (error) {
+      console.error('Error using credit:', error);
+      toast.error('Failed to use credit');
+      return false;
+    }
+  };
+
   return {
     credits,
+    creditsLimit,
+    isPro,
     loading,
-    error,
     useCredit,
-    upgradeToProPlan,
-    refreshCredits,
-    showUpgradeDialog,
-    setShowUpgradeDialog
+    fetchUserCredits,
+    creditsRemaining: creditsLimit - credits
   };
-};
+}

@@ -105,3 +105,109 @@ export const processSupabaseError = (error: any): string => {
   
   return JSON.stringify(error);
 };
+
+/**
+ * Creates a debounced query function
+ * @param queryFn The query function to debounce
+ * @param delay Delay in milliseconds
+ * @returns Debounced query function
+ */
+export const createDebouncedQuery = <T extends (...args: any[]) => any>(
+  queryFn: T, 
+  delay: number = 300
+): (...args: Parameters<T>) => Promise<ReturnType<T>> => {
+  let timeout: ReturnType<typeof setTimeout>;
+  
+  return (...args: Parameters<T>): Promise<ReturnType<T>> => {
+    return new Promise((resolve) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        resolve(queryFn(...args));
+      }, delay);
+    });
+  };
+};
+
+/**
+ * Helper function for paginated queries
+ * @param tableName Table name to query
+ * @param options Query options
+ * @returns Paginated results
+ */
+export const paginatedQuery = async (
+  tableName: string, 
+  options: { 
+    page: number; 
+    pageSize: number; 
+    filterColumn?: string; 
+    filterValue?: string; 
+    orderBy?: string;
+    orderDirection?: 'asc' | 'desc';
+  }
+) => {
+  const {
+    page = 1,
+    pageSize = 10,
+    filterColumn,
+    filterValue,
+    orderBy = 'created_at',
+    orderDirection = 'desc'
+  } = options;
+  
+  let query = supabase
+    .from(tableName)
+    .select('*', { count: 'exact' })
+    .range((page - 1) * pageSize, page * pageSize - 1)
+    .order(orderBy, { ascending: orderDirection === 'asc' });
+    
+  if (filterColumn && filterValue) {
+    query = query.ilike(filterColumn, `%${filterValue}%`);
+  }
+  
+  const { data, count, error } = await query;
+  
+  if (error) {
+    console.error('Error in paginated query:', error);
+    throw error;
+  }
+  
+  return {
+    data,
+    total: count || 0,
+    page,
+    pageSize,
+    totalPages: Math.ceil((count || 0) / pageSize)
+  };
+};
+
+/**
+ * Get workspace details including members
+ * @param workspaceId Workspace ID
+ * @returns Workspace details with members
+ */
+export const getWorkspaceDetails = async (workspaceId: string) => {
+  try {
+    const { data: workspace, error: workspaceError } = await supabase
+      .from('apl_workspaces')
+      .select('*')
+      .eq('id', workspaceId)
+      .single();
+    
+    if (workspaceError) throw workspaceError;
+    
+    const { data: members, error: membersError } = await supabase
+      .from('apl_workspace_members')
+      .select('*, profiles:user_id(email, avatar_url)')
+      .eq('workspace_id', workspaceId);
+    
+    if (membersError) throw membersError;
+    
+    return {
+      ...workspace,
+      members: members || []
+    };
+  } catch (error) {
+    console.error('Error fetching workspace details:', error);
+    throw error;
+  }
+};

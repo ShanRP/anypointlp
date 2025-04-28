@@ -63,7 +63,7 @@ const AppSidebar = () => {
   const [mobileWidth, setMobileWidth] = useState(false);
   const [visibleTasks, setVisibleTasks] = useState<WorkspaceTask[]>([]);
   
-  const { tasks, loading, error } = useWorkspaceTasks(selectedWorkspace?.id || '');
+  const { tasks, loading } = useWorkspaceTasks(selectedWorkspace?.id || '');
 
   useEffect(() => {
     const handleResize = () => {
