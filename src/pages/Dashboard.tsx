@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardSidebar from '@/components/DashboardSidebar';
@@ -32,18 +33,20 @@ const Dashboard = () => {
     return null;
   }
 
+  const handleNavigate = (page: string) => {
+    console.log(`Navigating to: ${page}`);
+    // This function would be implemented to handle navigation
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
       <div className="flex h-screen">
-        {/* Sidebar */}
+        {/* Updated DashboardSidebar props to match the component interface */}
         <DashboardSidebar
-          isOpen={isSidebarOpen}
-          toggle={toggleSidebar}
-          workspaces={workspaces}
-          selectedWorkspace={selectedWorkspace}
-          onSelectWorkspace={handleWorkspaceSelect}
-          loading={loading}
-          refreshWorkspaces={refreshWorkspaces}
+          onNavigate={handleNavigate}
+          currentPage="dashboard"
+          selectedWorkspaceId={selectedWorkspace?.id}
+          onWorkspaceChange={handleWorkspaceSelect}
         />
 
         {/* Main Content */}

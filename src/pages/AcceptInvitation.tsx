@@ -8,48 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-
-// Function to get invitation details
-const getInvitationDetails = async (token: string, workspaceId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from("apl_invitation_tokens")
-      .select("invitation_id, workspace_id, email, expires_at")
-      .eq("token", token)
-      .eq("workspace_id", workspaceId)
-      .single();
-      
-    if (error) {
-      console.error('Error fetching invitation token:', error);
-      return { data: null, error };
-    }
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error in getInvitationDetails:', error);
-    return { data: null, error };
-  }
-};
-
-// Function to accept workspace invitation
-const acceptWorkspaceInvitation = async (workspaceId: string, token: string) => {
-  try {
-    const { data, error } = await supabase.functions.invoke('accept-workspace-invitation', {
-      method: 'POST',
-      body: { workspaceId, token }
-    });
-    
-    if (error) {
-      console.error('Error accepting invitation:', error);
-      return { data: null, error };
-    }
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error in acceptWorkspaceInvitation:', error);
-    return { data: null, error: error };
-  }
-};
+import { getInvitationDetails, acceptWorkspaceInvitation } from '@/utils/supabaseOptimizer';
 
 const AcceptInvitation = () => {
   const [searchParams] = useSearchParams();
@@ -91,7 +50,7 @@ const AcceptInvitation = () => {
 
         setWorkspaceName(workspace.name);
         
-        // Check if the token exists and is valid
+        // Check if the token exists and is valid using our optimizer utility
         const result = await getInvitationDetails(token, workspaceId);
         
         if (result.error || !result.data) {
@@ -146,7 +105,7 @@ const AcceptInvitation = () => {
         return;
       }
       
-      // User is authenticated, proceed with accepting invitation
+      // User is authenticated, proceed with accepting invitation using our optimizer utility
       const { data, error } = await acceptWorkspaceInvitation(workspaceId, token);
       
       if (error) {

@@ -32,54 +32,8 @@ export function useJobBoard() {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const { user } = useAuth();
 
-  useEffect(() => {
-    fetchPosts();
-
-    // Set up real-time subscription for posts
-    const postsChannel = supabase
-      .channel("job-posts-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "apl_job_posts" },
-        () => {
-          fetchPosts();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(postsChannel);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (selectedPost) {
-      fetchComments(selectedPost.id);
-
-      // Set up real-time subscription for comments
-      const commentsChannel = supabase
-        .channel("job-comments-changes")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "apl_job_comments",
-            filter: `post_id=eq.${selectedPost.id}`,
-          },
-          () => {
-            fetchComments(selectedPost.id);
-          },
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(commentsChannel);
-      };
-    }
-  }, [selectedPost]);
-
-  const fetchPosts = async () => {
+  // Define fetchPosts as a useCallback function so we can use it elsewhere
+  const fetchPosts = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -125,7 +79,54 @@ export function useJobBoard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPosts();
+
+    // Set up real-time subscription for posts
+    const postsChannel = supabase
+      .channel("job-posts-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "apl_job_posts" },
+        () => {
+          fetchPosts();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(postsChannel);
+    };
+  }, [fetchPosts]);
+
+  useEffect(() => {
+    if (selectedPost) {
+      fetchComments(selectedPost.id);
+
+      // Set up real-time subscription for comments
+      const commentsChannel = supabase
+        .channel("job-comments-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "apl_job_comments",
+            filter: `post_id=eq.${selectedPost.id}`,
+          },
+          () => {
+            fetchComments(selectedPost.id);
+          },
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(commentsChannel);
+      };
+    }
+  }, [selectedPost]);
 
   const fetchComments = useCallback(async (postId: string) => {
     try {
@@ -238,5 +239,6 @@ export function useJobBoard() {
     updatePostStatus,
     addComment,
     fetchComments,
+    fetchPosts, // Add fetchPosts to the returned object
   };
 }
