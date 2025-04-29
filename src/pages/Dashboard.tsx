@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
@@ -13,22 +14,22 @@ const Dashboard: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { workspaces, selectedWorkspaceId, selectWorkspace } = useWorkspaces();
+  const { workspaces, selectedWorkspace, selectWorkspace } = useWorkspaces();
   const { tasks, loading, fetchWorkspaceTasks } = useTasks();
 
   useEffect(() => {
     // If there are workspaces, select the first one by default
-    if (workspaces && workspaces.length > 0 && !selectedWorkspaceId) {
-      selectWorkspace(workspaces[0].id);
+    if (workspaces && workspaces.length > 0 && !selectedWorkspace) {
+      selectWorkspace(workspaces[0]);
     }
-  }, [workspaces, selectWorkspace, selectedWorkspaceId]);
+  }, [workspaces, selectWorkspace, selectedWorkspace]);
 
   useEffect(() => {
     // Fetch tasks for the selected workspace
-    if (selectedWorkspaceId) {
-      fetchWorkspaceTasks(selectedWorkspaceId);
+    if (selectedWorkspace?.id) {
+      fetchWorkspaceTasks(selectedWorkspace.id);
     }
-  }, [selectedWorkspaceId, fetchWorkspaceTasks]);
+  }, [selectedWorkspace, fetchWorkspaceTasks]);
 
   const handlePageChange = (page: string) => {
     setCurrentPage(page);
@@ -42,10 +43,10 @@ const Dashboard: React.FC = () => {
     setSelectedTask(task);
   };
   
-  const handleWorkspaceChange = (workspaceId: string) => {
-    selectWorkspace(workspaceId);
-    if (workspaceId) {
-      fetchWorkspaceTasks(workspaceId);
+  const handleWorkspaceChange = (workspace: any) => {
+    selectWorkspace(workspace);
+    if (workspace?.id) {
+      fetchWorkspaceTasks(workspace.id);
     } else {
       toast({
         title: "Workspace Not Found",
@@ -56,10 +57,10 @@ const Dashboard: React.FC = () => {
   };
   
   const handleRefreshTasks = useCallback(() => {
-    if (selectedWorkspaceId) {
-      fetchWorkspaceTasks(selectedWorkspaceId);
+    if (selectedWorkspace?.id) {
+      fetchWorkspaceTasks(selectedWorkspace.id);
     }
-  }, [selectedWorkspaceId, fetchWorkspaceTasks]);
+  }, [selectedWorkspace, fetchWorkspaceTasks]);
   
   const PageContentComponent = () => (
     <PageContent
@@ -88,7 +89,7 @@ const Dashboard: React.FC = () => {
         onNavigate={handlePageChange}
         currentPage={currentPage}
         onTaskSelect={handleTaskSelect}
-        selectedWorkspaceId={selectedWorkspaceId}
+        selectedWorkspaceId={selectedWorkspace?.id || ''}
         onWorkspaceChange={handleWorkspaceChange}
         onRefreshTasks={handleRefreshTasks}
       />
