@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -48,6 +49,7 @@ const SettingsPage = () => {
   const [loading, setLoading] = useState(false);
   const [isDataFetched, setIsDataFetched] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [workspacesInitialized, setWorkspacesInitialized] = useState(false);
   const logsPerPage = 5;
 
   const fadeIn = {
@@ -111,9 +113,14 @@ const SettingsPage = () => {
     setIsDataFetched(false);
   }, [page]);
 
+  // Initialize workspaces only once when component mounts
   useEffect(() => {
-    refreshWorkspaces();
-  }, [refreshWorkspaces]);
+    if (!workspacesInitialized && user) {
+      refreshWorkspaces().then(() => {
+        setWorkspacesInitialized(true);
+      });
+    }
+  }, [user, workspacesInitialized, refreshWorkspaces]);
 
   const formatDate = (dateString: string) => {
     try {

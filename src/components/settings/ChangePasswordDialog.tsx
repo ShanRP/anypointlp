@@ -43,16 +43,22 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       return;
     }
 
-    const result = await changePassword(currentPassword, newPassword);
-    
-    if (result.success) {
-      // Reset form and close dialog on success
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      onOpenChange(false);
-    } else if (result.error) {
-      setError(result.error);
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      
+      if (result.success) {
+        // Reset form and close dialog on success
+        toast.success('Password changed successfully');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        onOpenChange(false);
+      } else if (result.error) {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error('Error changing password:', err);
+      setError('An unexpected error occurred. Please try again.');
     }
   };
 

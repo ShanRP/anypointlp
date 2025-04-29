@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
@@ -23,15 +22,17 @@ export const useWorkspaces = () => {
   const [loading, setLoading] = useState(false);
   const [fetchComplete, setFetchComplete] = useState(false);
   const [cache, setCache] = useState<{[key:string]: CachedWorkspace[]}>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch workspaces when user is available
-  const fetchWorkspaces = useCallback(async () => {
+  const fetchWorkspaces = useCallback(async (forceRefresh = false) => {
     if (!user) return;
-
+    
     setLoading(true);
     try {
       const cacheKey = user.id;
-      if(cache[cacheKey] && 
+      if(!forceRefresh && 
+         cache[cacheKey] && 
          cache[cacheKey].length > 0 && 
          cache[cacheKey][0].cachedAt && 
          Date.now() - cache[cacheKey][0].cachedAt < 300000) { // Check cache expiry (5 minutes)
@@ -43,13 +44,13 @@ export const useWorkspaces = () => {
         
         setWorkspaces(cachedWorkspaces);
         
-        if (!selectedWorkspace) {
+        if (!selectedWorkspace && cachedWorkspaces.length > 0) {
           setSelectedWorkspace(cachedWorkspaces[0]);
-        } else {
+        } else if (selectedWorkspace) {
           const updatedSelected = cachedWorkspaces.find(w => w.id === selectedWorkspace.id);
           if (updatedSelected) {
             setSelectedWorkspace(updatedSelected);
-          } else {
+          } else if (cachedWorkspaces.length > 0) {
             setSelectedWorkspace(cachedWorkspaces[0]);
           }
         }
@@ -86,14 +87,14 @@ export const useWorkspaces = () => {
         setCache(prev => ({...prev, [cacheKey]: cachedWorkspaces}));
 
         // Set selected workspace if not already set or update it if it exists
-        if (!selectedWorkspace) {
+        if (!selectedWorkspace && formattedWorkspaces.length > 0) {
           setSelectedWorkspace(formattedWorkspaces[0]);
-        } else {
+        } else if (selectedWorkspace) {
           // Find and update the currently selected workspace with fresh data
           const updatedSelected = formattedWorkspaces.find(w => w.id === selectedWorkspace.id);
           if (updatedSelected) {
             setSelectedWorkspace(updatedSelected);
-          } else {
+          } else if (formattedWorkspaces.length > 0) {
             // If previously selected workspace doesn't exist anymore, select first one
             setSelectedWorkspace(formattedWorkspaces[0]);
           }
@@ -107,9 +108,13 @@ export const useWorkspaces = () => {
       setFetchComplete(true);
     } catch (error) {
       console.error('Error fetching workspaces:', error);
-      // toast.error('Failed to load workspaces');
+      // Only show error toast when explicitly refreshing
+      if (forceRefresh) {
+        toast.error('Failed to load workspaces');
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [user, selectedWorkspace, cache]);
 
@@ -216,7 +221,7 @@ export const useWorkspaces = () => {
       return true;
     } catch (error) {
       console.error('Error updating workspace:', error);
-      // toast.error('Failed to update workspace');
+      toast.error('Failed to update workspace');
       return false;
     }
   };
@@ -227,7 +232,7 @@ export const useWorkspaces = () => {
     try {
       // Don't allow deletion if it's the only workspace
       if (workspaces.length <= 1) {
-        // toast.error('Cannot delete the only workspace. Please create another workspace first.');
+        toast.error('Cannot delete the only workspace. Please create another workspace first.');
         return false;
       }
 
@@ -255,15 +260,17 @@ export const useWorkspaces = () => {
       return true;
     } catch (error) {
       console.error('Error deleting workspace:', error);
-      // toast.error('Failed to delete workspace');
+      toast.error('Failed to delete workspace');
       return false;
     }
   };
 
   const refreshWorkspaces = async () => {
-    console.log('Refreshing workspaces...');
-    setFetchComplete(false); 
-    return fetchWorkspaces();
+    if (isRefreshing) return; // Prevent multiple simultaneous refreshes
+    
+    setIsRefreshing(true);
+    console.log('Manually refreshing workspaces...');
+    return fetchWorkspaces(true); // Force refresh
   };
 
   return {

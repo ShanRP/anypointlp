@@ -30,7 +30,11 @@ export const WorkspaceSettings: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 bg-gray-50 dark:bg-gray-800 rounded-lg p-8">
         <p className="text-gray-500 mb-4">No workspace selected</p>
-        <Button variant="outline" onClick={refreshWorkspaces}>
+        <Button 
+          variant="outline" 
+          onClick={() => refreshWorkspaces()}
+          className="relative"
+        >
           Refresh Workspaces
         </Button>
       </div>
@@ -53,7 +57,6 @@ export const WorkspaceSettings: React.FC = () => {
       if (success) {
         setIsEditing(false);
         toast.success('Workspace name updated successfully');
-        refreshWorkspaces();
       }
     } else {
       toast.error('Workspace name cannot be empty');
@@ -72,7 +75,6 @@ export const WorkspaceSettings: React.FC = () => {
     
     if (success) {
       toast.success(`Invite functionality ${checked ? 'enabled' : 'disabled'}`);
-      refreshWorkspaces();
     }
   };
   
@@ -83,7 +85,6 @@ export const WorkspaceSettings: React.FC = () => {
     
     if (success) {
       toast.success(`Session timeout updated to ${value}`);
-      refreshWorkspaces();
     }
   };
   
