@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import DashboardSidebar from '@/components/DashboardSidebar';
 import { Button } from '@/components/ui/button';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';

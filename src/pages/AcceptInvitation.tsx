@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { optimizeRequest } from '@/utils/networkOptimizer';
 
 export const AcceptInvitation = () => {
   const { token, workspace_id } = useParams();
@@ -23,11 +24,14 @@ export const AcceptInvitation = () => {
       }
 
       try {
-        // Use getInvitationDetails from supabaseOptimizer
-        const { data: inviteDetails, error } = await supabase
-          .functions.invoke('get-invitation-details', {
+        // Use optimized function for getting invitation details
+        const { data: inviteDetails, error } = await optimizeRequest(
+          () => supabase.functions.invoke('get-invitation-details', {
             body: { token, workspace_id }
-          });
+          }),
+          `invitation-details-${workspace_id}-${token}`,
+          60000 // Cache for 1 minute
+        );
 
         if (error) throw error;
         
