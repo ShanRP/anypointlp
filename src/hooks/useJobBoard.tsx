@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -238,5 +239,6 @@ export function useJobBoard() {
     updatePostStatus,
     addComment,
     fetchComments,
+    fetchPosts // Export this function so it can be used in JobBoard.tsx
   };
 }
