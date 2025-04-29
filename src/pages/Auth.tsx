@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Github, Mail, User, Lock, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Logo } from '@/components/assets/Logo';
+import { toast } from 'sonner';
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -18,15 +20,17 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signIn, signUp, signInWithProvider, session } = useAuth();
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
 
   useEffect(() => {
     if (session) {
-      if (redirect) {
-        navigate(redirect);
-      } else {
-        navigate('/dashboard');
-      }
+      setTimeout(() => {
+        if (redirect) {
+          navigate(redirect);
+        } else {
+          navigate('/dashboard');
+        }
+      }, 100); // Short delay to avoid race conditions
     }
   }, [session, navigate, redirect]);
 
@@ -45,6 +49,7 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent multiple submissions
     setLoading(true);
 
     try {
@@ -58,13 +63,13 @@ const Auth = () => {
         const { error } = await signUp(email, password, { username });
         if (error) throw error;
         
-        toast({
+        uiToast({
           title: "Success!",
           description: "Check your email for the confirmation link.",
         });
       }
     } catch (error: any) {
-      toast({
+      uiToast({
         title: "Error",
         description: error.message || "An unexpected error occurred",
         variant: "destructive",
@@ -75,10 +80,15 @@ const Auth = () => {
   };
 
   const handleProviderSignIn = async (provider: 'github' | 'google') => {
+    if (loading) return; // Prevent multiple submissions
+    setLoading(true);
+    
     try {
       await signInWithProvider(provider);
+      // No need to set loading to false here as the page will redirect
     } catch (error: any) {
-      toast({
+      setLoading(false);
+      uiToast({
         title: "Error",
         description: error.message || "An unexpected error occurred",
         variant: "destructive",

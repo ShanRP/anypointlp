@@ -66,6 +66,7 @@ const WorkspaceInvite = () => {
 
           if (memberError) {
             console.error('Error checking membership:', memberError);
+            // Continue with the flow, just log the error
           }
 
           if (memberData && memberData.length > 0) {
@@ -97,6 +98,10 @@ const WorkspaceInvite = () => {
   // This function now uses the proper invitation process
   const handleJoinWorkspace = async () => {
     if (!user || !workspaceId) {
+      // Store the invitation URL in localStorage
+      const currentUrl = window.location.pathname;
+      localStorage.setItem('pendingInviteUrl', currentUrl);
+      
       // Redirect to auth with return URL
       const redirectPath = `/invite/${workspaceId}`;
       navigate(`/auth?redirect=${encodeURIComponent(redirectPath)}`);
@@ -123,6 +128,10 @@ const WorkspaceInvite = () => {
       if (error) {
         console.error('Error requesting invitation:', error);
         throw error;
+      }
+
+      if (!data || !data.content || !data.content[0] || !data.content[0].text) {
+        throw new Error('Invalid response from server');
       }
 
       const responseContent = JSON.parse(data.content[0].text);

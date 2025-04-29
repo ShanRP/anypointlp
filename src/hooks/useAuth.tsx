@@ -1,8 +1,10 @@
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User, Provider } from '@supabase/supabase-js';
 import { UAParser } from 'ua-parser-js';
 import { logAuditEvent } from '@/utils/supabaseOptimizer';
+import { toast } from 'sonner';
 
 type AuthContextType = {
   session: Session | null;
@@ -47,11 +49,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const sessionCache = useRef<any[]>([]);
   const sessionCacheTime = useRef<number>(0);
   const activityInterval = useRef<any>(null);
+  const pendingAuthAction = useRef<boolean>(false);
 
   // Function to update the last activity timestamp
-  const updateLastActivity = () => {
+  const updateLastActivity = useCallback(() => {
     setLastActivity(new Date());
-  };
+  }, []);
 
   // Auto logout after inactivity
   useEffect(() => {
@@ -90,7 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         window.removeEventListener(event, handleActivity);
       });
     };
-  }, [session, lastActivity]);
+  }, [session, lastActivity, updateLastActivity]);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -150,24 +153,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [user]);
+  }, [user, updateLastActivity]);
 
   const signIn = async (email: string, password: string) => {
     try {
+      if (pendingAuthAction.current) {
+        return { error: new Error("Authentication action already in progress") };
+      }
+      
+      pendingAuthAction.current = true;
+      toast.loading("Signing in...");
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!error && data?.user) {
+      
+      toast.dismiss();
+      pendingAuthAction.current = false;
+
+      if (error) {
+        toast.error(error.message);
+      } else if (data?.user) {
+        toast.success("Signed in successfully!");
         await logAuthEvent(data.user.id, 'SIGN IN');
         updateLastActivity();
       }
+      
       return { error };
     } catch (error) {
+      toast.dismiss();
+      pendingAuthAction.current = false;
       console.error("Error signing in:", error);
+      toast.error("Failed to sign in");
       return { error };
     }
   };
 
   const signUp = async (email: string, password: string, options?: any) => {
     try {
+      if (pendingAuthAction.current) {
+        return { data: null, error: new Error("Authentication action already in progress") };
+      }
+
+      pendingAuthAction.current = true;
+      toast.loading("Creating account...");
+
       const baseUrl = window.location.origin.replace(/\/$/, '');
       const redirectTo = `${baseUrl}/auth/callback`;
       
@@ -182,18 +210,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       });
       
-      if (!error && data?.user) {
+      toast.dismiss();
+      pendingAuthAction.current = false;
+
+      if (error) {
+        toast.error(error.message);
+      } else if (data?.user) {
+        toast.success("Account created successfully!");
         logAuthEvent(data.user.id, 'SIGN UP');
       }
+      
       return { data, error };
     } catch (error) {
+      toast.dismiss();
+      pendingAuthAction.current = false;
       console.error("Error signing up:", error);
+      toast.error("Failed to create account");
       return { data: null, error };
     }
   };
 
   const signInWithProvider = async (provider: Provider) => {
     try {
+      if (pendingAuthAction.current) {
+        toast.error("Authentication action already in progress");
+        return;
+      }
+
+      pendingAuthAction.current = true;
+      toast.loading(`Connecting to ${provider}...`);
+
       const baseUrl = window.location.origin.replace(/\/$/, '');
       const redirectUrl = `${baseUrl}/auth/callback`;
       
@@ -206,25 +252,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         },
       });
       
+      // Only dismiss toast if there's an error since successful OAuth redirects away
       if (error) {
+        toast.dismiss();
+        pendingAuthAction.current = false;
+        toast.error(`Failed to connect with ${provider}`);
         console.error("Error signing in with provider:", error);
       } else {
         console.log("Provider auth initiated:", data);
         updateLastActivity();
       }
     } catch (error) {
+      toast.dismiss();
+      pendingAuthAction.current = false;
       console.error("Error initiating provider auth:", error);
+      toast.error(`Failed to connect with ${provider}`);
     }
   };
 
   const signOut = async () => {
     try {
+      if (pendingAuthAction.current) {
+        toast.error("Authentication action already in progress");
+        return;
+      }
+
+      pendingAuthAction.current = true;
+      toast.loading("Signing out...");
+
       if (user) {
         await logAuthEvent(user.id, 'SIGN OUT');
       }
+      
       await supabase.auth.signOut();
+      
+      toast.dismiss();
+      pendingAuthAction.current = false;
+      toast.success("Signed out successfully");
     } catch (error) {
+      toast.dismiss();
+      pendingAuthAction.current = false;
       console.error("Error signing out:", error);
+      toast.error("Failed to sign out");
     }
   };
 
@@ -283,10 +352,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     
     try {
+      if (pendingAuthAction.current) {
+        throw new Error("Authentication action already in progress");
+      }
+      
+      pendingAuthAction.current = true;
+      toast.loading("Signing out session...");
+      
       const currentSessionId = session.access_token.split('.')[0];
       const isCurrentSession = sessionId === currentSessionId || sessionId === session.access_token;
       
       if (isCurrentSession) {
+        pendingAuthAction.current = false;
+        toast.dismiss();
         return await signOut();
       }
       
@@ -303,12 +381,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         sessionCache.current = [];
         sessionCacheTime.current = 0;
+        
+        toast.dismiss();
+        pendingAuthAction.current = false;
+        toast.success("Session signed out successfully");
       } catch (error) {
+        toast.dismiss();
+        pendingAuthAction.current = false;
         console.error("Error invoking session signout function:", error);
+        toast.error("Failed to sign out session");
         throw error;
       }
     } catch (error) {
+      toast.dismiss();
+      pendingAuthAction.current = false;
       console.error("Error in signOutSession:", error);
+      toast.error("Failed to sign out session");
       throw error;
     }
   };
