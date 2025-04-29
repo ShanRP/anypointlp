@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -8,6 +8,48 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+
+// Function to get invitation details
+const getInvitationDetails = async (token: string, workspaceId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("apl_invitation_tokens")
+      .select("invitation_id, workspace_id, email, expires_at")
+      .eq("token", token)
+      .eq("workspace_id", workspaceId)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching invitation token:', error);
+      return { data: null, error };
+    }
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error in getInvitationDetails:', error);
+    return { data: null, error };
+  }
+};
+
+// Function to accept workspace invitation
+const acceptWorkspaceInvitation = async (workspaceId: string, token: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('accept-workspace-invitation', {
+      method: 'POST',
+      body: { workspaceId, token }
+    });
+    
+    if (error) {
+      console.error('Error accepting invitation:', error);
+      return { data: null, error };
+    }
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error in acceptWorkspaceInvitation:', error);
+    return { data: null, error: error };
+  }
+};
 
 const AcceptInvitation = () => {
   const [searchParams] = useSearchParams();
@@ -50,19 +92,16 @@ const AcceptInvitation = () => {
         setWorkspaceName(workspace.name);
         
         // Check if the token exists and is valid
-        const { data: tokenData, error: tokenError } = await supabase
-          .from('apl_workspace_invitations')
-          .select('*')
-          .eq('token', token)
-          .eq('workspace_id', workspaceId)
-          .single();
+        const result = await getInvitationDetails(token, workspaceId);
         
-        if (tokenError || !tokenData) {
-          console.error('Error validating invitation token:', tokenError);
+        if (result.error || !result.data) {
+          console.error('Error validating invitation token:', result.error);
           setError('The invitation token is invalid or has expired.');
           setLoading(false);
           return;
         }
+        
+        const tokenData = result.data;
         
         // Check if token is expired
         if (new Date(tokenData.expires_at) < new Date()) {
@@ -108,19 +147,23 @@ const AcceptInvitation = () => {
       }
       
       // User is authenticated, proceed with accepting invitation
-      const { data, error } = await supabase.rpc('accept_workspace_invitation', {
-        p_workspace_id: workspaceId,
-        p_token: token
-      });
+      const { data, error } = await acceptWorkspaceInvitation(workspaceId, token);
       
       if (error) {
         throw new Error(error.message || 'Failed to accept invitation');
       }
       
-      toast({
-        title: "Success",
-        description: "You have successfully joined the workspace."
-      });
+      if (data.alreadyMember) {
+        toast({
+          title: "Already a member",
+          description: "You are already a member of this workspace."
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "You have successfully joined the workspace."
+        });
+      }
       
       setSuccess(true);
       

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,6 @@ import { toast } from 'sonner';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { networkOptimizer } from '@/utils/networkOptimizer';
 
 export const WorkspaceSettings: React.FC = () => {
   const { selectedWorkspace, updateWorkspace, refreshWorkspaces } = useWorkspaces();
@@ -103,17 +101,6 @@ export const WorkspaceSettings: React.FC = () => {
     
     setIsSendingInvite(true);
     try {
-      // Create a cache key for this invitation to prevent duplicate submissions
-      const inviteCacheKey = `invitation-send-${selectedWorkspace.id}-${inviteEmail}`;
-      
-      // Check if this invitation was recently sent
-      const cachedInvite = localStorage.getItem(inviteCacheKey);
-      if (cachedInvite && (Date.now() - JSON.parse(cachedInvite).timestamp) < 60000) {
-        toast.info("You recently sent an invitation to this email. Please wait before trying again.");
-        setIsSendingInvite(false);
-        return;
-      }
-      
       const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
         body: {
           type: "tool",
@@ -141,20 +128,9 @@ export const WorkspaceSettings: React.FC = () => {
         toast.warning(responseData.message || "Invitation created but email could not be sent");
       } else {
         toast.success(responseData.message || "Invitation sent successfully");
-        
-        // Cache this invitation to prevent duplicate submissions
-        localStorage.setItem(inviteCacheKey, JSON.stringify({ 
-          email: inviteEmail, 
-          timestamp: Date.now() 
-        }));
       }
       
       setInviteEmail('');
-      
-      // Invalidate related caches
-      if (user) {
-        networkOptimizer.invalidateByPrefix(`workspace-${selectedWorkspace.id}`);
-      }
     } catch (error) {
       console.error("Error sending invitation:", error);
       

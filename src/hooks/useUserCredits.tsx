@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { networkOptimizer } from '@/utils/networkOptimizer';
 
 export interface UserCredits {
   id: string;
@@ -35,17 +34,15 @@ export const useUserCredits = () => {
 
     setLoading(true);
     setError(null);
-    
-    const cacheKey = `user-credits-${user.id}`;
-    
-    const fetchCreditsData = async () => {
+
+    try {
       console.log("Fetching user credits for user:", user.id);
       // First check if the user already has a credits record
       const { data, error: fetchError } = await supabase
         .from('apl_user_credits')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .single();
 
       if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
         throw fetchError;
@@ -73,7 +70,7 @@ export const useUserCredits = () => {
 
         if (insertError) throw insertError;
         console.log("New credits record created:", newData);
-        return newData as UserCredits;
+        setCredits(newData as UserCredits);
       } else {
         console.log("Credits record found:", data);
         // Check if we need to reset credits (reset_date has passed)
@@ -99,22 +96,13 @@ export const useUserCredits = () => {
 
           if (updateError) throw updateError;
           console.log("Credits reset, new data:", updatedData);
-          return updatedData as UserCredits;
+          setCredits(updatedData as UserCredits);
         } else {
-          return data as UserCredits;
+          setCredits(data as UserCredits);
         }
       }
-    };
-
-    try {
-      // Use network optimizer for fetching data with a shorter cache time (1 minute)
-      const creditsData = await networkOptimizer.optimizeRequest<UserCredits>(
-        cacheKey,
-        fetchCreditsData,
-        { cacheTime: 60 } // 1 minute cache for credits since they change frequently
-      );
       
-      setCredits(creditsData);
+      // Mark as fetched
       setHasFetched(true);
     } catch (err: any) {
       console.error('Error fetching user credits:', err);
@@ -160,9 +148,6 @@ export const useUserCredits = () => {
       console.log("Credit used, updated data:", data);
       setCredits(data as UserCredits);
       
-      // Invalidate the credits cache
-      networkOptimizer.invalidate(`user-credits-${user.id}`);
-      
       // If this is their last credit, show a warning and open upgrade dialog for non-pro users
       if (newCreditsUsed === proLimit) {
         toast.warning(`You've used your last credit for today. Credits will reset tomorrow.`);
@@ -205,6 +190,7 @@ export const useUserCredits = () => {
   useEffect(() => {
     if (!user) return;
     
+    // console.log("Setting up realtime subscription for user credits");
     const channel = supabase
       .channel('credits-changes')
       .on(
@@ -219,13 +205,12 @@ export const useUserCredits = () => {
           console.log('Credits updated in realtime:', payload);
           // Update local state with the new data
           setCredits(payload.new as UserCredits);
-          // Also update the cache
-          networkOptimizer.invalidate(`user-credits-${user.id}`);
         }
       )
       .subscribe();
       
     return () => {
+      // console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
   }, [user]);
@@ -246,13 +231,9 @@ export const useUserCredits = () => {
   // Refresh function that can be called externally
   const refreshCredits = useCallback(() => {
     console.log("Manually refreshing credits");
-    // Force a refresh by invalidating the cache first
-    if (user) {
-      networkOptimizer.invalidate(`user-credits-${user.id}`);
-    }
     setHasFetched(false);
     fetchUserCredits();
-  }, [fetchUserCredits, user]);
+  }, [fetchUserCredits]);
 
   return {
     credits,

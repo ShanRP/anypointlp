@@ -1,7 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { debounce } from 'lodash';
-import { networkOptimizer } from './networkOptimizer';
 
 /**
  * Utility functions to optimize Supabase queries and reduce egress usage
@@ -18,10 +16,7 @@ interface CacheEntry<T> {
 // Use a more specific type for the cache to avoid excessive type depth issues
 const queryCache = new Map<string, CacheEntry<any>>();
 
-export const clearCache = () => {
-  queryCache.clear();
-  networkOptimizer.clearCache();
-};
+export const clearCache = () => queryCache.clear();
 
 /**
  * Performs a paginated query with column selection
@@ -48,41 +43,42 @@ export const paginatedQuery = async <T>(
   const start = (page - 1) * pageSize;
   const end = start + pageSize - 1;
   const cacheKey = `${table}-${columns}-${page}-${pageSize}-${JSON.stringify(filters)}`;
-  
-  // Use the network optimizer for this query
-  const fetchData = async () => {
-    // Use type assertion to prevent TypeScript errors with dynamic table names
-    let query = supabase
-      .from(table as any)
-      .select(columns, { count: 'exact' })
-      .range(start, end);
 
-    // Apply any filters
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          // Use if-statement instead of chaining to avoid type depth issues
-          if (key && value) {
-            query = query.eq(key, value);
-          }
-        }
-      });
+  if (queryCache.has(cacheKey)) {
+    const cachedData = queryCache.get(cacheKey);
+    if (cachedData && cachedData.timestamp + (cacheTime * 1000) > Date.now()) {
+      return cachedData.data;
     }
+  }
 
-    const { data, count, error } = await query;
-    return { 
-      data: data as T[], 
-      count, 
-      error, 
-      pageCount: count ? Math.ceil(count / pageSize) : 0 
-    };
+  // Use type assertion to prevent TypeScript errors with dynamic table names
+  let query = supabase
+    .from(table as any)
+    .select(columns, { count: 'exact' })
+    .range(start, end);
+
+  // Apply any filters
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        // Use if-statement instead of chaining to avoid type depth issues
+        if (key && value) {
+          query = query.eq(key, value);
+        }
+      }
+    });
+  }
+
+  const { data, count, error } = await query;
+  const result = { 
+    data: data as T[], 
+    count, 
+    error, 
+    pageCount: count ? Math.ceil(count / pageSize) : 0 
   };
-
-  return networkOptimizer.optimizeRequest(
-    cacheKey,
-    fetchData,
-    { cacheTime }
-  );
+  
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 };
 
 /**
@@ -105,33 +101,31 @@ export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>
 export const getCount = async (table: TableName, filters?: Record<string, any>) => {
   const cacheKey = `${table}-count-${JSON.stringify(filters)}`;
   
-  const fetchCount = async () => {
-    // Use type assertion for the table name
-    let query = supabase
-      .from(table as any)
-      .select('id', { count: 'exact', head: true });
-
-    // Apply any filters
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          // Use if-statement instead of chaining to avoid type depth issues
-          if (key && value) {
-            query = query.eq(key, value);
-          }
-        }
-      });
-    }
-
-    const { count, error } = await query;
-    return { count, error };
-  };
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
+  }
   
-  return networkOptimizer.optimizeRequest(
-    cacheKey,
-    fetchCount,
-    { cacheTime: 300 } // 5 minutes
-  );
+  // Use type assertion for the table name
+  let query = supabase
+    .from(table as any)
+    .select('id', { count: 'exact', head: true });
+
+  // Apply any filters
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        // Use if-statement instead of chaining to avoid type depth issues
+        if (key && value) {
+          query = query.eq(key, value);
+        }
+      }
+    });
+  }
+
+  const { count, error } = await query;
+  const result = { count, error };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 };
 
 /**
@@ -141,21 +135,19 @@ export const getCount = async (table: TableName, filters?: Record<string, any>) 
 export const getWorkspaceDetails = async (workspaceId: string) => {
   const cacheKey = `workspace-${workspaceId}`;
   
-  const fetchDetails = async () => {
-    const { data, error } = await supabase
-      .from('apl_workspaces')
-      .select('id, name, invite_enabled')
-      .eq('id', workspaceId)
-      .single();
-    
-    return { data, error };
-  };
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
+  }
   
-  return networkOptimizer.optimizeRequest(
-    cacheKey,
-    fetchDetails,
-    { cacheTime: 300 } // 5 minutes
-  );
+  const { data, error } = await supabase
+    .from('apl_workspaces')
+    .select('id, name, invite_enabled')
+    .eq('id', workspaceId)
+    .single();
+
+  const result = { data, error };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 };
 
 /**
@@ -172,7 +164,6 @@ export const logAuditEvent = async (
   try {
     const device = navigator?.userAgent || 'Unknown device';
 
-    // Do not cache audit events
     await supabase.from('apl_auth_logs').insert({
       user_id: userId,
       action,
@@ -206,23 +197,22 @@ export const generateSecureRequestSignature = (payload: any): string => {
 export const verifyWorkspaceAccess = async (workspaceId: string, userId: string): Promise<boolean> => {
   const cacheKey = `workspace-access-${workspaceId}-${userId}`;
   
-  const checkAccess = async () => {
-    // Check if user is the owner or a member
-    const { data: membership, error } = await supabase
-      .from('apl_workspace_members')
-      .select('id')
-      .eq('workspace_id', workspaceId)
-      .eq('user_id', userId)
-      .maybeSingle();
-      
-    return !!membership;
-  };
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
+  }
   
-  return networkOptimizer.optimizeRequest(
-    cacheKey,
-    checkAccess,
-    { cacheTime: 600 } // 10 minutes since access permissions don't change often
-  );
+  // Check if user is the owner or a member
+  const { data: membership, error } = await supabase
+    .from('apl_workspace_members')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .maybeSingle();
+    
+  const hasAccess = !!membership;
+  queryCache.set(cacheKey, { data: hasAccess, timestamp: Date.now() });
+  
+  return hasAccess;
 };
 
 /**
@@ -232,23 +222,22 @@ export const verifyWorkspaceAccess = async (workspaceId: string, userId: string)
 export const getInvitationDetails = async (token: string, workspaceId: string) => {
   const cacheKey = `invitation-${token}-${workspaceId}`;
   
-  const fetchInvitation = async () => {
-    // Use direct query with type assertion to avoid TypeScript errors
-    const { data, error } = await supabase
-      .from('apl_invitation_tokens' as any)
-      .select('invitation_id, workspace_id, email, expires_at')
-      .eq('token', token)
-      .eq('workspace_id', workspaceId)
-      .single();
-      
-    return { data, error };
-  };
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
+  }
   
-  return networkOptimizer.optimizeRequest(
-    cacheKey,
-    fetchInvitation,
-    { cacheTime: 120 } // 2 minutes
-  );
+  // Use direct query with type assertion to avoid TypeScript errors
+  const { data, error } = await supabase
+    .from('apl_invitation_tokens' as any)
+    .select('invitation_id, workspace_id, email, expires_at')
+    .eq('token', token)
+    .eq('workspace_id', workspaceId)
+    .single();
+    
+  const result = { data, error };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  
+  return result;
 };
 
 /**
@@ -258,16 +247,8 @@ export const getInvitationDetails = async (token: string, workspaceId: string) =
  * @param userId The user accepting the invitation
  */
 export const acceptWorkspaceInvitation = async (workspaceId: string, token: string) => {
-  const result = await supabase.functions.invoke('accept-workspace-invitation', {
+  return await supabase.functions.invoke('accept-workspace-invitation', {
     method: 'POST',
     body: { workspaceId, token }
   });
-  
-  // Invalidate related caches on success
-  if (result && !result.error) {
-    networkOptimizer.invalidateByPrefix(`workspace-${workspaceId}`);
-    networkOptimizer.invalidate(`invitation-${token}-${workspaceId}`);
-  }
-  
-  return result;
 };

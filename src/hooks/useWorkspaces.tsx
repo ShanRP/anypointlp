@@ -1,9 +1,7 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
-import { networkOptimizer } from '@/utils/networkOptimizer';
 
 export interface WorkspaceOption {
   id: string;
@@ -26,79 +24,87 @@ export const useWorkspaces = () => {
   const [cache, setCache] = useState<{[key:string]: CachedWorkspace[]}>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch workspaces when user is available using network optimizer
+  // Fetch workspaces when user is available
   const fetchWorkspaces = useCallback(async (forceRefresh = false) => {
     if (!user) return;
     
     setLoading(true);
     try {
-      const cacheKey = `workspaces-${user.id}`;
-      
-      // Use network optimizer for fetching data
-      const fetchWorkspacesFromDB = async () => {
-        const { data, error } = await supabase
-          .rpc('apl_get_user_workspaces', { 
-            user_id_param: user.id 
-          });
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          return data.map((workspace: any) => ({
-            id: workspace.id,
-            name: workspace.name,
-            initial: workspace.initial,
-            session_timeout: workspace.session_timeout,
-            invite_enabled: workspace.invite_enabled
-          }));
-        }
+      const cacheKey = user.id;
+      if(!forceRefresh && 
+         cache[cacheKey] && 
+         cache[cacheKey].length > 0 && 
+         cache[cacheKey][0].cachedAt && 
+         Date.now() - cache[cacheKey][0].cachedAt < 300000) { // Check cache expiry (5 minutes)
         
-        return [];
-      };
-      
-      // If force refresh, invalidate the cache first
-      if (forceRefresh) {
-        networkOptimizer.invalidate(cacheKey);
-      }
-      
-      // Fetch data with optimization
-      const formattedWorkspaces = await networkOptimizer.optimizeRequest(
-        cacheKey,
-        fetchWorkspacesFromDB,
-        { 
-          cacheTime: 300, // 5 minutes
-          staleWhileRevalidate: !forceRefresh 
+        const cachedWorkspaces = cache[cacheKey].map(w => {
+          const { cachedAt, ...workspace } = w;
+          return workspace;
+        });
+        
+        setWorkspaces(cachedWorkspaces);
+        
+        if (!selectedWorkspace && cachedWorkspaces.length > 0) {
+          setSelectedWorkspace(cachedWorkspaces[0]);
+        } else if (selectedWorkspace) {
+          const updatedSelected = cachedWorkspaces.find(w => w.id === selectedWorkspace.id);
+          if (updatedSelected) {
+            setSelectedWorkspace(updatedSelected);
+          } else if (cachedWorkspaces.length > 0) {
+            setSelectedWorkspace(cachedWorkspaces[0]);
+          }
         }
-      );
-      
-      // Update state with fetched data
-      setWorkspaces(formattedWorkspaces);
-      
-      // Update the cache
-      const cachedWorkspaces = formattedWorkspaces.map((workspace: WorkspaceOption) => ({
-        ...workspace,
-        cachedAt: Date.now()
-      }));
-      
-      setCache(prev => ({...prev, [user.id]: cachedWorkspaces}));
-      
-      // Set selected workspace if not already set or update it if it exists
-      if (!selectedWorkspace && formattedWorkspaces.length > 0) {
-        setSelectedWorkspace(formattedWorkspaces[0]);
-      } else if (selectedWorkspace) {
-        // Find and update the currently selected workspace with fresh data
-        const updatedSelected = formattedWorkspaces.find(w => w.id === selectedWorkspace.id);
-        if (updatedSelected) {
-          setSelectedWorkspace(updatedSelected);
-        } else if (formattedWorkspaces.length > 0) {
-          // If previously selected workspace doesn't exist anymore, select first one
+        setFetchComplete(true);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .rpc('apl_get_user_workspaces', { 
+          user_id_param: user.id 
+        });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const formattedWorkspaces = data.map((workspace: any) => ({
+          id: workspace.id,
+          name: workspace.name,
+          initial: workspace.initial,
+          session_timeout: workspace.session_timeout,
+          invite_enabled: workspace.invite_enabled
+        }));
+
+        const cachedWorkspaces = data.map((workspace: any) => ({
+          id: workspace.id,
+          name: workspace.name,
+          initial: workspace.initial,
+          session_timeout: workspace.session_timeout,
+          invite_enabled: workspace.invite_enabled,
+          cachedAt: Date.now()
+        }));
+
+        setWorkspaces(formattedWorkspaces);
+        setCache(prev => ({...prev, [cacheKey]: cachedWorkspaces}));
+
+        // Set selected workspace if not already set or update it if it exists
+        if (!selectedWorkspace && formattedWorkspaces.length > 0) {
           setSelectedWorkspace(formattedWorkspaces[0]);
+        } else if (selectedWorkspace) {
+          // Find and update the currently selected workspace with fresh data
+          const updatedSelected = formattedWorkspaces.find(w => w.id === selectedWorkspace.id);
+          if (updatedSelected) {
+            setSelectedWorkspace(updatedSelected);
+          } else if (formattedWorkspaces.length > 0) {
+            // If previously selected workspace doesn't exist anymore, select first one
+            setSelectedWorkspace(formattedWorkspaces[0]);
+          }
         }
-      } else if (formattedWorkspaces.length === 0) {
+      } else {
         // If no workspaces, set empty array
+        setWorkspaces([]);
         setSelectedWorkspace(null);
+        setCache(prev => ({...prev, [cacheKey]: []}));
       }
-      
       setFetchComplete(true);
     } catch (error) {
       console.error('Error fetching workspaces:', error);
@@ -110,7 +116,7 @@ export const useWorkspaces = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [user, selectedWorkspace]);
+  }, [user, selectedWorkspace, cache]);
 
   // Reset state when user changes or logs out
   useEffect(() => {
@@ -172,13 +178,11 @@ export const useWorkspaces = () => {
 
       // Set as selected workspace
       setSelectedWorkspace(newWorkspace);
-      
-      // Invalidate the workspaces cache
-      networkOptimizer.invalidate(`workspaces-${user.id}`);
 
       return newWorkspace;
     } catch (error) {
       console.error('Error creating workspace:', error);
+      // toast.error('Failed to create workspace');
       return null;
     }
   };
@@ -213,9 +217,6 @@ export const useWorkspaces = () => {
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace({ ...selectedWorkspace, ...updates });
       }
-      
-      // Invalidate the specific workspace in cache
-      networkOptimizer.invalidate(`workspaces-${user.id}`);
 
       return true;
     } catch (error) {
@@ -255,9 +256,6 @@ export const useWorkspaces = () => {
       if (selectedWorkspace?.id === workspaceId) {
         setSelectedWorkspace(updatedWorkspaces[0]);
       }
-      
-      // Invalidate the workspace cache
-      networkOptimizer.invalidate(`workspaces-${user.id}`);
 
       return true;
     } catch (error) {
