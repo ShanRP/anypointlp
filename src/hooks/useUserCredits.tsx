@@ -1,8 +1,8 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { optimizeRequest } from '@/utils/networkOptimizer';
 
 export interface UserCredits {
   id: string;
@@ -23,38 +23,29 @@ export const useUserCredits = () => {
   
   // Track if fetch has been performed to prevent multiple calls
   const [hasFetched, setHasFetched] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const fetchUserCredits = useCallback(async () => {
-    // Skip if no user or already fetching
-    if (!user || isRefreshing) {
+    // Skip if no user
+    if (!user) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
     setError(null);
-    setIsRefreshing(true);
 
     try {
       console.log("Fetching user credits for user:", user.id);
-      
-      // Use optimizeRequest to fetch user credits with caching
-      const { data, error } = await optimizeRequest(
-        async () => {
-          return supabase
-            .from('apl_user_credits')
-            .select('*')
-            .eq('user_id', user.id)
-            .single();
-        },
-        `user-credits-${user.id}`,
-        hasFetched ? 60000 : 0 // 1 minute cache if already fetched, no cache for first fetch
-      );
-      
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-        throw error;
+      // First check if the user already has a credits record
+      const { data, error: fetchError } = await supabase
+        .from('apl_user_credits')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+        throw fetchError;
       }
 
       // If no record exists, create one
@@ -118,9 +109,8 @@ export const useUserCredits = () => {
       setError(err.message);
     } finally {
       setLoading(false);
-      setIsRefreshing(false);
     }
-  }, [user, hasFetched, isRefreshing]); // Add isRefreshing to dependencies
+  }, [user]); // Only depend on user
 
   const useCredit = useCallback(async () => {
     if (!user || !credits) {
@@ -227,7 +217,7 @@ export const useUserCredits = () => {
 
   // Initialize credits only once when the user is set
   useEffect(() => {
-    if (user && !hasFetched && !isRefreshing) {
+    if (user && !hasFetched) {
       console.log("Initializing user credits");
       fetchUserCredits();
     } else if (!user) {
@@ -236,16 +226,14 @@ export const useUserCredits = () => {
       setLoading(false);
       setHasFetched(false);
     }
-  }, [user, fetchUserCredits, hasFetched, isRefreshing]);
+  }, [user, fetchUserCredits, hasFetched]);
 
   // Refresh function that can be called externally
   const refreshCredits = useCallback(() => {
-    if (isRefreshing) return; // Prevent concurrent refreshes
-    
     console.log("Manually refreshing credits");
     setHasFetched(false);
     fetchUserCredits();
-  }, [fetchUserCredits, isRefreshing]);
+  }, [fetchUserCredits]);
 
   return {
     credits,
