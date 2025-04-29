@@ -56,7 +56,7 @@ export default function AcceptInvitation() {
         
         setWorkspace(workspaceData);
         setLoading(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching invitation details:', err);
         setError('Failed to load invitation details.');
         setLoading(false);
@@ -84,8 +84,8 @@ export default function AcceptInvitation() {
         throw new Error('Missing workspace ID');
       }
       
-      // Accept the invitation using RPC function
-      const result = await acceptWorkspaceInvitation(workspaceId, token);
+      // Accept the invitation using the optimized function
+      const result = await acceptWorkspaceInvitation(workspaceId, token || '');
       
       if (result.error) {
         throw new Error(result.error.message || 'Failed to accept invitation');

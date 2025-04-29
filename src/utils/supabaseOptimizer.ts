@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { debounce } from 'lodash';
 
@@ -387,8 +386,16 @@ export const acceptWorkspaceInvitation = async (workspaceId: string, token: stri
   clearCacheByPrefix(`workspace-${workspaceId}`);
   clearCacheByPrefix(`invitation-${token}`);
   
+  // Get the current user ID before calling the RPC function
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id;
+
+  if (!userId) {
+    return { error: { message: 'No authenticated user found' } };
+  }
+  
   return await supabase.rpc('apl_accept_workspace_invitation', {
     workspace_id_param: workspaceId,
-    user_id_param: supabase.auth.getUser().then(res => res.data.user?.id)
+    user_id_param: userId
   });
 };

@@ -308,13 +308,12 @@ const Dashboard = () => {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [tasks, setTasks] = useState<SidebarTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedExchangeItemId, setSelectedExchangeItemId] = useState<
-    string | null
-  >(null);
+  const [selectedExchangeItemId, setSelectedExchangeItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredAgents, setFilteredAgents] = useState<any[]>([]);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
   const [activeGenerators, setActiveGenerators] = useState<Set<string>>(new Set());
+  const [isOpen, setIsOpen] = useState(true); // Add sidebar open state
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -324,11 +323,11 @@ const Dashboard = () => {
     selectedTask,
     tasks: workspaceTasks,
     fetchWorkspaceTasks,
-    isLoading: tasksLoading,
+    loading: tasksLoading, // Use loading instead of isLoading
   } = useWorkspaceTasks(selectedWorkspace?.id || "");
   const [enabledFeatures] = useState([
     "dataweave",
-    "integration",
+    "integration", 
     "raml",
     "munit",
     "diagram",
@@ -337,6 +336,9 @@ const Dashboard = () => {
     "jobBoard",
     "exchange",
   ]); // Only these features are enabled
+
+  // Toggle function for sidebar
+  const toggle = () => setIsOpen(!isOpen);
 
   // Fetch workspace tasks whenever workspace changes or if the component mounts
   useEffect(() => {
@@ -548,28 +550,13 @@ const Dashboard = () => {
     <FeaturesContext.Provider value={enabledFeatures}>
       <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden">
         <DashboardSidebar
-          onNavigate={(page) => {
-            if (page === "dashboard") {
-              setCurrentPage("dashboard");
-              setSelectedAgent(null);
-              setSelectedTaskId(null);
-            } else if (page === "settings") {
-              setCurrentPage("settings");
-              setSelectedAgent(null);
-              setSelectedTaskId(null);
-            } else if (page === "chat") {
-              setIsCodingAssistantOpen(true);
-            } else {
-              setCurrentPage(page as PageType);
-              setSelectedAgent(page);
-              setSelectedTaskId(null);
-            }
-          }}
-          currentPage={currentPage}
-          onTaskSelect={handleTaskSelect}
-          selectedWorkspaceId={selectedWorkspace?.id}
-          onWorkspaceChange={handleWorkspaceChange}
-          onRefreshTasks={refreshWorkspaceTasks}
+          workspaces={workspaces}
+          selectedWorkspace={selectedWorkspace}
+          onSelectWorkspace={handleWorkspaceChange}
+          loading={tasksLoading}
+          refreshWorkspaces={refreshWorkspaceTasks}
+          isOpen={isOpen}
+          toggle={toggle}
         />
 
         <div className="flex-1 flex flex-col overflow-hidden relative">

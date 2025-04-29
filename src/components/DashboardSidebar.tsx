@@ -1,4 +1,3 @@
-
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,12 +6,12 @@ import { Separator } from "@/components/ui/separator";
 import { Menu, Plus, X, Loader2 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { WorkspaceOption } from "@/hooks/useWorkspaces";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useFeatures } from "@/contexts/FeaturesContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { CreateWorkspaceDialog } from "@/components/CreateWorkspaceDialog";
+import CreateWorkspaceDialog from "@/components/CreateWorkspaceDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface DashboardSidebarProps {
   workspaces: WorkspaceOption[];
@@ -157,7 +156,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             Tools
           </h2>
           <nav className="space-y-1 mb-6">
-            {enabledFeatures.includes("dataweaveGenerator") && (
+            {enabledFeatures.includes("dataweave") && (
               <NavLink
                 to="/dashboard"
                 className={({ isActive }) =>
@@ -173,7 +172,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               </NavLink>
             )}
 
-            {enabledFeatures.includes("integrationGenerator") && (
+            {enabledFeatures.includes("munit") && (
               <NavLink
                 to="/dashboard/munit"
                 className={({ isActive }) =>
@@ -188,7 +187,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               </NavLink>
             )}
 
-            {enabledFeatures.includes("sampleDataGenerator") && (
+            {enabledFeatures.includes("sampleData") && (
               <NavLink
                 to="/dashboard/sample-data"
                 className={({ isActive }) =>
@@ -297,7 +296,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           </div>
 
           <div className="flex items-center">
-            <ThemeToggle variant="ghost" size="sm" />
+            <ThemeToggle />
 
             <NavLink to="/settings">
               <Button variant="ghost" size="sm" className="ml-1">
