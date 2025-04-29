@@ -1,4 +1,3 @@
-
 import { toast } from 'sonner';
 
 // Error storage to prevent duplicate toasts
@@ -27,8 +26,18 @@ export const handleApiError = (
   if (!errorCache[key] || now - errorCache[key] > 60000) {
     console.error(`${context} error:`, error);
     
+    // Special handling for auth errors
+    if (context.includes('password') || context.includes('Password')) {
+      if (errorMessage.includes('weak')) {
+        toast.error('Password is too weak. Please use a stronger password.');
+      } else if (errorMessage.includes('match')) {
+        toast.error('Passwords do not match');
+      } else {
+        toast.error(`${context} failed: ${errorMessage}`);
+      }
+    }
     // Don't show "no rows returned" errors for new users
-    if (errorMessage.includes('no rows returned') || 
+    else if (errorMessage.includes('no rows returned') || 
         errorMessage.includes('not found')) {
       // For settings page and similar scenarios, just log it
       console.log(`Suppressed error toast for new user: ${errorMessage}`);
@@ -44,7 +53,7 @@ export const handleApiError = (
     console.log(`Suppressed duplicate error: ${errorMessage}`);
   }
 
-  return error; // Return the error for potential chaining
+  return errorMessage; // Return the error message for potential chaining
 };
 
 /**

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -24,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { WorkspaceSettings } from './settings/WorkspaceSettings';
 import RepositorySettings from './settings/RepositorySettings';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { ChangePasswordDialog } from './settings/ChangePasswordDialog';
 
 type AuthLog = {
   id: string;
@@ -42,11 +42,12 @@ const SettingsPage = () => {
   const { toast } = useToast();
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.user_metadata?.username || '');
-  const [authLogs, setAuthLogs] = useState<AuthLog[]>([]);
+  const [authLogs, setAuthLogs] = useState<any[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [isDataFetched, setIsDataFetched] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const logsPerPage = 5;
 
   const fadeIn = {
@@ -353,7 +354,12 @@ const SettingsPage = () => {
                   <Separator />
 
                   <div>
-                    <Button variant="outline" size="sm" className="h-9">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-9"
+                      onClick={() => setIsPasswordDialogOpen(true)}
+                    >
                       <Lock className="mr-2 h-4 w-4" />
                       {t('settings.changePassword')}
                     </Button>
@@ -490,6 +496,12 @@ const SettingsPage = () => {
           <RepositorySettings />
         </TabsContent>
       </Tabs>
+      
+      {/* Add the password change dialog */}
+      <ChangePasswordDialog 
+        open={isPasswordDialogOpen} 
+        onOpenChange={setIsPasswordDialogOpen} 
+      />
     </motion.div>
   );
 };
