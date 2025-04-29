@@ -24,6 +24,7 @@ export const useUserCredits = () => {
   // Track if fetch has been performed to prevent multiple calls
   const [hasFetched, setHasFetched] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [activeRequest, setActiveRequest] = useState<Promise<any> | null>(null);
 
   const fetchUserCredits = useCallback(async () => {
     // Skip if no user
@@ -31,86 +32,104 @@ export const useUserCredits = () => {
       setLoading(false);
       return;
     }
+    
+    // If there's an active request, return it instead of creating a new one
+    if (activeRequest) {
+      return activeRequest;
+    }
 
     setLoading(true);
     setError(null);
 
-    try {
-      console.log("Fetching user credits for user:", user.id);
-      // First check if the user already has a credits record
-      const { data, error: fetchError } = await supabase
-        .from('apl_user_credits')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-        throw fetchError;
-      }
-
-      // If no record exists, create one
-      if (!data) {
-        console.log("No credits record found, creating new one");
-        const today = new Date();
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0);
-
-        const { data: newData, error: insertError } = await supabase
+    // Create a new request and store it
+    const request = (async () => {
+      try {
+        console.log("Fetching user credits for user:", user.id);
+        // First check if the user already has a credits record
+        const { data, error: fetchError } = await supabase
           .from('apl_user_credits')
-          .insert({
-            user_id: user.id,
-            credits_used: 0,
-            credits_limit: 3,
-            reset_date: tomorrow.toISOString(),
-            is_pro: false
-          })
-          .select()
+          .select('*')
+          .eq('user_id', user.id)
           .single();
 
-        if (insertError) throw insertError;
-        console.log("New credits record created:", newData);
-        setCredits(newData as UserCredits);
-      } else {
-        console.log("Credits record found:", data);
-        // Check if we need to reset credits (reset_date has passed)
-        const resetDate = new Date(data.reset_date);
-        const now = new Date();
+        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+          throw fetchError;
+        }
 
-        if (now > resetDate) {
-          console.log("Reset date has passed, resetting credits");
-          // Reset credits and set new reset date
-          const tomorrow = new Date(now);
+        // If no record exists, create one
+        if (!data) {
+          console.log("No credits record found, creating new one");
+          const today = new Date();
+          const tomorrow = new Date(today);
           tomorrow.setDate(tomorrow.getDate() + 1);
           tomorrow.setHours(0, 0, 0, 0);
 
-          const { data: updatedData, error: updateError } = await supabase
+          const { data: newData, error: insertError } = await supabase
             .from('apl_user_credits')
-            .update({
+            .insert({
+              user_id: user.id,
               credits_used: 0,
-              reset_date: tomorrow.toISOString()
+              credits_limit: 3,
+              reset_date: tomorrow.toISOString(),
+              is_pro: false
             })
-            .eq('id', data.id)
             .select()
             .single();
 
-          if (updateError) throw updateError;
-          console.log("Credits reset, new data:", updatedData);
-          setCredits(updatedData as UserCredits);
+          if (insertError) throw insertError;
+          console.log("New credits record created:", newData);
+          setCredits(newData as UserCredits);
+          return newData as UserCredits;
         } else {
-          setCredits(data as UserCredits);
+          console.log("Credits record found:", data);
+          // Check if we need to reset credits (reset_date has passed)
+          const resetDate = new Date(data.reset_date);
+          const now = new Date();
+
+          if (now > resetDate) {
+            console.log("Reset date has passed, resetting credits");
+            // Reset credits and set new reset date
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+
+            const { data: updatedData, error: updateError } = await supabase
+              .from('apl_user_credits')
+              .update({
+                credits_used: 0,
+                reset_date: tomorrow.toISOString()
+              })
+              .eq('id', data.id)
+              .select()
+              .single();
+
+            if (updateError) throw updateError;
+            console.log("Credits reset, new data:", updatedData);
+            setCredits(updatedData as UserCredits);
+            return updatedData as UserCredits;
+          } else {
+            setCredits(data as UserCredits);
+            return data as UserCredits;
+          }
         }
+      } catch (err: any) {
+        console.error('Error fetching user credits:', err);
+        setError(err.message);
+        throw err;
+      } finally {
+        setLoading(false);
+        // Mark as fetched
+        setHasFetched(true);
+        // Clear the active request
+        setActiveRequest(null);
       }
-      
-      // Mark as fetched
-      setHasFetched(true);
-    } catch (err: any) {
-      console.error('Error fetching user credits:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]); // Only depend on user
+    })();
+    
+    // Store the promise
+    setActiveRequest(request);
+    
+    return request;
+  }, [user, activeRequest]); // Only depend on user and activeRequest
 
   const useCredit = useCallback(async () => {
     if (!user || !credits) {
@@ -190,7 +209,6 @@ export const useUserCredits = () => {
   useEffect(() => {
     if (!user) return;
     
-    // console.log("Setting up realtime subscription for user credits");
     const channel = supabase
       .channel('credits-changes')
       .on(
@@ -210,7 +228,6 @@ export const useUserCredits = () => {
       .subscribe();
       
     return () => {
-      // console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
   }, [user]);
@@ -225,6 +242,7 @@ export const useUserCredits = () => {
       setCredits(null);
       setLoading(false);
       setHasFetched(false);
+      setActiveRequest(null);
     }
   }, [user, fetchUserCredits, hasFetched]);
 
@@ -232,7 +250,8 @@ export const useUserCredits = () => {
   const refreshCredits = useCallback(() => {
     console.log("Manually refreshing credits");
     setHasFetched(false);
-    fetchUserCredits();
+    setActiveRequest(null);
+    return fetchUserCredits();
   }, [fetchUserCredits]);
 
   return {
@@ -243,6 +262,7 @@ export const useUserCredits = () => {
     upgradeToProPlan,
     refreshCredits,
     showUpgradeDialog,
-    setShowUpgradeDialog
+    setShowUpgradeDialog,
+    fetchUserCredits
   };
 };

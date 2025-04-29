@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,9 @@ import { toast } from 'sonner';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+
+// Track pending invitation requests
+const pendingInvites = new Set<string>();
 
 export const WorkspaceSettings: React.FC = () => {
   const { selectedWorkspace, updateWorkspace, refreshWorkspaces } = useWorkspaces();
@@ -99,7 +103,16 @@ export const WorkspaceSettings: React.FC = () => {
       return;
     }
     
+    // Prevent duplicate invitation requests
+    const inviteKey = `${selectedWorkspace.id}-${inviteEmail}`;
+    if (pendingInvites.has(inviteKey)) {
+      toast.info("Invitation is already being sent");
+      return;
+    }
+    
+    pendingInvites.add(inviteKey);
     setIsSendingInvite(true);
+    
     try {
       const { data, error } = await supabase.functions.invoke("send-workspace-invitation", {
         body: {
@@ -131,7 +144,7 @@ export const WorkspaceSettings: React.FC = () => {
       }
       
       setInviteEmail('');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending invitation:", error);
       
       if (error.message && error.message.includes("already a member")) {
@@ -143,6 +156,7 @@ export const WorkspaceSettings: React.FC = () => {
       }
     } finally {
       setIsSendingInvite(false);
+      pendingInvites.delete(inviteKey);
     }
   };
 
