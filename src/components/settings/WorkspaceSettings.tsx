@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -5,19 +6,20 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send } from 'lucide-react';
+import { Send, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export const WorkspaceSettings: React.FC = () => {
-  const { selectedWorkspace, updateWorkspace, refreshWorkspaces } = useWorkspaces();
+  const { selectedWorkspace, updateWorkspace, refreshWorkspaces, workspacesInitialized } = useWorkspaces();
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   useEffect(() => {
     if (selectedWorkspace) {
@@ -26,16 +28,34 @@ export const WorkspaceSettings: React.FC = () => {
     }
   }, [selectedWorkspace]);
   
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    await refreshWorkspaces();
+    setIsRefreshing(false);
+  };
+  
   if (!selectedWorkspace) {
     return (
       <div className="flex flex-col items-center justify-center h-64 bg-gray-50 dark:bg-gray-800 rounded-lg p-8">
         <p className="text-gray-500 mb-4">No workspace selected</p>
         <Button 
           variant="outline" 
-          onClick={() => refreshWorkspaces()}
+          onClick={handleRefresh}
+          disabled={isRefreshing}
           className="relative"
         >
-          Refresh Workspaces
+          {isRefreshing ? (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              Refreshing...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Workspaces
+            </>
+          )}
         </Button>
       </div>
     );

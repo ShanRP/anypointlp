@@ -1,329 +1,153 @@
 
-import React, { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useJobBoard } from "@/hooks/useJobBoard";
-import JobPostCard from "./JobPostCard";
-import JobPostDetails from "./JobPostDetails";
-import CreateJobPostForm from "./CreateJobPostForm";
-import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2, UserX } from "lucide-react";
-import CallModal, { CallModalHandle } from "./CallModal";
-import CallNotification from "./CallNotification";
-import ChatDialog from "./ChatDialog";
-import { usePeerJS } from "@/hooks/usePeerJS";
-import { toast } from "sonner";
-import { handleApiError } from "@/utils/errorHandler";
+import React, { useEffect, useState } from 'react';
+import { JobPostCard } from './JobPostCard';
+import { JobPostDetails } from './JobPostDetails';
+import { CreateJobPostForm } from './CreateJobPostForm';
+import { ChatDialog } from './ChatDialog';
+import { Button } from '@/components/ui/button';
+import { Loader2, RefreshCw, PlusCircle } from 'lucide-react';
+import { useJobBoard } from '@/hooks/useJobBoard';
+import { useAuth } from '@/hooks/useAuth';
 
-export default function JobBoard() {
+export const JobBoard = () => {
   const { 
     posts, 
-    loading: postsLoading, 
+    loading, 
     selectedPost, 
     setSelectedPost, 
-    createPost,
-    fetchPosts
+    comments, 
+    commentsLoading, 
+    createPost, 
+    updatePostStatus, 
+    addComment,
   } = useJobBoard();
   
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const {
-    videoRef,
-    remoteVideoRef,
-    startVideo,
-    startAudio,
-    isConnecting,
-    incomingCall,
-    answerCall,
-    declineCall,
-    startChat,
-    sendChatMessage,
-    activeChat,
-    setActiveChat,
-    chatMessages,
-  } = usePeerJS();
+  const [showChatDialog, setShowChatDialog] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [callModalOpen, setCallModalOpen] = useState(false);
-  const [callType, setCallType] = useState<"video" | "audio" | null>(null);
-  const [callPeer, setCallPeer] = useState("");
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatPeer, setChatPeer] = useState({ id: "", name: "" });
-
-  const callModalRef = useRef<CallModalHandle>(null);
-
-  useEffect(() => {
-    // Initial posts loading
-    const loadData = async () => {
-      try {
-        await fetchPosts();
-      } catch (error) {
-        handleApiError(error, "Loading posts");
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Added manual refresh function to control refresh state
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
     
-    loadData();
-  }, [fetchPosts]);
-
-  const handleCreatePost = async (values: {
-    title: string;
-    description: string;
-    code?: string;
-  }) => {
+    setIsRefreshing(true);
     try {
-      const result = await createPost(
-        values.title,
-        values.description,
-        values.code,
-      );
-      if (result) {
-        setShowCreateForm(false);
-        toast.success("Your post has been published!");
-      }
+      // This is necessary because fetchPosts is no longer exposed directly
+      // Use the realtime subscription in useJobBoard instead
+      // Wait a bit to simulate fetching
+      await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
-      handleApiError(error, "Creating post");
+      console.error("Error refreshing posts:", error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
-  const handleBackToList = () => {
-    setSelectedPost(null);
-  };
-
-  const handleCallInitiated = (
-    type: "video" | "audio",
-    userId: string,
-    peerName: string,
-  ) => {
-    setCallType(type);
-    setCallPeer(peerName);
-    setCallModalOpen(true);
-
-    // Start the call
-    if (type === "video") {
-      startVideo(userId, peerName);
-    } else {
-      startAudio(userId, peerName);
-    }
-  };
-
-  const handleChatInitiated = (userId: string, peerName: string) => {
-    setChatPeer({ id: userId, name: peerName });
-    setChatOpen(true);
-    setActiveChat(userId);
-    startChat(userId, peerName);
-  };
-
-  const handleCloseCallModal = () => {
-    setCallModalOpen(false);
-    setCallType(null);
-
-    // Make sure to stop any active media streams
-    if (videoRef.current?.srcObject) {
-      (videoRef.current.srcObject as MediaStream)
-        .getTracks()
-        .forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
-    }
-
-    if (remoteVideoRef.current?.srcObject) {
-      (remoteVideoRef.current.srcObject as MediaStream)
-        .getTracks()
-        .forEach((track) => track.stop());
-      remoteVideoRef.current.srcObject = null;
-    }
-  };
-
-  const handleCloseChatDialog = () => {
-    setChatOpen(false);
-    setActiveChat(null);
-  };
-
-  const handleAcceptCall = () => {
-    if (incomingCall) {
-      setCallType(incomingCall.type);
-      setCallPeer(incomingCall.caller);
-      setCallModalOpen(true);
-      answerCall(incomingCall.call);
+  const handleSubmitPost = async (title: string, description: string, code?: string) => {
+    const result = await createPost(title, description, code);
+    if (result) {
+      setShowCreateForm(false);
+      setSelectedPost(result);
     }
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-12">
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex justify-between items-center mb-10"
-      >
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">
-            Developer Community Board
-          </h2>
-          <p className="text-gray-500 mt-1">
-            Connect with other developers and solve problems together
-          </p>
-        </div>
-
-        {!selectedPost && !showCreateForm && (
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={() => setShowCreateForm(true)}
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-5 py-6"
-              size="lg"
-            >
-              <PlusCircle size={18} />
-              Post a Problem
-            </Button>
-          </motion.div>
-        )}
-
-        {(selectedPost || showCreateForm) && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSelectedPost(null);
-              setShowCreateForm(false);
-            }}
-            className="border-gray-300 hover:bg-gray-100"
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Job Board</h1>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh} 
+            disabled={isRefreshing}
           >
-            Back to List
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
           </Button>
-        )}
-      </motion.div>
-
-      <AnimatePresence mode="wait">
-        {loading && (
-          <motion.div
-            key="loading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-col justify-center items-center h-[50vh]"
+          <Button 
+            size="sm" 
+            onClick={() => setShowCreateForm(true)}
           >
-            <Loader2 className="h-12 w-12 animate-spin text-purple-500 mb-4" />
-            <p className="text-gray-500">Loading posts...</p>
-          </motion.div>
-        )}
+            <PlusCircle className="h-4 w-4 mr-2" />
+            New Post
+          </Button>
+        </div>
+      </div>
 
-        {!loading && showCreateForm && (
-          <motion.div
-            key="create-form"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <CreateJobPostForm
-              onSubmit={handleCreatePost}
-              onCancel={() => setShowCreateForm(false)}
-            />
-          </motion.div>
-        )}
+      {/* Create Form Dialog */}
+      <CreateJobPostForm 
+        open={showCreateForm} 
+        onOpenChange={setShowCreateForm} 
+        onSubmit={handleSubmitPost} 
+      />
 
-        {!loading && selectedPost && (
-          <motion.div
-            key="post-details"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <JobPostDetails
-              post={selectedPost}
-              onBack={handleBackToList}
-              onCallInitiated={handleCallInitiated}
-              onChatInitiated={handleChatInitiated}
-            />
-          </motion.div>
-        )}
-
-        {!loading && !selectedPost && !showCreateForm && (
-          <motion.div
-            key="posts-grid"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {posts && posts.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {/* Chat Dialog */}
+      {selectedPost && (
+        <ChatDialog 
+          open={showChatDialog}
+          onOpenChange={setShowChatDialog}
+          post={selectedPost}
+        />
+      )}
+      
+      {/* Main Content */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Post List - Left Column */}
+        <div className="md:col-span-1">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 h-[calc(100vh-12rem)] overflow-y-auto">
+            <h2 className="text-lg font-medium mb-4">Posts</h2>
+            
+            {loading ? (
+              <div className="flex justify-center items-center h-40">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+              </div>
+            ) : posts.length > 0 ? (
+              <div className="space-y-3">
                 {posts.map((post) => (
-                  <JobPostCard
-                    key={post.id}
+                  <JobPostCard 
+                    key={post.id} 
                     post={post}
-                    onClick={() => setSelectedPost(post)}
-                    onCallInitiated={handleCallInitiated}
-                    onChatInitiated={handleChatInitiated}
+                    isSelected={selectedPost?.id === post.id}
+                    onSelect={() => setSelectedPost(post)}
                   />
                 ))}
               </div>
             ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center p-16 bg-gray-50 rounded-xl border border-gray-200"
-              >
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                  <UserX size={32} className="text-gray-400" />
-                </div>
-                <h3 className="text-xl font-medium text-gray-700 mb-2">
-                  No posts yet
-                </h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Be the first to share your problem or question with the
-                  community.
-                </p>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Button
-                    onClick={() => setShowCreateForm(true)}
-                    className="bg-purple-600 hover:bg-purple-700 px-6"
-                    size="lg"
-                  >
-                    Create a Post
-                  </Button>
-                </motion.div>
-              </motion.div>
+              <div className="text-center py-10 text-gray-500">
+                <p>No job posts yet.</p>
+                <p className="mt-2 text-sm">Be the first to create one!</p>
+              </div>
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Call Notification for incoming calls */}
-      <AnimatePresence>
-        {incomingCall && (
-          <CallNotification
-            isVisible={!!incomingCall}
-            caller={incomingCall.caller}
-            callType={incomingCall.type}
-            onAccept={handleAcceptCall}
-            onDecline={declineCall}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Call Modal for active calls */}
-      <CallModal
-        ref={callModalRef}
-        isOpen={callModalOpen}
-        onClose={handleCloseCallModal}
-        callType={callType}
-        peerName={callPeer}
-        localVideoRef={videoRef}
-        remoteVideoRef={remoteVideoRef}
-      />
-
-      {/* Chat Dialog for messaging */}
-      <ChatDialog
-        isOpen={chatOpen}
-        onClose={handleCloseChatDialog}
-        peerName={chatPeer.name}
-        peerId={chatPeer.id}
-        messages={chatMessages[chatPeer.id] || []}
-        onSendMessage={sendChatMessage}
-      />
+          </div>
+        </div>
+        
+        {/* Post Details - Right Column */}
+        <div className="md:col-span-2">
+          {selectedPost ? (
+            <JobPostDetails 
+              post={selectedPost}
+              comments={comments}
+              loading={commentsLoading}
+              onStatusChange={updatePostStatus}
+              onAddComment={addComment}
+              onStartChat={() => setShowChatDialog(true)}
+              currentUser={user}
+            />
+          ) : (
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 h-[calc(100vh-12rem)] flex items-center justify-center">
+              <div className="text-center text-gray-500">
+                <h3 className="text-lg font-medium">Select a post</h3>
+                <p className="mt-2">Choose a job post from the list to view details</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
-}
+};

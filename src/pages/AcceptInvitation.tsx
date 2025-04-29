@@ -1,282 +1,139 @@
 
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { toast } from 'sonner';
 
-// Function to get invitation details
-const getInvitationDetails = async (token: string, workspaceId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from("apl_invitation_tokens")
-      .select("invitation_id, workspace_id, email, expires_at")
-      .eq("token", token)
-      .eq("workspace_id", workspaceId)
-      .single();
-      
-    if (error) {
-      console.error('Error fetching invitation token:', error);
-      return { data: null, error };
-    }
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error in getInvitationDetails:', error);
-    return { data: null, error };
-  }
-};
-
-// Function to accept workspace invitation
-const acceptWorkspaceInvitation = async (workspaceId: string, token: string) => {
-  try {
-    const { data, error } = await supabase.functions.invoke('accept-workspace-invitation', {
-      method: 'POST',
-      body: { workspaceId, token }
-    });
-    
-    if (error) {
-      console.error('Error accepting invitation:', error);
-      return { data: null, error };
-    }
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error in acceptWorkspaceInvitation:', error);
-    return { data: null, error: error };
-  }
-};
-
-const AcceptInvitation = () => {
-  const [searchParams] = useSearchParams();
+export const AcceptInvitation = () => {
+  const { token, workspace_id } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { user, session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [workspaceName, setWorkspaceName] = useState<string>('');
-  const [processingAcceptance, setProcessingAcceptance] = useState(false);
-  
-  // Get parameters from URL
-  const workspaceId = searchParams.get('workspaceId');
-  const token = searchParams.get('token');
+  const [invitationDetails, setInvitationDetails] = useState<any>(null);
 
   useEffect(() => {
-    const checkInvitation = async () => {
-      if (!workspaceId || !token) {
-        setError('Invalid invitation link. Missing workspace ID or token.');
+    const getInvitationDetails = async () => {
+      if (!token || !workspace_id) {
+        setError('Invalid invitation link');
         setLoading(false);
         return;
       }
 
       try {
-        // First, check if the workspace exists
-        const { data: workspace, error: workspaceError } = await supabase
-          .from('apl_workspaces')
-          .select('name')
-          .eq('id', workspaceId)
-          .single();
+        // Use getInvitationDetails from supabaseOptimizer
+        const { data: inviteDetails, error } = await supabase
+          .functions.invoke('get-invitation-details', {
+            body: { token, workspace_id }
+          });
 
-        if (workspaceError || !workspace) {
-          console.error('Error fetching workspace:', workspaceError);
-          setError('Workspace not found. The invitation link may be invalid.');
-          setLoading(false);
-          return;
-        }
-
-        setWorkspaceName(workspace.name);
+        if (error) throw error;
         
-        // Check if the token exists and is valid
-        const result = await getInvitationDetails(token, workspaceId);
+        const inviteData = inviteDetails?.data;
         
-        if (result.error || !result.data) {
-          console.error('Error validating invitation token:', result.error);
-          setError('The invitation token is invalid or has expired.');
-          setLoading(false);
-          return;
+        if (!inviteData) {
+          throw new Error('Invitation not found or expired');
         }
         
-        const tokenData = result.data;
-        
-        // Check if token is expired
-        if (new Date(tokenData.expires_at) < new Date()) {
-          setError('This invitation has expired. Please request a new invitation.');
-          setLoading(false);
-          return;
-        }
-        
-        // If user is logged in, check if their email matches the invitation
-        if (user && user.email && tokenData.email.toLowerCase() !== user.email.toLowerCase()) {
-          setError(`This invitation was sent to ${tokenData.email}. Please sign in with that email address.`);
-          setLoading(false);
-          return;
-        }
-
-        // If we get here, the invitation is valid
-        setLoading(false);
-      } catch (error) {
-        console.error('Error checking invitation:', error);
-        setError('An error occurred while checking the invitation.');
+        setInvitationDetails(inviteData);
+      } catch (err) {
+        console.error('Error fetching invitation details:', err);
+        setError('This invitation is invalid or has expired');
+      } finally {
         setLoading(false);
       }
     };
 
-    checkInvitation();
-  }, [workspaceId, token, user]);
+    getInvitationDetails();
+  }, [token, workspace_id]);
 
   const handleAcceptInvitation = async () => {
-    if (!workspaceId || !token) {
+    if (!user || !token || !workspace_id) {
+      toast.error('You need to be logged in to accept this invitation');
+      navigate('/auth?next=accept-invitation');
       return;
     }
-    
-    setProcessingAcceptance(true);
-    
+
+    setLoading(true);
     try {
-      if (!user || !session) {
-        // If not authenticated, redirect to auth page with return URL
-        const returnUrl = `/workspace/accept-invitation?workspaceId=${workspaceId}&token=${token}`;
-        navigate(`/auth`, { 
-          state: { returnUrl }
+      const { data, error } = await supabase
+        .functions.invoke('accept-workspace-invitation', {
+          body: { token, workspace_id }
         });
-        return;
+      
+      if (error) throw error;
+      
+      if (data.error) {
+        throw new Error(data.error);
       }
       
-      // User is authenticated, proceed with accepting invitation
-      const { data, error } = await acceptWorkspaceInvitation(workspaceId, token);
-      
-      if (error) {
-        throw new Error(error.message || 'Failed to accept invitation');
-      }
-      
-      if (data.alreadyMember) {
-        toast({
-          title: "Already a member",
-          description: "You are already a member of this workspace."
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "You have successfully joined the workspace."
-        });
-      }
-      
-      setSuccess(true);
-      
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
-    } catch (error: any) {
-      console.error('Error accepting invitation:', error);
-      setError(error.message || 'Failed to accept invitation');
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || 'Failed to accept invitation'
-      });
+      toast.success('You have successfully joined the workspace!');
+      navigate('/dashboard');
+    } catch (err: any) {
+      console.error('Error accepting invitation:', err);
+      setError(err.message || 'Failed to accept invitation');
+      toast.error('Failed to join workspace');
     } finally {
-      setProcessingAcceptance(false);
+      setLoading(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Invitation Error</h1>
+          <p className="text-gray-700 dark:text-gray-300 mb-6">{error}</p>
+          <Button onClick={() => navigate('/')}>
+            Return to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-purple-50 to-white p-4">
-      <Card className="max-w-md w-full shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-medium text-center">Workspace Invitation</CardTitle>
-          <CardDescription className="text-center">
-            {loading ? "Validating invitation..." : workspaceName && `You've been invited to join "${workspaceName}"`}
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+        <h1 className="text-2xl font-bold mb-4 text-center">Workspace Invitation</h1>
         
-        <CardContent>
-          <AnimatePresence mode="wait">
-            {loading ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center py-8"
-              >
-                <Loader2 className="h-10 w-10 text-purple-600 animate-spin mb-4" />
-                <p className="text-gray-600">Checking invitation details...</p>
-              </motion.div>
-            ) : error ? (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center text-center py-6"
-              >
-                <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-                <h3 className="text-lg font-medium text-red-800 mb-2">Invitation Error</h3>
-                <p className="text-gray-600 mb-6">{error}</p>
-                <Button onClick={() => navigate('/auth')} variant="outline">
-                  Go to Sign In
-                </Button>
-              </motion.div>
-            ) : success ? (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center text-center py-6"
-              >
-                <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
-                <h3 className="text-lg font-medium text-green-800 mb-2">Invitation Accepted</h3>
-                <p className="text-gray-600 mb-6">
-                  You have successfully joined the workspace. Redirecting to dashboard...
-                </p>
-                <Button onClick={() => navigate('/dashboard')} variant="outline">
-                  Go to Dashboard Now
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="accept"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center py-6"
-              >
-                <p className="text-center text-gray-600 mb-6">
-                  {user ? 
-                    `Click the button below to join "${workspaceName}".` :
-                    `You need to sign in to join "${workspaceName}". Clicking accept will redirect you to sign in first.`
-                  }
-                </p>
-                <Button 
-                  onClick={handleAcceptInvitation} 
-                  disabled={processingAcceptance}
-                  className="w-full"
-                >
-                  {processingAcceptance ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      Accept Invitation
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </CardContent>
-      </Card>
+        {!user ? (
+          <>
+            <p className="text-center mb-6">
+              You need to sign in to accept this invitation.
+            </p>
+            <div className="flex justify-center">
+              <Button onClick={() => navigate('/auth?next=accept-invitation')}>
+                Sign In
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-center mb-6">
+              You've been invited to join a workspace.
+            </p>
+            <div className="flex justify-center space-x-4">
+              <Button variant="outline" onClick={() => navigate('/')}>
+                Decline
+              </Button>
+              <Button onClick={handleAcceptInvitation} disabled={loading}>
+                {loading ? 'Accepting...' : 'Accept Invitation'}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };
-
-export default AcceptInvitation;
