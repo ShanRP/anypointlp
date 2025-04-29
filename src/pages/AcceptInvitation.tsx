@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { optimizeRequest } from '@/utils/networkOptimizer';
 
-export const AcceptInvitation = () => {
+const AcceptInvitation = () => {
   const { token, workspace_id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -141,3 +141,5 @@ export const AcceptInvitation = () => {
     </div>
   );
 };
+
+export default AcceptInvitation;
