@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useGithubApi } from '@/hooks/useGithubApi';
-import { Repository } from '@/utils/githubUtils';
+import { Repository, FileNode } from '@/utils/githubUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
@@ -12,12 +12,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFadeIn } from '@/utils/animationHooks';
 import { toast } from 'sonner';
-import { Folder, File } from 'lucide-react';
-import { FileNode } from '@/utils/githubUtils';
+import { Folder, File, Github, RefreshCw, Search, Upload } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function RepositorySettings() {
   const { toast: uiToast } = useToast();
-  const { fetchRepositories, fetchFileStructure } = useGithubApi();
+  const { 
+    fetchRepositories, 
+    fetchFileStructure, 
+    isAuthenticated, 
+    authenticateWithGitHub, 
+    loadingRepositories, 
+    logoutGitHub 
+  } = useGithubApi();
   const { 
     selectedRepository, 
     setSelectedRepository, 
@@ -25,74 +32,53 @@ export default function RepositorySettings() {
     updateLastGithubRefresh,
     localRepositoryPath,
     setLocalRepositoryPath,
-    setLocalFileStructure
+    setLocalFileStructure,
+    localFileStructure
   } = useRepositoryData();
-  const [githubToken, setGithubToken] = useState<string>(() => localStorage.getItem('APL_githubToken') || '');
   const [githubRepos, setGithubRepos] = useState<Repository[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [tokenInput, setTokenInput] = useState<string>(githubToken);
   const [activeTab, setActiveTab] = useState<string>("github");
   const fadeIn = useFadeIn();
   const projectFolderRef = useRef<HTMLInputElement>(null);
+  const [fileProcessingStatus, setFileProcessingStatus] = useState<{
+    processing: boolean;
+    total: number;
+    processed: number;
+  }>({
+    processing: false,
+    total: 0,
+    processed: 0
+  });
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Load github token from localStorage when component mounts
+  // Load repository data when component mounts
   useEffect(() => {
-    const savedToken = localStorage.getItem('APL_githubToken');
-    if (savedToken) {
-      setGithubToken(savedToken);
-      setTokenInput(savedToken);
+    if (isAuthenticated) {
+      handleFetchRepositories();
     }
-
+    
     // Load local repository path
     const savedLocalPath = localStorage.getItem('APL_localRepositoryPath');
     if (savedLocalPath) {
       setLocalRepositoryPath(savedLocalPath);
     }
-  }, []);
-
-  // Fetch repositories when token changes
-  useEffect(() => {
-    if (githubToken) {
-      handleFetchRepositories();
+    
+    // Load local file structure
+    const savedLocalStructure = localStorage.getItem('APL_localFileStructure');
+    if (savedLocalStructure) {
+      try {
+        setLocalFileStructure(JSON.parse(savedLocalStructure));
+      } catch (error) {
+        console.error("Error parsing local file structure:", error);
+      }
     }
-  }, [githubToken]); 
-
-  const handleTokenSubmit = () => {
-    if (!tokenInput.trim()) {
-      uiToast({
-        title: "Token Required",
-        description: "Please enter a GitHub token",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    localStorage.setItem('APL_githubToken', tokenInput.trim());
-    setGithubToken(tokenInput.trim());
-    uiToast({
-      title: "Token Saved",
-      description: "GitHub token saved successfully"
-    });
-  };
-
-  const handleTokenClear = () => {
-    localStorage.removeItem('APL_githubToken');
-    setGithubToken('');
-    setTokenInput('');
-    setGithubRepos([]);
-    localStorage.removeItem('APL_selectedGithubRepo');
-    setSelectedRepository(null);
-    uiToast({
-      title: "Token Cleared",
-      description: "GitHub token has been removed"
-    });
-  };
+  }, [isAuthenticated]);
 
   const handleFetchRepositories = async () => {
-    if (!githubToken) {
+    if (!isAuthenticated) {
       uiToast({
-        title: "Token Required",
-        description: "Please enter a GitHub token",
+        title: "Authentication Required",
+        description: "Please authenticate with GitHub first",
         variant: "destructive"
       });
       return;
@@ -161,61 +147,127 @@ export default function RepositorySettings() {
       setLocalRepositoryPath(rootPath);
       localStorage.setItem('APL_localRepositoryPath', rootPath);
       
+      // Set up file processing status
+      setFileProcessingStatus({
+        processing: true,
+        total: files.length,
+        processed: 0
+      });
+      
+      // Process files in batches to avoid UI freezing
+      const batchSize = 100;
       const fileStructure: FileNode[] = [];
       const directories: Record<string, FileNode> = {};
       
-      files.forEach(file => {
-        const path = file.webkitRelativePath;
-        const pathParts = path.split('/');
+      // Use setTimeout to process files in batches
+      const processFileBatch = (startIndex: number) => {
+        const endIndex = Math.min(startIndex + batchSize, files.length);
         
-        if (pathParts.length <= 1) return;
-        
-        let currentPath = '';
-        let parentNode: FileNode | null = null;
-        
-        for (let i = 0; i < pathParts.length - 1; i++) {
-          const part = pathParts[i];
-          const newPath = currentPath ? `${currentPath}/${part}` : part;
-          currentPath = newPath;
+        for (let i = startIndex; i < endIndex; i++) {
+          const file = files[i];
+          const path = file.webkitRelativePath;
+          const pathParts = path.split('/');
           
-          if (!directories[newPath]) {
-            const newNode: FileNode = {
-              name: part,
-              path: newPath,
-              type: 'directory',
-              children: []
-            };
+          if (pathParts.length <= 1) continue;
+          
+          let currentPath = '';
+          let parentNode: FileNode | null = null;
+          
+          // Process directory structure
+          for (let j = 0; j < pathParts.length - 1; j++) {
+            const part = pathParts[j];
+            const newPath = currentPath ? `${currentPath}/${part}` : part;
+            currentPath = newPath;
             
-            directories[newPath] = newNode;
-            
-            if (i === 0) {
-              fileStructure.push(newNode);
-            } else if (parentNode) {
-              parentNode.children?.push(newNode);
+            if (!directories[newPath]) {
+              const newNode: FileNode = {
+                name: part,
+                path: newPath,
+                type: 'directory',
+                children: []
+              };
+              
+              directories[newPath] = newNode;
+              
+              if (j === 0) {
+                fileStructure.push(newNode);
+              } else if (parentNode) {
+                parentNode.children?.push(newNode);
+              }
             }
+            
+            parentNode = directories[newPath];
           }
           
-          parentNode = directories[newPath];
+          // Process file
+          const fileName = pathParts[pathParts.length - 1];
+          const lowerFileName = fileName.toLowerCase();
+          const isDataWeave = lowerFileName.endsWith('.dwl');
+          const isRaml = lowerFileName.endsWith('.raml');
+          const isXml = lowerFileName.endsWith('.xml');
+          const isJson = lowerFileName.endsWith('.json');
+          const isCsv = lowerFileName.endsWith('.csv');
+          const isYaml = lowerFileName.endsWith('.yaml') || lowerFileName.endsWith('.yml');
+          
+          const fileNode: FileNode = {
+            name: fileName,
+            path: path,
+            type: 'file',
+            isDataWeave,
+            isRaml,
+            isXml,
+            isJson,
+            isCsv,
+            isYaml
+          };
+          
+          parentNode?.children?.push(fileNode);
         }
         
-        const fileName = pathParts[pathParts.length - 1];
-        const isDataWeave = fileName.endsWith('.dwl');
+        // Update processing status
+        setFileProcessingStatus(prev => ({
+          ...prev,
+          processed: endIndex
+        }));
         
-        const fileNode: FileNode = {
-          name: fileName,
-          path: path,
-          type: 'file',
-          isDataWeave
-        };
-        
-        parentNode?.children?.push(fileNode);
-      });
+        // Continue processing if there are more files
+        if (endIndex < files.length) {
+          setTimeout(() => processFileBatch(endIndex), 0);
+        } else {
+          // Sort each directory's children (directories first, then files)
+          const sortNodes = (nodes: FileNode[]) => {
+            nodes.sort((a, b) => {
+              if (a.type === 'directory' && b.type !== 'directory') return -1;
+              if (a.type !== 'directory' && b.type === 'directory') return 1;
+              return a.name.localeCompare(b.name);
+            });
+            
+            nodes.forEach(node => {
+              if (node.children && node.children.length > 0) {
+                sortNodes(node.children);
+              }
+            });
+          };
+          
+          sortNodes(fileStructure);
+          
+          // Save the file structure
+          setLocalFileStructure(fileStructure);
+          localStorage.setItem('APL_localFileStructure', JSON.stringify(fileStructure));
+          
+          // Complete processing
+          setFileProcessingStatus({
+            processing: false,
+            total: files.length,
+            processed: files.length
+          });
+          
+          toast.success(`${files.length} files processed from ${rootPath}`);
+        }
+      };
       
-      // Save the file structure
-      setLocalFileStructure(fileStructure);
-      localStorage.setItem('APL_localFileStructure', JSON.stringify(fileStructure));
-      
-      toast.success('Local folder loaded successfully');
+      // Start processing the first batch
+      processFileBatch(0);
     }
   };
 
@@ -227,6 +279,13 @@ export default function RepositorySettings() {
     toast.success('Local repository cleared');
   };
 
+  // Filter repositories based on search term
+  const filteredRepos = githubRepos.filter(repo => 
+    repo.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    repo.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (repo.description && repo.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   const renderGithubTab = () => (
     <div className="space-y-6">
       <Card>
@@ -235,52 +294,62 @@ export default function RepositorySettings() {
           <CardDescription>Connect to your GitHub repositories</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="github-token" className="text-sm font-medium">
-              GitHub Personal Access Token
-            </label>
-            <div className="flex gap-2">
-              <Input
-                id="github-token"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                type="password"
-                placeholder="ghp_..."
-                className="flex-1"
-              />
-              <Button onClick={handleTokenSubmit} disabled={!tokenInput.trim()}>
-                Save Token
-              </Button>
-              {githubToken && (
-                <Button variant="outline" onClick={handleTokenClear}>
-                  Clear
+          {!isAuthenticated ? (
+            <Button 
+              onClick={authenticateWithGitHub} 
+              disabled={loading}
+              className="w-full sm:w-auto flex items-center"
+            >
+              <Github className="mr-2 h-4 w-4" />
+              Connect with GitHub
+            </Button>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-green-600 dark:text-green-400 flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  Connected to GitHub
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={logoutGitHub}
+                >
+                  Disconnect
                 </Button>
-              )}
+              </div>
+              
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search repositories..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Button 
+                  onClick={handleFetchRepositories} 
+                  disabled={loadingRepositories}
+                  variant="outline"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingRepositories ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-gray-500">
-              Token requires repo scope. <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">Generate token</a>
-            </p>
-          </div>
+          )}
         </CardContent>
-        <CardFooter>
-          <Button 
-            onClick={handleFetchRepositories} 
-            disabled={!githubToken || loading}
-            className="w-full sm:w-auto"
-          >
-            {loading ? "Loading..." : "Fetch Repositories"}
-          </Button>
-        </CardFooter>
       </Card>
 
-      {githubRepos.length > 0 && (
+      {isAuthenticated && filteredRepos.length > 0 && (
         <motion.div
           {...fadeIn}
           className="space-y-4"
         >
           <h3 className="text-lg font-medium">Select a Repository</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {githubRepos.map((repo) => (
+            {filteredRepos.map((repo) => (
               <motion.div
                 key={repo.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -289,8 +358,8 @@ export default function RepositorySettings() {
                 onClick={() => handleSelectRepo(repo)}
                 className={`border p-3 rounded-md cursor-pointer transition-colors ${
                   selectedRepository && selectedRepository.id === repo.id 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20' 
+                    : 'hover:border-gray-300 hover:bg-gray-50 dark:hover:border-gray-600 dark:hover:bg-gray-800/50'
                 }`}
               >
                 <div className="font-medium">{repo.name}</div>
@@ -383,7 +452,7 @@ export default function RepositorySettings() {
             onClick={handleProjectFolderClick}
           >
             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-              <Folder className="w-8 h-8 text-blue-600" />
+              <Upload className="w-8 h-8 text-blue-600" />
             </div>
             <div className="text-center">
               <p className="text-lg font-medium text-gray-900 mb-1">Select a folder from your device</p>
@@ -392,6 +461,21 @@ export default function RepositorySettings() {
               </p>
             </div>
           </div>
+          
+          {fileProcessingStatus.processing && (
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Processing files...</span>
+                <span>{fileProcessingStatus.processed} / {fileProcessingStatus.total}</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                <div 
+                  className="bg-blue-600 h-2.5 rounded-full" 
+                  style={{ width: `${(fileProcessingStatus.processed / fileProcessingStatus.total) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -423,11 +507,23 @@ export default function RepositorySettings() {
                   <span className="text-sm font-medium">{localRepositoryPath}</span>
                 </div>
                 <Separator />
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Selected Files (Click to select files):</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-sm font-medium mb-2">Repository Files:</h4>
+                    {localFileStructure && localFileStructure.length > 0 && (
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search files..."
+                          className="pl-8 h-8 text-sm"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
                   <div className="max-h-60 overflow-y-auto border rounded-md p-2 bg-gray-50">
-                    {/* Display local file structure here */}
-                    <LocalFileStructureView />
+                    <LocalFileStructureView searchTerm={searchTerm} />
                   </div>
                 </div>
               </div>
@@ -439,15 +535,75 @@ export default function RepositorySettings() {
   );
 
   // Small component to display local file structure
-  const LocalFileStructureView = () => {
+  interface LocalFileStructureViewProps {
+    searchTerm?: string;
+  }
+
+  const LocalFileStructureView: React.FC<LocalFileStructureViewProps> = ({ searchTerm = '' }) => {
     const { localFileStructure } = useRepositoryData();
     
-    if (!localFileStructure || localFileStructure.length === 0) {
-      return <div className="text-center py-4 text-gray-500">No files found</div>;
+    // Recursive search function to check if a node or any of its children match the search term
+    const nodeMatchesSearch = (node: FileNode, term: string): boolean => {
+      if (node.name.toLowerCase().includes(term.toLowerCase())) {
+        return true;
+      }
+      
+      if (node.children && node.children.length > 0) {
+        return node.children.some(child => nodeMatchesSearch(child, term));
+      }
+      
+      return false;
+    };
+    
+    // Recursive function to filter nodes based on search term
+    const filterNodes = (nodes: FileNode[], term: string): FileNode[] => {
+      if (!term) return nodes;
+      
+      return nodes.filter(node => {
+        if (nodeMatchesSearch(node, term)) {
+          // If this node matches, include it and potentially filter its children
+          const filteredNode = { ...node };
+          if (node.children && node.children.length > 0) {
+            filteredNode.children = filterNodes(node.children, term);
+          }
+          return true;
+        }
+        return false;
+      });
+    };
+    
+    // Filter nodes based on search term if provided
+    const filteredNodes = searchTerm ? filterNodes(localFileStructure || [], searchTerm) : localFileStructure;
+    
+    if (!filteredNodes || filteredNodes.length === 0) {
+      return (
+        <div className="text-center py-4 text-gray-500">
+          {searchTerm ? 'No matching files found' : 'No files found'}
+        </div>
+      );
     }
     
     const renderFileNode = (node: FileNode, depth = 0) => {
       const paddingLeft = `${depth * 16}px`;
+      
+      // Highlight matching text parts if search term exists
+      const highlightMatch = (text: string, term: string) => {
+        if (!term) return text;
+        
+        const lowerText = text.toLowerCase();
+        const lowerTerm = term.toLowerCase();
+        const index = lowerText.indexOf(lowerTerm);
+        
+        if (index === -1) return text;
+        
+        return (
+          <>
+            {text.substring(0, index)}
+            <span className="bg-yellow-200 text-black">{text.substring(index, index + term.length)}</span>
+            {text.substring(index + term.length)}
+          </>
+        );
+      };
       
       return (
         <div key={node.path}>
@@ -460,7 +616,9 @@ export default function RepositorySettings() {
             ) : (
               <File className="h-4 w-4 mr-2 text-gray-500" />
             )}
-            <span className="text-sm truncate">{node.name}</span>
+            <span className="text-sm truncate">
+              {highlightMatch(node.name, searchTerm)}
+            </span>
           </div>
           
           {node.children && node.children.length > 0 && (
@@ -474,7 +632,7 @@ export default function RepositorySettings() {
     
     return (
       <div>
-        {localFileStructure.map(node => renderFileNode(node))}
+        {filteredNodes.map(node => renderFileNode(node))}
       </div>
     );
   };

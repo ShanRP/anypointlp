@@ -1,6 +1,8 @@
+
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { Repository, FileNode, buildFileTree, GithubTreeItem, fetchFileContent as fetchContent } from "@/utils/githubUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UseGithubApiReturn {
   repositories: Repository[];
@@ -10,6 +12,9 @@ interface UseGithubApiReturn {
   loadingFileStructure: boolean;
   fetchFileStructure: (repo: Repository) => Promise<FileNode[]>;
   fetchFileContent: (repo: Repository, filePath: string) => Promise<string | null>;
+  authenticateWithGitHub: () => Promise<void>;
+  isAuthenticated: boolean;
+  logoutGitHub: () => Promise<void>;
 }
 
 export function useGithubApi(): UseGithubApiReturn {
@@ -17,6 +22,64 @@ export function useGithubApi(): UseGithubApiReturn {
   const [loadingRepositories, setLoadingRepositories] = useState(false);
   const [fileStructure, setFileStructure] = useState<FileNode[]>([]);
   const [loadingFileStructure, setLoadingFileStructure] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!localStorage.getItem('APL_githubToken'));
+
+  // Authenticate with GitHub through Supabase
+  const authenticateWithGitHub = async () => {
+    try {
+      // You would typically use supabase.auth.signInWithOAuth here
+      // For this implementation, we'll use a popup window approach
+      const width = 600;
+      const height = 700;
+      const left = window.innerWidth / 2 - width / 2;
+      const top = window.innerHeight / 2 - height / 2;
+      
+      const popup = window.open(
+        "https://github.com/login/oauth/authorize?client_id=YOUR_GITHUB_CLIENT_ID&scope=repo&redirect_uri=YOUR_REDIRECT_URI",
+        "github-oauth",
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+      
+      // This is a simplified implementation
+      // In a real app, you'd need to handle the OAuth callback
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'github-oauth-success') {
+          const token = event.data.token;
+          localStorage.setItem('APL_githubToken', token);
+          setIsAuthenticated(true);
+          toast.success("Successfully authenticated with GitHub");
+          fetchRepositories();
+          window.removeEventListener('message', handleMessage);
+        }
+      };
+      
+      window.addEventListener('message', handleMessage);
+      
+      // For now, let's simulate the OAuth flow for prototyping
+      // In a real app, remove this and implement proper OAuth
+      setTimeout(() => {
+        const mockToken = "github_mock_token_" + Math.random().toString(36).substring(2);
+        localStorage.setItem('APL_githubToken', mockToken);
+        setIsAuthenticated(true);
+        toast.success("Successfully authenticated with GitHub");
+        fetchRepositories();
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error('Error authenticating with GitHub:', error);
+      toast.error(`Authentication failed: ${error.message}`);
+    }
+  };
+  
+  const logoutGitHub = async () => {
+    localStorage.removeItem('APL_githubToken');
+    localStorage.removeItem('APL_selectedGithubRepo');
+    localStorage.removeItem('APL_repoFileStructure');
+    setRepositories([]);
+    setFileStructure([]);
+    setIsAuthenticated(false);
+    toast.success("Logged out from GitHub");
+  };
 
   const fetchRepositories = useCallback(async (): Promise<Repository[]> => {
     setLoadingRepositories(true);
@@ -137,6 +200,9 @@ export function useGithubApi(): UseGithubApiReturn {
     fileStructure,
     loadingFileStructure,
     fetchFileStructure,
-    fetchFileContent
+    fetchFileContent,
+    authenticateWithGitHub,
+    isAuthenticated,
+    logoutGitHub
   };
 }
