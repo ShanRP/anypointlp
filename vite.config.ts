@@ -2,8 +2,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-// Remove the component tagger import since it's causing issues
-// import { componentTagger } from "lovable-tagger";
+import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -14,9 +13,8 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    // Remove the component tagger for now as it may be causing issues
-    // mode === 'development' &&
-    // componentTagger(),
+    mode === 'development' &&
+    componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {

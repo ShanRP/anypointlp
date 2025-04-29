@@ -22,14 +22,10 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
-    // Prevent multiple submissions
-    if (isSubmitting || isUpdating) return;
     
     // Simple validation
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -47,24 +43,16 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const result = await changePassword(currentPassword, newPassword);
-      
-      if (result.success) {
-        // Reset form and close dialog on success
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        onOpenChange(false);
-      } else if (result.error) {
-        setError(result.error);
-      }
-    } catch (err) {
-      console.error("Error changing password:", err);
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+    const result = await changePassword(currentPassword, newPassword);
+    
+    if (result.success) {
+      // Reset form and close dialog on success
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      onOpenChange(false);
+    } else if (result.error) {
+      setError(result.error);
     }
   };
 
@@ -99,7 +87,6 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="Enter your current password"
               autoComplete="current-password"
-              disabled={isSubmitting || isUpdating}
             />
           </div>
           
@@ -112,7 +99,6 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Enter your new password"
               autoComplete="new-password"
-              disabled={isSubmitting || isUpdating}
             />
           </div>
           
@@ -125,16 +111,15 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm your new password"
               autoComplete="new-password"
-              disabled={isSubmitting || isUpdating}
             />
           </div>
           
           <DialogFooter className="pt-4">
-            <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting || isUpdating}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isUpdating}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || isUpdating}>
-              {(isSubmitting || isUpdating) ? (
+            <Button type="submit" disabled={isUpdating}>
+              {isUpdating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Updating...
