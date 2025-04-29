@@ -1,7 +1,9 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
+import { networkOptimizer } from "@/utils/networkOptimizer";
 
 export type JobPost = {
   id: string;
@@ -37,40 +39,48 @@ export function useJobBoard() {
     try {
       setLoading(true);
 
-      // First get posts
-      const { data: postsData, error: postsError } = await supabase
-        .from("apl_job_posts")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Use networkOptimizer to cache the request
+      const postsWithCommentCounts = await networkOptimizer.optimizeRequest(
+        "job-posts",
+        async () => {
+          // First get posts
+          const { data: postsData, error: postsError } = await supabase
+            .from("apl_job_posts")
+            .select("*")
+            .order("created_at", { ascending: false });
 
-      if (postsError) throw postsError;
+          if (postsError) throw postsError;
 
-      // Create a postsWithCommentCounts array to store our final result
-      const postsWithCommentCounts = [];
+          // Create a postsWithCommentCounts array to store our final result
+          const postsWithComments = [];
 
-      // Process each post individually to get its comment count
-      for (const post of postsData || []) {
-        // Count comments for this post
-        const { count, error } = await supabase
-          .from("apl_job_comments")
-          .select("*", { count: "exact", head: true })
-          .eq("post_id", post.id);
+          // Process each post individually to get its comment count
+          for (const post of postsData || []) {
+            // Count comments for this post
+            const { count, error } = await supabase
+              .from("apl_job_comments")
+              .select("*", { count: "exact", head: true })
+              .eq("post_id", post.id);
 
-        if (error) {
-          console.error("Error counting comments for post", post.id, error);
-          // Continue with next post even if there's an error
-          postsWithCommentCounts.push({
-            ...post,
-            comment_count: 0,
-          });
-        } else {
-          // Add the post with its comment count
-          postsWithCommentCounts.push({
-            ...post,
-            comment_count: count || 0,
-          });
-        }
-      }
+            if (error) {
+              console.error("Error counting comments for post", post.id, error);
+              // Continue with next post even if there's an error
+              postsWithComments.push({
+                ...post,
+                comment_count: 0,
+              });
+            } else {
+              // Add the post with its comment count
+              postsWithComments.push({
+                ...post,
+                comment_count: count || 0,
+              });
+            }
+          }
+          return postsWithComments;
+        },
+        { cacheTime: 60 } // Cache for 1 minute
+      );
 
       setPosts(postsWithCommentCounts as JobPost[]);
     } catch (error) {
@@ -91,6 +101,8 @@ export function useJobBoard() {
         "postgres_changes",
         { event: "*", schema: "public", table: "apl_job_posts" },
         () => {
+          // Invalidate the cache and fetch again
+          networkOptimizer.invalidate("job-posts");
           fetchPosts();
         },
       )
@@ -117,6 +129,8 @@ export function useJobBoard() {
             filter: `post_id=eq.${selectedPost.id}`,
           },
           () => {
+            // Invalidate the comments cache when there's a change
+            networkOptimizer.invalidate(`job-comments-${selectedPost.id}`);
             fetchComments(selectedPost.id);
           },
         )
@@ -131,14 +145,23 @@ export function useJobBoard() {
   const fetchComments = useCallback(async (postId: string) => {
     try {
       setCommentsLoading(true);
-      const { data, error } = await supabase
-        .from("apl_job_comments")
-        .select("*")
-        .eq("post_id", postId)
-        .order("created_at", { ascending: true });
+      
+      const commentsData = await networkOptimizer.optimizeRequest(
+        `job-comments-${postId}`,
+        async () => {
+          const { data, error } = await supabase
+            .from("apl_job_comments")
+            .select("*")
+            .eq("post_id", postId)
+            .order("created_at", { ascending: true });
 
-      if (error) throw error;
-      setComments((data as JobComment[]) || []);
+          if (error) throw error;
+          return data || [];
+        },
+        { cacheTime: 60 } // Cache for 1 minute
+      );
+      
+      setComments(commentsData as JobComment[]);
     } catch (error) {
       console.error("Error fetching comments:", error);
       toast.error("Failed to load comments");
@@ -172,6 +195,10 @@ export function useJobBoard() {
         .single();
 
       if (error) throw error;
+      
+      // Invalidate the posts cache after creating a new post
+      networkOptimizer.invalidate("job-posts");
+      
       toast.success("Job post created successfully");
       return data as JobPost;
     } catch (error) {
@@ -192,6 +219,10 @@ export function useJobBoard() {
         .eq("id", postId);
 
       if (error) throw error;
+      
+      // Invalidate the posts cache after status update
+      networkOptimizer.invalidate("job-posts");
+      
       toast.success(`Status updated to ${status}`);
       return true;
     } catch (error) {
@@ -220,6 +251,12 @@ export function useJobBoard() {
         .single();
 
       if (error) throw error;
+      
+      // Invalidate comment cache after adding a new comment
+      networkOptimizer.invalidate(`job-comments-${postId}`);
+      // Also invalidate posts cache to update comment count
+      networkOptimizer.invalidate("job-posts");
+      
       return data as JobComment;
     } catch (error) {
       console.error("Error adding comment:", error);
@@ -239,6 +276,6 @@ export function useJobBoard() {
     updatePostStatus,
     addComment,
     fetchComments,
-    fetchPosts, // Add fetchPosts to the returned object
+    fetchPosts, // Export fetchPosts for use in components
   };
 }
