@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { handleApiError } from '@/utils/errorHandler';
 
 const WorkspaceInvite = () => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -126,8 +127,9 @@ const WorkspaceInvite = () => {
       });
 
       if (error) {
-        console.error('Error requesting invitation:', error);
-        throw error;
+        handleApiError(error, 'Workspace invitation');
+        setLoading(false);
+        return;
       }
 
       if (!data || !data.content || !data.content[0] || !data.content[0].text) {
@@ -150,8 +152,7 @@ const WorkspaceInvite = () => {
       toast.success('Invitation sent to your email. Check your inbox.');
       navigate('/dashboard');
     } catch (err: any) {
-      console.error('Error joining workspace:', err);
-      toast.error('Failed to join workspace: ' + (err.message || 'Unknown error'));
+      handleApiError(err, 'Joining workspace');
       setLoading(false);
     }
   };

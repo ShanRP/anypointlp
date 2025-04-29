@@ -314,6 +314,7 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredAgents, setFilteredAgents] = useState<any[]>([]);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
+  const [activeGenerators, setActiveGenerators] = useState<Set<string>>(new Set());
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -322,7 +323,8 @@ const Dashboard = () => {
     fetchTaskDetails,
     selectedTask,
     tasks: workspaceTasks,
-    fetchWorkspaceTasks: fetchTasks,
+    fetchWorkspaceTasks,
+    isLoading: tasksLoading,
   } = useWorkspaceTasks(selectedWorkspace?.id || "");
   const [enabledFeatures] = useState([
     "dataweave",
@@ -335,6 +337,13 @@ const Dashboard = () => {
     "jobBoard",
     "exchange",
   ]); // Only these features are enabled
+
+  // Fetch workspace tasks whenever workspace changes or if the component mounts
+  useEffect(() => {
+    if (selectedWorkspace?.id) {
+      fetchWorkspaceTasks();
+    }
+  }, [selectedWorkspace?.id, fetchWorkspaceTasks]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -359,6 +368,10 @@ const Dashboard = () => {
 
   const handleAgentSelect = (agent: string) => {
     setSelectedAgent(agent);
+    
+    // Add this agent to active generators
+    setActiveGenerators(prev => new Set(prev).add(agent));
+    
     if (agent === "dataweave") {
       setCurrentPage("dataweave");
     } else if (agent === "integration") {
@@ -385,11 +398,11 @@ const Dashboard = () => {
     }
   };
 
-  const refreshWorkspaceTasks = () => {
+  const refreshWorkspaceTasks = useCallback(() => {
     if (selectedWorkspace?.id) {
-      fetchTasks();
+      fetchWorkspaceTasks();
     }
-  };
+  }, [selectedWorkspace?.id, fetchWorkspaceTasks]);
 
   const handleTaskCreated = (task: SidebarTask) => {
     const taskWithWorkspace = {
@@ -515,12 +528,10 @@ const Dashboard = () => {
     setFilteredAgents(filtered);
   };
 
-  const fetchWorkspaceTasks = () => {
-    if (selectedWorkspace?.id) {
-      const { fetchWorkspaceTasks } = useWorkspaceTasks(selectedWorkspace.id);
-      fetchWorkspaceTasks();
-    }
-  };
+  const handleSaveTask = useCallback((id: string) => {
+    refreshWorkspaceTasks();
+    toast.success(`Task saved successfully!`);
+  }, [refreshWorkspaceTasks]);
 
   if (loading) {
     return (
@@ -535,8 +546,6 @@ const Dashboard = () => {
 
   return (
     <FeaturesContext.Provider value={enabledFeatures}>
-      {" "}
-      {/* Features Context Provider */}
       <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden">
         <DashboardSidebar
           onNavigate={(page) => {
@@ -560,6 +569,7 @@ const Dashboard = () => {
           onTaskSelect={handleTaskSelect}
           selectedWorkspaceId={selectedWorkspace?.id}
           onWorkspaceChange={handleWorkspaceChange}
+          onRefreshTasks={refreshWorkspaceTasks}
         />
 
         <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -595,6 +605,13 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-3">
+              <button
+                onClick={refreshWorkspaceTasks}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors flex items-center gap-2 text-sm"
+                title="Refresh tasks"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
               <UserCreditsDisplay />
             </div>
           </header>
@@ -611,7 +628,7 @@ const Dashboard = () => {
                   setSelectedCategory={setSelectedCategory}
                   onAgentSelect={handleAgentSelect}
                   filteredAgents={filteredAgents}
-                  enabledFeatures={enabledFeatures} // Pass enabledFeatures to DashboardContent
+                  enabledFeatures={enabledFeatures}
                 />
               </motion.div>
             )}
@@ -635,7 +652,7 @@ const Dashboard = () => {
                 <DataWeaveGenerator
                   onTaskCreated={handleTaskCreated}
                   selectedWorkspaceId={selectedWorkspace?.id}
-                  onSaveTask={() => {}}
+                  onSaveTask={handleSaveTask}
                   onBack={handleBackToDashboard}
                 />
               </motion.div>
@@ -651,7 +668,7 @@ const Dashboard = () => {
                   onTaskCreated={handleTaskCreated}
                   selectedWorkspaceId={selectedWorkspace?.id}
                   onBack={handleBackToDashboard}
-                  onSaveTask={() => {}}
+                  onSaveTask={handleSaveTask}
                 />
               </motion.div>
             )}
@@ -665,6 +682,7 @@ const Dashboard = () => {
                 <RAMLGenerator
                   selectedWorkspaceId={selectedWorkspace?.id || ""}
                   onBack={handleBackToDashboard}
+                  onSaveTask={handleSaveTask}
                 />
               </motion.div>
             )}
@@ -677,7 +695,11 @@ const Dashboard = () => {
               >
                 <TaskDetailsView
                   task={selectedTask}
-                  onBack={() => setCurrentPage("dashboard")}
+                  onBack={() => {
+                    setCurrentPage("dashboard");
+                    // Refresh workspace tasks when returning from task view
+                    refreshWorkspaceTasks();
+                  }}
                 />
               </motion.div>
             )}

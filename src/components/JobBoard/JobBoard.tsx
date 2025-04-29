@@ -1,4 +1,5 @@
-import React, { useState, useRef } from "react";
+
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useJobBoard } from "@/hooks/useJobBoard";
 import JobPostCard from "./JobPostCard";
@@ -11,10 +12,19 @@ import CallNotification from "./CallNotification";
 import ChatDialog from "./ChatDialog";
 import { usePeerJS } from "@/hooks/usePeerJS";
 import { toast } from "sonner";
+import { handleApiError } from "@/utils/errorHandler";
 
 export default function JobBoard() {
-  const { posts, loading, selectedPost, setSelectedPost, createPost } =
-    useJobBoard();
+  const { 
+    posts, 
+    loading: postsLoading, 
+    selectedPost, 
+    setSelectedPost, 
+    createPost,
+    fetchPosts
+  } = useJobBoard();
+  
+  const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const {
     videoRef,
@@ -40,19 +50,38 @@ export default function JobBoard() {
 
   const callModalRef = useRef<CallModalHandle>(null);
 
+  useEffect(() => {
+    // Initial posts loading
+    const loadData = async () => {
+      try {
+        await fetchPosts();
+      } catch (error) {
+        handleApiError(error, "Loading posts");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [fetchPosts]);
+
   const handleCreatePost = async (values: {
     title: string;
     description: string;
     code?: string;
   }) => {
-    const result = await createPost(
-      values.title,
-      values.description,
-      values.code,
-    );
-    if (result) {
-      setShowCreateForm(false);
-      toast.success("Your post has been published!");
+    try {
+      const result = await createPost(
+        values.title,
+        values.description,
+        values.code,
+      );
+      if (result) {
+        setShowCreateForm(false);
+        toast.success("Your post has been published!");
+      }
+    } catch (error) {
+      handleApiError(error, "Creating post");
     }
   };
 
@@ -216,7 +245,7 @@ export default function JobBoard() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {posts.length > 0 ? (
+            {posts && posts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {posts.map((post) => (
                   <JobPostCard

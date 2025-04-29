@@ -1,3 +1,4 @@
+
 import { toast } from 'sonner';
 
 // Error storage to prevent duplicate toasts
@@ -42,6 +43,8 @@ export const handleApiError = (
     // Just log duplicate errors
     console.log(`Suppressed duplicate error: ${errorMessage}`);
   }
+
+  return error; // Return the error for potential chaining
 };
 
 /**
@@ -66,4 +69,24 @@ export const handleDataLoadingError = (
   // Otherwise handle normally
   handleApiError(error, context);
   return null;
+};
+
+/**
+ * Helper function to handle errors in a try-catch block
+ * @param fn The async function to execute
+ * @param context The context for error messages
+ * @param dedupKey Optional key to prevent duplicate error messages
+ * @returns The result of the function or null on error
+ */
+export const tryAsync = async <T>(
+  fn: () => Promise<T>, 
+  context: string = 'Operation',
+  dedupKey: string = ''
+): Promise<T | null> => {
+  try {
+    return await fn();
+  } catch (error) {
+    handleApiError(error, context, dedupKey);
+    return null;
+  }
 };
