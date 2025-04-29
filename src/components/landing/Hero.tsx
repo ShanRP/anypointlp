@@ -228,8 +228,8 @@ const APINetwork = ({ activeNode, setActiveNode }) => {
 
 // Information panel that displays based on active node
 const InfoPanel = ({ activeNode }) => {
-  const state = useThree();
-  const isMobile = state.viewport?.width < 4;
+  const { width } = useThree((state) => state.viewport);
+  const isMobile = width < 4;
 
   const nodeInfo = {
     central: {

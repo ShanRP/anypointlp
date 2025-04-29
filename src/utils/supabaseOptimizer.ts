@@ -6,8 +6,7 @@ import { debounce } from 'lodash';
  */
 
 type TableName = 'apl_workspace_members' | 'apl_workspaces' | 'apl_workspace_invitations' | 
-                 'apl_user_credits' | 'apl_auth_logs' | 'apl_invitation_tokens' |
-                 'apl_job_posts' | 'apl_job_comments';
+                 'apl_user_credits' | 'apl_auth_logs' | 'apl_invitation_tokens';
 
 interface CacheEntry<T> {
   data: T;
@@ -17,27 +16,7 @@ interface CacheEntry<T> {
 // Use a more specific type for the cache to avoid excessive type depth issues
 const queryCache = new Map<string, CacheEntry<any>>();
 
-// Set of in-flight requests to prevent duplicate calls
-const pendingRequests = new Set<string>();
-
-// Configure global cache settings
-const DEFAULT_CACHE_TIME = 60; // 1 minute default cache time
-const MAX_CACHE_SIZE = 100; // Maximum number of cached entries
-
-export const clearCache = () => {
-  console.log('Clearing entire Supabase query cache');
-  queryCache.clear();
-  pendingRequests.clear();
-};
-
-export const clearCacheByPrefix = (prefix: string) => {
-  console.log(`Clearing cache entries with prefix: ${prefix}`);
-  for (const key of queryCache.keys()) {
-    if (key.startsWith(prefix)) {
-      queryCache.delete(key);
-    }
-  }
-};
+export const clearCache = () => queryCache.clear();
 
 /**
  * Performs a paginated query with column selection
@@ -53,97 +32,53 @@ export const paginatedQuery = async <T>(
   page: number = 1,
   pageSize: number = 10,
   filters?: Record<string, any>,
-  options: { cacheTime?: number; forceRefresh?: boolean } = {}
+  options: { cacheTime?: number } = {}
 ): Promise<{
   data: T[];
   count: number | null;
   error: any;
   pageCount: number;
 }> => {
-  const cacheTime = options.cacheTime ?? DEFAULT_CACHE_TIME; // Default to 1 minute
+  const cacheTime = options.cacheTime || 300; // 5 minutes default
   const start = (page - 1) * pageSize;
   const end = start + pageSize - 1;
   const cacheKey = `${table}-${columns}-${page}-${pageSize}-${JSON.stringify(filters)}`;
 
-  // Return cached data if available and not forcing refresh
-  if (!options.forceRefresh && queryCache.has(cacheKey)) {
+  if (queryCache.has(cacheKey)) {
     const cachedData = queryCache.get(cacheKey);
     if (cachedData && cachedData.timestamp + (cacheTime * 1000) > Date.now()) {
-      console.log(`Cache hit for ${cacheKey}`);
       return cachedData.data;
     }
   }
 
-  // Prevent duplicate in-flight requests for the same data
-  if (pendingRequests.has(cacheKey)) {
-    console.log(`Request for ${cacheKey} already in progress, waiting...`);
-    // Wait until the pending request completes and return the cached result
-    return new Promise((resolve) => {
-      const checkCache = () => {
-        if (!pendingRequests.has(cacheKey)) {
-          const result = queryCache.get(cacheKey)?.data;
-          if (result) {
-            resolve(result);
-          } else {
-            // If for some reason the cache doesn't have the result, resolve with empty data
-            resolve({ data: [], count: 0, error: null, pageCount: 0 });
-          }
-        } else {
-          setTimeout(checkCache, 50); // Check again in 50ms
+  // Use type assertion to prevent TypeScript errors with dynamic table names
+  let query = supabase
+    .from(table as any)
+    .select(columns, { count: 'exact' })
+    .range(start, end);
+
+  // Apply any filters
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        // Use if-statement instead of chaining to avoid type depth issues
+        if (key && value) {
+          query = query.eq(key, value);
         }
-      };
-      checkCache();
+      }
     });
   }
 
-  try {
-    pendingRequests.add(cacheKey);
-
-    // Use type assertion to prevent TypeScript errors with dynamic table names
-    let query = supabase
-      .from(table as any)
-      .select(columns, { count: 'exact' })
-      .range(start, end);
-
-    // Apply any filters
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          // Use if-statement instead of chaining to avoid type depth issues
-          if (key && value) {
-            query = query.eq(key, value);
-          }
-        }
-      });
-    }
-
-    const { data, count, error } = await query;
-    const result = { 
-      data: data as T[], 
-      count, 
-      error, 
-      pageCount: count ? Math.ceil(count / pageSize) : 0 
-    };
-    
-    // Cache the result
-    queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
-    
-    // Clean up cache if it gets too large
-    if (queryCache.size > MAX_CACHE_SIZE) {
-      // Remove the oldest entries
-      const keysToDelete = [...queryCache.entries()]
-        .sort((a, b) => a[1].timestamp - b[1].timestamp)
-        .slice(0, Math.floor(MAX_CACHE_SIZE / 4))
-        .map(entry => entry[0]);
-        
-      keysToDelete.forEach(key => queryCache.delete(key));
-      console.log(`Cache cleanup: removed ${keysToDelete.length} oldest entries`);
-    }
-    
-    return result;
-  } finally {
-    pendingRequests.delete(cacheKey);
-  }
+  const { data, count, error } = await query;
+  const result = { 
+    data: data as T[], 
+    count, 
+    error, 
+    pageCount: count ? Math.ceil(count / pageSize) : 0 
+  };
+  
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 };
 
 /**
@@ -163,111 +98,56 @@ export const createDebouncedQuery = <T extends (...args: any[]) => Promise<any>>
  * @param table The table to query
  * @param filters Optional filters to apply
  */
-export const getCount = async (
-  table: TableName, 
-  filters?: Record<string, any>,
-  options: { cacheTime?: number; forceRefresh?: boolean } = {}
-) => {
-  const cacheTime = options.cacheTime ?? DEFAULT_CACHE_TIME;
+export const getCount = async (table: TableName, filters?: Record<string, any>) => {
   const cacheKey = `${table}-count-${JSON.stringify(filters)}`;
   
-  if (!options.forceRefresh && queryCache.has(cacheKey)) {
-    const cachedData = queryCache.get(cacheKey);
-    if (cachedData && cachedData.timestamp + (cacheTime * 1000) > Date.now()) {
-      return cachedData.data;
-    }
-  }
-
-  // Prevent duplicate in-flight requests
-  if (pendingRequests.has(cacheKey)) {
-    return new Promise((resolve) => {
-      const checkCache = () => {
-        if (!pendingRequests.has(cacheKey)) {
-          resolve(queryCache.get(cacheKey)?.data || { count: 0, error: null });
-        } else {
-          setTimeout(checkCache, 50);
-        }
-      };
-      checkCache();
-    });
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
   }
   
-  try {
-    pendingRequests.add(cacheKey);
-    
-    // Use type assertion for the table name
-    let query = supabase
-      .from(table as any)
-      .select('id', { count: 'exact', head: true });
+  // Use type assertion for the table name
+  let query = supabase
+    .from(table as any)
+    .select('id', { count: 'exact', head: true });
 
-    // Apply any filters
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          // Use if-statement instead of chaining to avoid type depth issues
-          if (key && value) {
-            query = query.eq(key, value);
-          }
+  // Apply any filters
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        // Use if-statement instead of chaining to avoid type depth issues
+        if (key && value) {
+          query = query.eq(key, value);
         }
-      });
-    }
-
-    const { count, error } = await query;
-    const result = { count, error };
-    queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
-    return result;
-  } finally {
-    pendingRequests.delete(cacheKey);
+      }
+    });
   }
+
+  const { count, error } = await query;
+  const result = { count, error };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 };
 
 /**
  * Optimized query for WorkspaceDetailsDialog
  * Only fetch necessary data for a workspace
  */
-export const getWorkspaceDetails = async (
-  workspaceId: string,
-  options: { cacheTime?: number; forceRefresh?: boolean } = {}
-) => {
-  const cacheTime = options.cacheTime ?? DEFAULT_CACHE_TIME;
+export const getWorkspaceDetails = async (workspaceId: string) => {
   const cacheKey = `workspace-${workspaceId}`;
   
-  if (!options.forceRefresh && queryCache.has(cacheKey)) {
-    const cachedData = queryCache.get(cacheKey);
-    if (cachedData && cachedData.timestamp + (cacheTime * 1000) > Date.now()) {
-      return cachedData.data;
-    }
-  }
-
-  // Prevent duplicate in-flight requests
-  if (pendingRequests.has(cacheKey)) {
-    return new Promise((resolve) => {
-      const checkCache = () => {
-        if (!pendingRequests.has(cacheKey)) {
-          resolve(queryCache.get(cacheKey)?.data || { data: null, error: null });
-        } else {
-          setTimeout(checkCache, 50);
-        }
-      };
-      checkCache();
-    });
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
   }
   
-  try {
-    pendingRequests.add(cacheKey);
-    
-    const { data, error } = await supabase
-      .from('apl_workspaces')
-      .select('id, name, invite_enabled')
-      .eq('id', workspaceId)
-      .single();
+  const { data, error } = await supabase
+    .from('apl_workspaces')
+    .select('id, name, invite_enabled')
+    .eq('id', workspaceId)
+    .single();
 
-    const result = { data, error };
-    queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
-    return result;
-  } finally {
-    pendingRequests.delete(cacheKey);
-  }
+  const result = { data, error };
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 };
 
 /**
@@ -314,19 +194,11 @@ export const generateSecureRequestSignature = (payload: any): string => {
  * @param workspaceId The workspace to check
  * @param userId The user ID to verify
  */
-export const verifyWorkspaceAccess = async (
-  workspaceId: string, 
-  userId: string,
-  options: { cacheTime?: number; forceRefresh?: boolean } = {}
-): Promise<boolean> => {
-  const cacheTime = options.cacheTime ?? DEFAULT_CACHE_TIME;
+export const verifyWorkspaceAccess = async (workspaceId: string, userId: string): Promise<boolean> => {
   const cacheKey = `workspace-access-${workspaceId}-${userId}`;
   
-  if (!options.forceRefresh && queryCache.has(cacheKey)) {
-    const cachedData = queryCache.get(cacheKey);
-    if (cachedData && cachedData.timestamp + (cacheTime * 1000) > Date.now()) {
-      return cachedData.data;
-    }
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
   }
   
   // Check if user is the owner or a member
@@ -347,25 +219,17 @@ export const verifyWorkspaceAccess = async (
  * Get invitation details
  * @param token The invitation token
  */
-export const getInvitationDetails = async (
-  token: string, 
-  workspaceId: string,
-  options: { cacheTime?: number; forceRefresh?: boolean } = {}
-) => {
-  const cacheTime = options.cacheTime ?? DEFAULT_CACHE_TIME;
+export const getInvitationDetails = async (token: string, workspaceId: string) => {
   const cacheKey = `invitation-${token}-${workspaceId}`;
   
-  if (!options.forceRefresh && queryCache.has(cacheKey)) {
-    const cachedData = queryCache.get(cacheKey);
-    if (cachedData && cachedData.timestamp + (cacheTime * 1000) > Date.now()) {
-      return cachedData.data;
-    }
+  if (queryCache.has(cacheKey)) {
+    return queryCache.get(cacheKey)?.data;
   }
   
   // Use direct query with type assertion to avoid TypeScript errors
   const { data, error } = await supabase
-    .from('apl_workspace_invitations')
-    .select('id, workspace_id, email, expires_at, token')
+    .from('apl_invitation_tokens' as any)
+    .select('invitation_id, workspace_id, email, expires_at')
     .eq('token', token)
     .eq('workspace_id', workspaceId)
     .single();
@@ -380,22 +244,11 @@ export const getInvitationDetails = async (
  * Accept a workspace invitation
  * @param workspaceId The workspace ID
  * @param token The invitation token
+ * @param userId The user accepting the invitation
  */
 export const acceptWorkspaceInvitation = async (workspaceId: string, token: string) => {
-  // This operation modifies data, so we should invalidate related cache entries
-  clearCacheByPrefix(`workspace-${workspaceId}`);
-  clearCacheByPrefix(`invitation-${token}`);
-  
-  // Get the current user ID before calling the RPC function
-  const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id;
-
-  if (!userId) {
-    return { error: { message: 'No authenticated user found' } };
-  }
-  
-  return await supabase.rpc('apl_accept_workspace_invitation', {
-    workspace_id_param: workspaceId,
-    user_id_param: userId
+  return await supabase.functions.invoke('accept-workspace-invitation', {
+    method: 'POST',
+    body: { workspaceId, token }
   });
 };

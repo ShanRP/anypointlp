@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -7,11 +8,15 @@ import { useLanguage } from '@/providers/LanguageProvider';
 import { motion } from "framer-motion";
 
 type CreateWorkspaceDialogProps = {
-  onSuccess?: () => void;
+  isOpen: boolean;
+  onClose: () => void;
+  onCreateWorkspace: (name: string) => void;
 };
 
 const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
-  onSuccess
+  isOpen,
+  onClose,
+  onCreateWorkspace
 }) => {
   const [workspaceName, setWorkspaceName] = useState('');
   const { t } = useLanguage();
@@ -24,40 +29,45 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       return;
     }
     
-    // Here you would typically call an API to create the workspace
-    // For now we'll just simulate success
-    setTimeout(() => {
-      toast.success(t('workspace.created') || 'Workspace created successfully');
-      setWorkspaceName('');
-      if (onSuccess) {
-        onSuccess();
-      }
-    }, 500);
+    onCreateWorkspace(workspaceName);
+    setWorkspaceName('');
+    onClose();
   };
   
   return (
-    <motion.form 
-      onSubmit={handleSubmit} 
-      className="space-y-4 py-4"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="space-y-2">
-        <Input
-          id="workspace-name"
-          placeholder={t('workspace.namePlaceholder') || 'Enter workspace name'}
-          value={workspaceName}
-          onChange={(e) => setWorkspaceName(e.target.value)}
-          autoFocus
-          className="w-full"
-        />
-      </div>
-      
-      <div className="flex justify-end space-x-2">
-        <Button type="submit">{t('common.submit') || 'Create'}</Button>
-      </div>
-    </motion.form>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{t('workspace.create') || 'Create Workspace'}</DialogTitle>
+        </DialogHeader>
+        
+        <motion.form 
+          onSubmit={handleSubmit} 
+          className="space-y-4 py-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="space-y-2">
+            <Input
+              id="workspace-name"
+              placeholder={t('workspace.namePlaceholder') || 'Enter workspace name'}
+              value={workspaceName}
+              onChange={(e) => setWorkspaceName(e.target.value)}
+              autoFocus
+              className="w-full"
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={onClose}>
+              {t('common.cancel') || 'Cancel'}
+            </Button>
+            <Button type="submit">{t('common.submit') || 'Create'}</Button>
+          </DialogFooter>
+        </motion.form>
+      </DialogContent>
+    </Dialog>
   );
 };
 
