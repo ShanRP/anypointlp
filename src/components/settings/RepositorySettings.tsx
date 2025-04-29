@@ -12,8 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFadeIn } from '@/utils/animationHooks';
 import { toast } from 'sonner';
-import { Folder, File, Github, RefreshCw, Search, Upload } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Folder, File, Github, RefreshCw, Search, Upload, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function RepositorySettings() {
   const { toast: uiToast } = useToast();
@@ -22,7 +21,8 @@ export default function RepositorySettings() {
     fetchFileStructure, 
     isAuthenticated, 
     authenticateWithGitHub, 
-    loadingRepositories, 
+    loadingRepositories,
+    authInProgress,
     logoutGitHub 
   } = useGithubApi();
   const { 
@@ -50,6 +50,7 @@ export default function RepositorySettings() {
     processed: 0
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [fileError, setFileError] = useState<string | null>(null);
 
   // Load repository data when component mounts
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function RepositorySettings() {
         setLocalFileStructure(JSON.parse(savedLocalStructure));
       } catch (error) {
         console.error("Error parsing local file structure:", error);
+        toast.error("Failed to load local repository structure");
       }
     }
   }, [isAuthenticated]);
@@ -92,10 +94,14 @@ export default function RepositorySettings() {
       // Pre-select the saved repository if it exists
       const savedRepo = localStorage.getItem('APL_selectedGithubRepo');
       if (savedRepo) {
-        const parsedRepo = JSON.parse(savedRepo);
-        const foundRepo = repos.find(repo => repo.id === parsedRepo.id);
-        if (foundRepo) {
-          setSelectedRepository(foundRepo as any);
+        try {
+          const parsedRepo = JSON.parse(savedRepo);
+          const foundRepo = repos.find(repo => repo.id === parsedRepo.id);
+          if (foundRepo) {
+            setSelectedRepository(foundRepo as any);
+          }
+        } catch (err) {
+          console.error("Error selecting saved repository:", err);
         }
       }
     } catch (error) {
@@ -112,6 +118,7 @@ export default function RepositorySettings() {
 
   const handleSelectRepo = async (repo: Repository) => {
     try {
+      setLoading(true);
       // Save selected repository to localStorage
       localStorage.setItem('APL_selectedGithubRepo', JSON.stringify(repo));
       setSelectedRepository(repo as any);
@@ -127,6 +134,8 @@ export default function RepositorySettings() {
     } catch (error) {
       console.error('Error selecting repository:', error);
       toast.error("Failed to select repository");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -137,8 +146,16 @@ export default function RepositorySettings() {
   };
 
   const handleProjectFolderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
+      
+      if (files.length === 0) {
+        setFileError("No files selected");
+        return;
+      }
+      
+      console.log(`Processing ${files.length} files`);
       
       // Get the root directory name
       const rootPath = files[0].webkitRelativePath.split('/')[0];
@@ -155,7 +172,7 @@ export default function RepositorySettings() {
       });
       
       // Process files in batches to avoid UI freezing
-      const batchSize = 100;
+      const batchSize = 50;
       const fileStructure: FileNode[] = [];
       const directories: Record<string, FileNode> = {};
       
@@ -191,8 +208,8 @@ export default function RepositorySettings() {
               
               if (j === 0) {
                 fileStructure.push(newNode);
-              } else if (parentNode) {
-                parentNode.children?.push(newNode);
+              } else if (parentNode && parentNode.children) {
+                parentNode.children.push(newNode);
               }
             }
             
@@ -209,19 +226,23 @@ export default function RepositorySettings() {
           const isCsv = lowerFileName.endsWith('.csv');
           const isYaml = lowerFileName.endsWith('.yaml') || lowerFileName.endsWith('.yml');
           
-          const fileNode: FileNode = {
-            name: fileName,
-            path: path,
-            type: 'file',
-            isDataWeave,
-            isRaml,
-            isXml,
-            isJson,
-            isCsv,
-            isYaml
-          };
-          
-          parentNode?.children?.push(fileNode);
+          if (parentNode && parentNode.children) {
+            const fileNode: FileNode = {
+              name: fileName,
+              path: path,
+              type: 'file',
+              isDataWeave,
+              isRaml,
+              isXml,
+              isJson,
+              isCsv,
+              isYaml
+            };
+            
+            parentNode.children.push(fileNode);
+          } else {
+            console.warn("No parent node found for file:", fileName);
+          }
         }
         
         // Update processing status
@@ -251,6 +272,8 @@ export default function RepositorySettings() {
           
           sortNodes(fileStructure);
           
+          console.log("Final file structure:", fileStructure);
+          
           // Save the file structure
           setLocalFileStructure(fileStructure);
           localStorage.setItem('APL_localFileStructure', JSON.stringify(fileStructure));
@@ -268,6 +291,9 @@ export default function RepositorySettings() {
       
       // Start processing the first batch
       processFileBatch(0);
+    } else {
+      console.warn("No files selected or WebkitDirectory not supported");
+      setFileError("No files selected or directory upload not supported in your browser");
     }
   };
 
@@ -297,11 +323,20 @@ export default function RepositorySettings() {
           {!isAuthenticated ? (
             <Button 
               onClick={authenticateWithGitHub} 
-              disabled={loading}
+              disabled={authInProgress || loading}
               className="w-full sm:w-auto flex items-center"
             >
-              <Github className="mr-2 h-4 w-4" />
-              Connect with GitHub
+              {authInProgress ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Authenticating...
+                </>
+              ) : (
+                <>
+                  <Github className="mr-2 h-4 w-4" />
+                  Connect with GitHub
+                </>
+              )}
             </Button>
           ) : (
             <div className="space-y-4">
@@ -342,35 +377,52 @@ export default function RepositorySettings() {
         </CardContent>
       </Card>
 
-      {isAuthenticated && filteredRepos.length > 0 && (
+      {isAuthenticated && (
         <motion.div
           {...fadeIn}
           className="space-y-4"
         >
-          <h3 className="text-lg font-medium">Select a Repository</h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredRepos.map((repo) => (
-              <motion.div
-                key={repo.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => handleSelectRepo(repo)}
-                className={`border p-3 rounded-md cursor-pointer transition-colors ${
-                  selectedRepository && selectedRepository.id === repo.id 
-                    ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20' 
-                    : 'hover:border-gray-300 hover:bg-gray-50 dark:hover:border-gray-600 dark:hover:bg-gray-800/50'
-                }`}
-              >
-                <div className="font-medium">{repo.name}</div>
-                <div className="text-sm text-gray-500 truncate">{repo.full_name}</div>
-                <div className="text-xs text-gray-400 mt-2">
-                  {repo.private ? 'Private' : 'Public'}
-                  {repo.updated_at && ` • Updated ${new Date(repo.updated_at).toLocaleDateString()}`}
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          {loadingRepositories ? (
+            <div className="flex justify-center items-center p-8">
+              <Loader2 className="w-6 h-6 text-purple-500 animate-spin mr-2" />
+              <span>Loading repositories...</span>
+            </div>
+          ) : filteredRepos.length > 0 ? (
+            <>
+              <h3 className="text-lg font-medium">Select a Repository</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredRepos.map((repo) => (
+                  <motion.div
+                    key={repo.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={() => handleSelectRepo(repo)}
+                    className={`border p-3 rounded-md cursor-pointer transition-colors ${
+                      selectedRepository && selectedRepository.id === repo.id 
+                        ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20' 
+                        : 'hover:border-gray-300 hover:bg-gray-50 dark:hover:border-gray-600 dark:hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <div className="font-medium">{repo.name}</div>
+                    <div className="text-sm text-gray-500 truncate">{repo.full_name}</div>
+                    <div className="text-xs text-gray-400 mt-2">
+                      {repo.private ? 'Private' : 'Public'}
+                      {repo.updated_at && ` • Updated ${new Date(repo.updated_at).toLocaleDateString()}`}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-center p-8 border rounded-md bg-gray-50 dark:bg-gray-800/50">
+              <SearchIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-1">No repositories found</h3>
+              <p className="text-gray-500 dark:text-gray-400">
+                {searchTerm ? "No repositories match your search term" : "Your GitHub account doesn't have any repositories"}
+              </p>
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -461,6 +513,13 @@ export default function RepositorySettings() {
               </p>
             </div>
           </div>
+          
+          {fileError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start text-red-800">
+              <AlertCircle className="h-5 w-5 text-red-500 mr-2 shrink-0 mt-0.5" />
+              <span>{fileError}</span>
+            </div>
+          )}
           
           {fileProcessingStatus.processing && (
             <div className="mt-4 space-y-2">
@@ -666,3 +725,22 @@ export default function RepositorySettings() {
     </motion.div>
   );
 }
+
+// Search icon component
+const SearchIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+);
