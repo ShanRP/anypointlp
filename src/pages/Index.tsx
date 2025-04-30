@@ -1,6 +1,6 @@
 
 import { motion } from "framer-motion";
-import { Hero } from "@/components/landing/Hero"; // Use named import
+import { Hero } from "@/components/landing/Hero";
 import { Features } from "@/components/landing/Features";
 import { Security } from "@/components/landing/Security";
 import Newsletter from "@/components/landing/Newsletter";

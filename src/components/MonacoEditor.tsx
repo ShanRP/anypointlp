@@ -2,46 +2,45 @@
 import React from 'react';
 import Editor from '@monaco-editor/react';
 
-export interface MonacoEditorProps {
-  language: string;
+interface MonacoEditorProps {
   value: string;
-  onChange: (value: string) => void;
-  readOnly?: boolean;
+  onChange?: (value: string | undefined) => void;
+  language?: string;
   height?: string;
-  placeholder?: string;
+  readOnly?: boolean;
+  options?: Record<string, any>;
+  style?: React.CSSProperties;
+  theme?: string;
 }
 
-const MonacoEditor: React.FC<MonacoEditorProps> = ({ 
-  language, 
-  value, 
-  onChange, 
+const MonacoEditor: React.FC<MonacoEditorProps> = ({
+  value,
+  onChange,
+  language = 'plaintext',
+  height = '100%',
   readOnly = false,
-  height = "100%",
-  placeholder
+  options = {},
+  style,
+  theme = 'vs'
 }) => {
-  const handleEditorChange = (value: string | undefined) => {
-    onChange(value || '');
-  };
-
   return (
-    <Editor
-      height={height}
-      defaultLanguage={language}
-      language={language}
-      theme="vs-dark"
-      value={value || placeholder}
-      onChange={handleEditorChange}
-      options={{
-        readOnly,
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        automaticLayout: true,
-        fontSize: 14,
-        lineNumbers: 'on',
-        wordWrap: 'on',
-        tabSize: 2,
-      }}
-    />
+    <div style={{ width: '100%', height, ...style }}>
+      <Editor
+        height={height}
+        language={language}
+        value={value}
+        onChange={onChange}
+        theme={theme}
+        options={{
+          minimap: { enabled: false },
+          lineNumbers: 'on',
+          scrollBeyondLastLine: false,
+          readOnly,
+          wordWrap: 'on',
+          ...options
+        }}
+      />
+    </div>
   );
 };
 

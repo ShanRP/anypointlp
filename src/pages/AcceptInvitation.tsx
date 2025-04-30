@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,12 +12,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 // Function to get invitation details
 const getInvitationDetails = async (token: string, workspaceId: string) => {
   try {
-    // Changed the approach to not use direct table name
     const { data, error } = await supabase
-      .rpc('get_invitation_token_details', {
-        token_param: token,
-        workspace_id_param: workspaceId
-      });
+      .from("apl_invitation_tokens")
+      .select("invitation_id, workspace_id, email, expires_at")
+      .eq("token", token)
+      .eq("workspace_id", workspaceId)
+      .single();
       
     if (error) {
       console.error('Error fetching invitation token:', error);

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useJobBoard, JobPost } from '@/hooks/useJobBoard';
+
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useJobBoard } from "@/hooks/useJobBoard";
 import JobPostCard from "./JobPostCard";
 import JobPostDetails from "./JobPostDetails";
 import CreateJobPostForm from "./CreateJobPostForm";
@@ -25,7 +26,6 @@ export default function JobBoard() {
   
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showPostDetails, setShowPostDetails] = useState(false);
   const {
     videoRef,
     remoteVideoRef,
@@ -147,13 +147,8 @@ export default function JobBoard() {
     }
   };
 
-  const handleSelectPost = useCallback((post: JobPost) => {
-    setSelectedPost(post);
-    setShowPostDetails(true);
-  }, [setSelectedPost]);
-
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-12">
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -233,8 +228,8 @@ export default function JobBoard() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <JobPostDetails 
-              post={selectedPost} 
+            <JobPostDetails
+              post={selectedPost}
               onBack={handleBackToList}
               onCallInitiated={handleCallInitiated}
               onChatInitiated={handleChatInitiated}
@@ -256,8 +251,7 @@ export default function JobBoard() {
                   <JobPostCard
                     key={post.id}
                     post={post}
-                    onSelect={handleSelectPost}
-                    onClick={() => handleSelectPost(post)}
+                    onClick={() => setSelectedPost(post)}
                     onCallInitiated={handleCallInitiated}
                     onChatInitiated={handleChatInitiated}
                   />
