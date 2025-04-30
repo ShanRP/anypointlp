@@ -36,6 +36,7 @@ export const useUserCredits = () => {
     setError(null);
 
     try {
+      console.log("Fetching user credits for user:", user.id);
       // First check if the user already has a credits record
       const { data, error: fetchError } = await supabase
         .from('apl_user_credits')
@@ -49,6 +50,7 @@ export const useUserCredits = () => {
 
       // If no record exists, create one
       if (!data) {
+        console.log("No credits record found, creating new one");
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -67,13 +69,16 @@ export const useUserCredits = () => {
           .single();
 
         if (insertError) throw insertError;
+        console.log("New credits record created:", newData);
         setCredits(newData as UserCredits);
       } else {
+        console.log("Credits record found:", data);
         // Check if we need to reset credits (reset_date has passed)
         const resetDate = new Date(data.reset_date);
         const now = new Date();
 
         if (now > resetDate) {
+          console.log("Reset date has passed, resetting credits");
           // Reset credits and set new reset date
           const tomorrow = new Date(now);
           tomorrow.setDate(tomorrow.getDate() + 1);
@@ -90,6 +95,7 @@ export const useUserCredits = () => {
             .single();
 
           if (updateError) throw updateError;
+          console.log("Credits reset, new data:", updatedData);
           setCredits(updatedData as UserCredits);
         } else {
           setCredits(data as UserCredits);
@@ -107,18 +113,8 @@ export const useUserCredits = () => {
   }, [user]); // Only depend on user
 
   const useCredit = useCallback(async () => {
-    if (!user) {
-      // Instead of showing toast error here, we'll return false and let the caller handle the error
-      return false;
-    }
-
-    // If credits haven't been loaded yet, fetch them first
-    if (!credits && !loading && !hasFetched) {
-      await fetchUserCredits();
-    }
-    
-    // Still no credits after fetching? Return false
-    if (!credits) {
+    if (!user || !credits) {
+      toast.error('You need to be logged in to use credits');
       return false;
     }
 
@@ -149,6 +145,7 @@ export const useUserCredits = () => {
 
       if (error) throw error;
 
+      console.log("Credit used, updated data:", data);
       setCredits(data as UserCredits);
       
       // If this is their last credit, show a warning and open upgrade dialog for non-pro users
@@ -168,12 +165,12 @@ export const useUserCredits = () => {
       toast.error('Failed to use credit. Please try again.');
       return false;
     }
-  }, [user, credits, loading, hasFetched, fetchUserCredits]);
+  }, [user, credits]);
 
   // For test purposes only - the real upgrade will be through Stripe
   const upgradeToProPlan = useCallback(async () => {
     if (!user || !credits) {
-      // Silently fail instead of showing error toast
+      toast.error('You need to be logged in to upgrade');
       return false;
     }
 
@@ -193,6 +190,7 @@ export const useUserCredits = () => {
   useEffect(() => {
     if (!user) return;
     
+    // console.log("Setting up realtime subscription for user credits");
     const channel = supabase
       .channel('credits-changes')
       .on(
@@ -204,6 +202,7 @@ export const useUserCredits = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
+          console.log('Credits updated in realtime:', payload);
           // Update local state with the new data
           setCredits(payload.new as UserCredits);
         }
@@ -211,13 +210,15 @@ export const useUserCredits = () => {
       .subscribe();
       
     return () => {
+      // console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
   }, [user]);
 
   // Initialize credits only once when the user is set
   useEffect(() => {
-    if (user && !hasFetched && !loading) {
+    if (user && !hasFetched) {
+      console.log("Initializing user credits");
       fetchUserCredits();
     } else if (!user) {
       // Reset state when user logs out
@@ -225,12 +226,13 @@ export const useUserCredits = () => {
       setLoading(false);
       setHasFetched(false);
     }
-  }, [user, fetchUserCredits, hasFetched, loading]);
+  }, [user, fetchUserCredits, hasFetched]);
 
   // Refresh function that can be called externally
   const refreshCredits = useCallback(() => {
+    console.log("Manually refreshing credits");
     setHasFetched(false);
-    return fetchUserCredits();
+    fetchUserCredits();
   }, [fetchUserCredits]);
 
   return {

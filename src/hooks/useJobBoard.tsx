@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -32,7 +31,6 @@ export function useJobBoard() {
   const [comments, setComments] = useState<JobComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const { user } = useAuth();
-  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   useEffect(() => {
     fetchPosts();
@@ -123,14 +121,9 @@ export function useJobBoard() {
       setPosts(postsWithCommentCounts as JobPost[]);
     } catch (error) {
       console.error("Error fetching job posts:", error);
-      
-      // Only show toast on first load if it's not a connectivity/permission issue
-      if (!isFirstLoad) {
-        toast.error("Failed to load job posts");
-      }
+      toast.error("Failed to load job posts");
     } finally {
       setLoading(false);
-      setIsFirstLoad(false);
     }
   };
 
@@ -147,7 +140,7 @@ export function useJobBoard() {
       setComments((data as JobComment[]) || []);
     } catch (error) {
       console.error("Error fetching comments:", error);
-      // Don't show toast errors for background fetches
+      toast.error("Failed to load comments");
     } finally {
       setCommentsLoading(false);
     }

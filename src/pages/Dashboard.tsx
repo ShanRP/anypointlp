@@ -400,9 +400,8 @@ const Dashboard = () => {
 
   const refreshWorkspaceTasks = useCallback(() => {
     if (selectedWorkspace?.id) {
-      return fetchWorkspaceTasks();
+      fetchWorkspaceTasks();
     }
-    return Promise.resolve(); // Return a resolved promise when there's no workspace
   }, [selectedWorkspace?.id, fetchWorkspaceTasks]);
 
   const handleTaskCreated = (task: SidebarTask) => {

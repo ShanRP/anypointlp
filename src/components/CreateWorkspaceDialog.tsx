@@ -11,14 +11,12 @@ type CreateWorkspaceDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   onCreateWorkspace: (name: string) => void;
-  onSuccess?: () => void; // Added onSuccess prop
 };
 
 const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   isOpen,
   onClose,
-  onCreateWorkspace,
-  onSuccess
+  onCreateWorkspace
 }) => {
   const [workspaceName, setWorkspaceName] = useState('');
   const { t } = useLanguage();
@@ -34,11 +32,6 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     onCreateWorkspace(workspaceName);
     setWorkspaceName('');
     onClose();
-    
-    // Call onSuccess if provided
-    if (onSuccess) {
-      onSuccess();
-    }
   };
   
   return (
