@@ -46,7 +46,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import GeneratorCard from "@/components/GeneratorCard";
 import CodingAssistantDialog from "@/components/ai/CodingAssistantDialog";
-import { UserCreditsDisplay } from "@/components/UserCreditsDisplay";
+// import { UserCreditsDisplay } from "@/components/UserCreditsDisplay";
 
 interface SidebarTask {
   id: string;
@@ -605,14 +605,14 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-3">
-              <button
+              {/* <button
                 onClick={refreshWorkspaceTasks}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors flex items-center gap-2 text-sm"
                 title="Refresh tasks"
               >
                 <RefreshCw className="h-4 w-4" />
-              </button>
-              <UserCreditsDisplay />
+              </button> */}
+              {/* <UserCreditsDisplay /> */}
             </div>
           </header>
 

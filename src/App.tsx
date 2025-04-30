@@ -10,12 +10,15 @@ import { LanguageProvider } from "@/providers/LanguageProvider";
 import { UserProvider } from '@/contexts/UserContext';
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { WorkspaceProvider } from '@/providers/WorkspaceProvider';
+
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import SettingsPage from "./components/SettingsPage";
 import WorkspaceInvite from "./pages/WorkspaceInvite";
 import AcceptInvitation from "./pages/AcceptInvitation";
+import { UserCreditsProvider } from "./providers/UserCreditsProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +75,8 @@ const App = () => (
           <UserProvider>
             <LanguageProvider>
               <FeaturesProvider> {/* Added FeaturesProvider */}
+              <UserCreditsProvider> {/* Add this line */}
+              <WorkspaceProvider> {/* Add this line */}
                 <TooltipProvider>
                   <Toaster />
                   <Sonner />
@@ -101,6 +106,8 @@ const App = () => (
                     </Routes>
                   </BrowserRouter>
                 </TooltipProvider>
+                </WorkspaceProvider> {/* Add this line */}
+                </UserCreditsProvider> {/* Add this line */}
               </FeaturesProvider> {/* Closed FeaturesProvider */}
             </LanguageProvider>
           </UserProvider>

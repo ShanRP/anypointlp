@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, FileText, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import MonacoEditor from './MonacoEditor';
+// import MonacoEditor from './MonacoEditor';
+
 import { BackButton } from './ui/BackButton';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -15,8 +16,11 @@ import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { useAuth } from '@/hooks/useAuth';
-import { useUserCredits } from '@/hooks/useUserCredits';
+// import { useUserCredits } from '@/hooks/useUserCredits';
+import { useUserCredits } from '@/providers/UserCreditsProvider';
+
 import { documentGeneratorPrompt } from '@/prompts/documentGeneratorPrompt';
+import MonacoEditorWithFallback from './MonacoEditorWithFallback';
 
 
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
@@ -464,7 +468,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">Code <span className="text-red-500">*</span></label>
                 <div className="border rounded-md h-full" style={{ minHeight: '400px' }}>
-                  <MonacoEditor
+                  <MonacoEditorWithFallback
                     value={code}
                     onChange={(value) => setCode(value || '')}
                     language="xml"
@@ -544,7 +548,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     <h3 className="font-semibold text-lg mb-2">Generated Document</h3>
                     <Separator className="my-2" />
                     <div className="border rounded-md" style={{ minHeight: '400px' }}>
-                      <MonacoEditor
+                      <MonacoEditorWithFallback
                         value={result}
                         language="markdown"
                         options={{

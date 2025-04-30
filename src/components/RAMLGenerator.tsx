@@ -12,12 +12,18 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { useWorkspaces } from '@/hooks/useWorkspaces';
+// import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useWorkspaces } from '@/providers/WorkspaceProvider';
+
 import { supabase } from '@/integrations/supabase/client';
-import MonacoEditor from '@/components/MonacoEditor';
+// import MonacoEditor from '@/components/MonacoEditor';
+
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
-import { useUserCredits } from '@/hooks/useUserCredits';
+// import { useUserCredits } from '@/hooks/useUserCredits';
+import { useUserCredits } from '@/providers/UserCreditsProvider';
+
+import MonacoEditorWithFallback from './MonacoEditorWithFallback';
 
 interface Parameter {
   name: string;
@@ -718,7 +724,7 @@ const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({
             </CardHeader>
             <CardContent>
               <div className="border rounded-md overflow-hidden bg-gray-50">
-                <MonacoEditor
+                <MonacoEditorWithFallback
                   value={generatedRAML}
                   language="yaml"
                   height="500px"

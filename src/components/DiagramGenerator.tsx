@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, FileCode, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import MonacoEditor from './MonacoEditor';
+// import MonacoEditor from './MonacoEditor';
+
 import { BackButton } from './ui/BackButton';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -15,7 +16,10 @@ import { Input } from './ui/input';
 import { Animation } from './ui/Animation';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { useAuth } from '@/hooks/useAuth';
-import { useUserCredits } from '@/hooks/useUserCredits';
+// import { useUserCredits } from '@/hooks/useUserCredits';
+import { useUserCredits } from '@/providers/UserCreditsProvider';
+
+import MonacoEditorWithFallback from './MonacoEditorWithFallback';
 
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
 
@@ -534,7 +538,7 @@ ${connectionSteps}
                       RAML Specification (Optional)
                     </label>
                     <div className="border rounded-md h-full" style={{ minHeight: "400px" }}>
-                      <MonacoEditor
+                      <MonacoEditorWithFallback
                         value={raml}
                         onChange={(value) => setRaml(value || '')}
                         language="yaml"

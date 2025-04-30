@@ -7,7 +7,9 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { useWorkspaces } from '@/hooks/useWorkspaces';
+// import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useWorkspaces } from '@/providers/WorkspaceProvider';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 

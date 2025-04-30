@@ -35,7 +35,9 @@ import {
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
-import { useWorkspaces, WorkspaceOption } from '@/hooks/useWorkspaces';
+import {  WorkspaceOption } from '@/hooks/useWorkspaces';
+import { useWorkspaces } from '@/providers/WorkspaceProvider';
+
 import { useWorkspaceTasks, WorkspaceTask } from '@/hooks/useWorkspaceTasks';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';

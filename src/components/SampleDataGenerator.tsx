@@ -9,7 +9,8 @@ import { Label } from "./ui/label";
 import { BackButton } from './ui/BackButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Separator } from './ui/separator';
-import MonacoEditor from './MonacoEditor';
+// import MonacoEditor from './MonacoEditor';
+
 import { toast } from 'sonner';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import { useRepositoryData } from '@/hooks/useRepositoryData';
@@ -18,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { sampleDataGeneratorPrompt } from '@/prompts/sampleDataPrompts';
 import { useUserCredits } from '@/hooks/useUserCredits';
+import MonacoEditorWithFallback from './MonacoEditorWithFallback';
 
 type GenerationType = 'JSON' | 'XML' | 'CSV' | 'YAML';
 type SourceType = 'no-repository' | 'with-repository' | 'upload';
@@ -621,7 +623,7 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
                       <span>Loading file content...</span>
                     </div>
                   ) : (
-                    <MonacoEditor
+                    <MonacoEditorWithFallback
                       value={schemaContent}
                       onChange={(value) => setSchemaContent(value || '')}
                       language={generationType.toLowerCase() === 'yaml' ? 'yaml' : generationType.toLowerCase()}
@@ -684,7 +686,7 @@ const SampleDataGenerator: React.FC<SampleDataGeneratorProps> = ({
                     <div className="text-sm text-gray-500 mb-2">Task ID: {taskId}</div>
                     <Separator className="my-2" />
                     <div className="border rounded-md" style={{ minHeight: '400px' }}>
-                      <MonacoEditor
+                      <MonacoEditorWithFallback
                         value={result}
                         language={generationType.toLowerCase()}
                         options={{

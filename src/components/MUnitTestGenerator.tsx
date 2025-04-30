@@ -19,7 +19,9 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 
-import { useUserCredits } from '@/hooks/useUserCredits';
+// import { useUserCredits } from '@/hooks/useUserCredits';
+import { useUserCredits } from '@/providers/UserCreditsProvider';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type MUnitTestGeneratorProps = {

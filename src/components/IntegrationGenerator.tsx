@@ -9,14 +9,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import MonacoEditor from './MonacoEditor';
+// import MonacoEditor from './MonacoEditor';
+
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
 import { BackButton } from './ui/BackButton';
-import { useUserCredits } from '@/hooks/useUserCredits';
+// import { useUserCredits } from '@/hooks/useUserCredits';
+import { useUserCredits } from '@/providers/UserCreditsProvider';
+
+import MonacoEditorWithFallback from './MonacoEditorWithFallback';
 
 export interface IntegrationGeneratorProps {
   onTaskCreated?: (task: any) => void;
@@ -779,7 +783,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                       <div className="text-sm text-gray-600 mb-2">Path: {selectedRamlFile.path}</div>
                       {selectedRamlFile.content && (
                         <div className="mt-2 border rounded-md overflow-hidden">
-                          <MonacoEditor
+                          <MonacoEditorWithFallback
                             value={selectedRamlFile.content}
                             language="yaml"
                             height="200px"
@@ -1133,7 +1137,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
 
                     {ramlOption === 'input' && (
                       <div className="border rounded-md h-full" style={{ minHeight: '200px' }}>
-                        <MonacoEditor
+                        <MonacoEditorWithFallback
                           value={ramlContent}
                           onChange={(value) => setRamlContent(value || '')}
                           language="yaml"
@@ -1320,7 +1324,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                                   </Button>
                                 </div>
                                 <div style={{ height: '400px' }}>
-                                  <MonacoEditor
+                                  <MonacoEditorWithFallback
                                     value={parsedSections.flowImplementation}
                                     language="xml"
                                     height="400px"
@@ -1371,7 +1375,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                                   </Button>
                                 </div>
                                 <div style={{ height: '300px' }}>
-                                  <MonacoEditor
+                                  <MonacoEditorWithFallback
                                     value={parsedSections.flowConstants}
                                     language="properties"
                                     height="300px"
@@ -1401,7 +1405,7 @@ const IntegrationGenerator: React.FC<IntegrationGeneratorProps> = ({
                                   </Button>
                                 </div>
                                 <div style={{ height: '300px' }}>
-                                  <MonacoEditor
+                                  <MonacoEditorWithFallback
                                     value={parsedSections.pomDependencies}
                                     language="xml"
                                     height="300px"

@@ -23,8 +23,10 @@ import { useToast } from "@/hooks/use-toast"; // Corrected import path
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceSettings } from './settings/WorkspaceSettings';
 import RepositorySettings from './settings/RepositorySettings';
-import { useWorkspaces } from '@/hooks/useWorkspaces';
+// import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { ChangePasswordDialog } from './settings/ChangePasswordDialog';
+import { UserCreditsDisplay } from './UserCreditsDisplay';
+
 
 type AuthLog = {
   id: string;
@@ -39,18 +41,17 @@ const SettingsPage = () => {
   const { language, setLanguage, t } = useLanguage();
   const { user, session } = useAuth();
   const { updateUsername, isUpdating } = useProfile();
-  const { workspaces, selectedWorkspace, selectWorkspace, refreshWorkspaces } = useWorkspaces();
+
   const { toast } = useToast();
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.user_metadata?.username || '');
-  const [authLogs, setAuthLogs] = useState<any[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [isDataFetched, setIsDataFetched] = useState(false);
+
+ 
+ 
+  
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [workspacesInitialized, setWorkspacesInitialized] = useState(false);
-  const logsPerPage = 5;
+
+ 
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -62,86 +63,14 @@ const SettingsPage = () => {
     setIsEditingUsername(false);
   };
 
-  const fetchAuthLogs = useCallback(async () => {
-    if (!user || isDataFetched) return;
-    
-    setLoading(true);
-    try {
-      const { count, error: countError } = await supabase
-        .from('apl_auth_logs')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id);
-      
-      if (countError) {
-        throw countError;
-      }
-      
-      setTotalPages(Math.ceil((count || 0) / logsPerPage));
-      
-      const { data, error } = await supabase
-        .from('apl_auth_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .range((page - 1) * logsPerPage, page * logsPerPage - 1);
-      
-      if (error) {
-        throw error;
-      }
-      
-      setAuthLogs(data || []);
-      setIsDataFetched(true);
-    } catch (error) {
-      console.error('Error fetching auth logs:', error);
-      toast({
-        variant: "destructive",
-        title: "Error fetching logs",
-        description: "Could not load authentication logs. Please try again later."
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [user, page, isDataFetched, toast]);
+  
 
-  useEffect(() => {
-    if (user && !isDataFetched) {
-      fetchAuthLogs();
-    }
-  }, [user, fetchAuthLogs, isDataFetched]);
-
-  useEffect(() => {
-    setIsDataFetched(false);
-  }, [page]);
+  
 
   // Initialize workspaces only once when component mounts
-  useEffect(() => {
-    if (!workspacesInitialized && user) {
-      refreshWorkspaces().then(() => {
-        setWorkspacesInitialized(true);
-      });
-    }
-  }, [user, workspacesInitialized, refreshWorkspaces]);
+  
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'yyyy-MM-dd HH:mm');
-    } catch (error) {
-      return dateString;
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (page > 1) {
-      setPage(page - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (page < totalPages) {
-      setPage(page + 1);
-    }
-  };
-
+  
   return (
     <motion.div
       initial="hidden"
@@ -164,9 +93,8 @@ const SettingsPage = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.2 }}
         >
-          {/* <Badge variant="outline" className="text-sm px-3 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/30">
-            {selectedWorkspace?.name || 'Personal Workspace'}
-          </Badge> */}
+           {/* ADD THE UserCreditsDisplay COMPONENT HERE */}
+    <UserCreditsDisplay />
         </motion.div>
       </div>
       
@@ -374,130 +302,12 @@ const SettingsPage = () => {
                 </CardContent>
               </Card>
               
-              {/* <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <ShieldCheck className="mr-2 h-5 w-5 text-purple-500" />
-                    {t('settings.sessions')}
-                  </CardTitle>
-                  <CardDescription>
-                    Manage your active sessions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <SessionManager 
-                    currentSession={session?.access_token || ''} 
-                  />
-                </CardContent>
-              </Card>
               
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Database className="mr-2 h-5 w-5 text-purple-500" />
-                    {t('settings.accessLogs')}
-                  </CardTitle>
-                  <CardDescription>
-                    View recent account activity
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('settings.device')}</TableHead>
-                        <TableHead>{t('settings.ipAddress')}</TableHead>
-                        <TableHead>{t('settings.action')}</TableHead>
-                        <TableHead>{t('settings.time')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loading ? (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-4">
-                            <div className="flex justify-center items-center space-x-2">
-                              <div className="animate-spin h-5 w-5 border-2 border-purple-500 rounded-full border-t-transparent"></div>
-                              <span>Loading logs...</span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : authLogs.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-4">No activity logs found</TableCell>
-                        </TableRow>
-                      ) : (
-                        authLogs.map((log) => (
-                          <TableRow key={log.id}>
-                            <TableCell className="font-medium">{log.device || 'Unknown'}</TableCell>
-                            <TableCell>{log.ip_address || '-'}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-100">
-                                {log.action}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{formatDate(log.created_at)}</TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                  
-                  {totalPages > 1 && (
-                    <div className="p-4 flex justify-center">
-                      <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-9 p-0"
-                          onClick={handlePrevPage}
-                          disabled={page === 1 || loading}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <span className="text-sm font-medium">{page} / {totalPages}</span>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-9 p-0"
-                          onClick={handleNextPage}
-                          disabled={page === totalPages || loading}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card> */}
-              
-              {/* <Card className="border-red-200 dark:border-red-900/30">
-                <CardHeader>
-                  <CardTitle className="text-red-600 dark:text-red-400">Danger Zone</CardTitle>
-                  <CardDescription>
-                    Permanently delete your account and all associated data
-                  </CardDescription>
-                </CardHeader>
-                <CardFooter>
-                  <Button variant="destructive" className="w-full md:w-auto">
-                    {t('settings.deleteAccount')}
-                  </Button>
-                </CardFooter>
-              </Card> */}
             </motion.div>
           </AnimatePresence>
         </TabsContent>
         
-        {/* <TabsContent value="workspace" className="pt-4">
-          <AnimatePresence mode="wait">
-            {selectedWorkspace ? (
-              <WorkspaceSettings key={selectedWorkspace.id} />
-            ) : (
-              <div className="flex items-center justify-center h-40">
-                <p className="text-gray-500 dark:text-gray-400">No workspace selected</p>
-              </div>
-            )}
-          </AnimatePresence>
-        </TabsContent> */}
+        
         
         <TabsContent value="repositories" className="pt-4">
           <RepositorySettings />

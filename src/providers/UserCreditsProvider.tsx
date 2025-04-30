@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -14,7 +14,24 @@ export interface UserCredits {
   updated_at: string;
 }
 
-export const useUserCredits = () => {
+interface UserCreditsContextType {
+  credits: UserCredits | null;
+  loading: boolean;
+  error: string | null;
+  useCredit: () => Promise<boolean>;
+  upgradeToProPlan: () => Promise<boolean>;
+  refreshCredits: () => void;
+  showUpgradeDialog: boolean;
+  setShowUpgradeDialog: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const UserCreditsContext = createContext<UserCreditsContextType | undefined>(undefined);
+
+// Constants for caching
+const CREDITS_CACHE_KEY = 'APL_USER_CREDITS';
+const CREDITS_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+
+export const UserCreditsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [credits, setCredits] = useState<UserCredits | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +40,6 @@ export const useUserCredits = () => {
   // Track if fetch has been performed to prevent multiple calls
   const [hasFetched, setHasFetched] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-
-  // 1. Add these constants at the top of the file
-  const CREDITS_CACHE_KEY = 'APL_USER_CREDITS';
-  const CREDITS_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
   const fetchUserCredits = useCallback(async () => {
     // Skip if no user
@@ -59,7 +72,6 @@ export const useUserCredits = () => {
     fetchCreditsFromDB(true);
   }, [user]);
 
-  // 3. Add this new function to fetch from database
   const fetchCreditsFromDB = async (showLoading = true) => {
     if (!user) return;
     
@@ -169,7 +181,6 @@ export const useUserCredits = () => {
     }
   };
 
-  // Modify the useCredit function to handle loading state properly
   const useCredit = useCallback(async () => {
     if (!user) {
       toast.error('You need to be logged in to use credits');
@@ -269,7 +280,6 @@ export const useUserCredits = () => {
     }
   }, [user, credits, loading, fetchUserCredits]);
 
-  // For test purposes only - the real upgrade will be through Stripe
   const upgradeToProPlan = useCallback(async () => {
     if (!user || !credits) {
       toast.error('You need to be logged in to upgrade');
@@ -344,7 +354,7 @@ export const useUserCredits = () => {
     fetchUserCredits();
   }, [fetchUserCredits]);
 
-  return {
+  const value = {
     credits,
     loading,
     error,
@@ -354,4 +364,18 @@ export const useUserCredits = () => {
     showUpgradeDialog,
     setShowUpgradeDialog
   };
+
+  return (
+    <UserCreditsContext.Provider value={value}>
+      {children}
+    </UserCreditsContext.Provider>
+  );
+};
+
+export const useUserCredits = () => {
+  const context = useContext(UserCreditsContext);
+  if (context === undefined) {
+    throw new Error('useUserCredits must be used within a UserCreditsProvider');
+  }
+  return context;
 };

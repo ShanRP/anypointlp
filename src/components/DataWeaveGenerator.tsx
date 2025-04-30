@@ -21,7 +21,8 @@ import { useNavigate } from 'react-router-dom';
 import { buildFileTree, fetchFileContent, findDataWeaveFiles, isFileOfType } from '@/utils/githubUtils';
 import { useGithubApi } from '@/hooks/useGithubApi';
 import type { FileNode, Repository } from '@/utils/githubUtils';
-import { useUserCredits } from '@/hooks/useUserCredits';
+// import { useUserCredits } from '@/hooks/useUserCredits';
+
 
 type GeneratorMode = 'noRepository' | 'withRepository' | 'uploadFromComputer';
 

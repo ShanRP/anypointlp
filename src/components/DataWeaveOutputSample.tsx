@@ -3,7 +3,9 @@ import React from 'react';
 import { Trash2, Check, AlertCircle } from 'lucide-react';
 import { useFadeIn } from '@/utils/animationHooks';
 import { motion } from 'framer-motion';
-import MonacoEditor from './MonacoEditor';
+import MonacoEditorWithFallback from './MonacoEditorWithFallback';
+// import MonacoEditor from './MonacoEditor';
+
 
 interface DataWeaveOutputSampleProps {
   id: string;
@@ -48,7 +50,7 @@ const DataWeaveOutputSample: React.FC<DataWeaveOutputSampleProps> = ({
       </div>
 
       <div className="h-[250px] w-full border rounded-md overflow-hidden">
-        <MonacoEditor
+        <MonacoEditorWithFallback
           value={value}
           onChange={(newValue) => onChange(newValue || '')}
           language="json"
