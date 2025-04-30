@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
@@ -188,9 +189,9 @@ const Hero = () => {
                   %dw 2.0{'\n'}
                   output application/json{'\n'}
                   ---{'\n'}
-                  payload map ( item, index ) -> {'{'}
-                  {'\n'}  id: item.id,{'\n'}  name: item.firstName ++ " " ++ item.lastName,{'\n'}  email: item.email,{'\n'}  status: if (item.active) "ACTIVE" else "INACTIVE",{'\n'}  createdDate: item.created as DateTime as String {{'{'}} format: "yyyy-MM-dd" {{'}'}}
-                  {'\n'}{'}'}
+                  payload map ( item, index ) {"{"}
+                  {'\n'}  id: item.id,{'\n'}  name: item.firstName ++ " " ++ item.lastName,{'\n'}  email: item.email,{'\n'}  status: if (item.active) "ACTIVE" else "INACTIVE",{'\n'}  createdDate: item.created as DateTime as String {"{"} format: "yyyy-MM-dd" {"}"}
+                  {'\n'}{"}"}
                 </code>
               </pre>
             </div>
