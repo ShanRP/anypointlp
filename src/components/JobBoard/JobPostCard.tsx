@@ -15,19 +15,25 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 
-interface JobPostCardProps {
+export interface JobPostCardProps {
   post: JobPost;
   onSelect: (post: JobPost) => void;
   isSelected?: boolean;
+  onClick?: () => void;
 }
 
 const JobPostCard: React.FC<JobPostCardProps> = ({
   post,
   onSelect,
-  isSelected = false
+  isSelected = false,
+  onClick
 }) => {
   const handleClick = () => {
-    onSelect(post);
+    if (onClick) {
+      onClick();
+    } else {
+      onSelect(post);
+    }
   };
 
   const getInitials = (name: string) => {
@@ -59,6 +65,9 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
         return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700';
     }
   };
+
+  // Add comment_count property if it doesn't exist
+  const commentCount = post.comment_count !== undefined ? post.comment_count : 0;
 
   return (
     <Card 
@@ -105,7 +114,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
         <div className="w-full flex justify-between items-center">
           <div className="flex items-center text-sm text-muted-foreground">
             <MessageCircle className="h-4 w-4 mr-1" />
-            {post.comment_count !== undefined ? post.comment_count : 0} {post.comment_count !== undefined && post.comment_count === 1 ? 'comment' : 'comments'}
+            {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
           </div>
           <Button variant="ghost" size="sm" onClick={handleClick}>
             {isSelected ? 'Viewing' : 'View Details'}

@@ -2,133 +2,98 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { handleApiError } from '@/utils/errorHandler';
+import { useAuth } from './useAuth';
 
-export type JobPost = {
+export interface JobPost {
   id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
   title: string;
   description: string;
   code?: string;
   status: string;
-  created_at: string;
-  user_id: string;
   username?: string;
   comment_count?: number;
-};
+}
 
-export type JobComment = {
+export interface JobComment {
   id: string;
   post_id: string;
   user_id: string;
-  comment: string;
   created_at: string;
+  comment: string;
   username?: string;
-};
+}
 
 export const useJobBoard = () => {
   const [posts, setPosts] = useState<JobPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<JobPost>({} as JobPost);
   const [comments, setComments] = useState<JobComment[]>([]);
-  const [selectedPost, setSelectedPost] = useState<JobPost | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [commentsLoading, setCommentsLoading] = useState(false);
-  
-  const fetchPosts = useCallback(async () => {
+  const { user } = useAuth();
+
+  const fetchPosts = async () => {
     setLoading(true);
-    
     try {
       const { data, error } = await supabase
         .from('apl_job_posts')
         .select('*, apl_job_comments(count)')
         .order('created_at', { ascending: false });
-        
-      if (error) throw error;
-      
-      // Process data to add comment count
-      const postsWithCommentCount = data?.map(post => {
-        const commentCount = post.apl_job_comments?.length || 0;
-        return {
+
+      if (error) {
+        toast.error('Error fetching posts: ' + error.message);
+        return;
+      }
+
+      // Process the data to extract comment counts
+      const postsWithComments = data.map(post => {
+        // Handle the comment count aggregation result
+        const commentCount = post.apl_job_comments?.[0]?.count || 0;
+        const postWithCount = {
           ...post,
           comment_count: commentCount
         };
-      }) || [];
+        
+        // Remove the nested comments array
+        delete postWithCount.apl_job_comments;
+        
+        return postWithCount;
+      });
+
+      // For posts that have user IDs, fetch the usernames if there is no apl_profiles table
+      const userIds = [...new Set(postsWithComments.filter(p => p.user_id).map(p => p.user_id))];
       
-      setPosts(postsWithCommentCount);
-      return postsWithCommentCount;
-    } catch (error) {
-      handleApiError(error, "Error fetching posts");
-      return [];
+      if (userIds.length > 0) {
+        // Try to fetch from auth.users directly since profiles might not be available
+        // This will only work with appropriate permissions
+        try {
+          for (const userId of userIds) {
+            const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+            
+            if (!userError && userData?.user) {
+              const username = userData.user.email?.split('@')[0] || 'User';
+              postsWithComments.forEach(post => {
+                if (post.user_id === userId) {
+                  post.username = username;
+                }
+              });
+            }
+          }
+        } catch (err) {
+          console.log('Could not fetch user details, continuing with available data');
+        }
+      }
+
+      setPosts(postsWithComments);
+    } catch (err: any) {
+      toast.error('Unexpected error: ' + err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
-
-  const createPost = async (title: string, description: string, code?: string) => {
-    setSubmitting(true);
-    
-    try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) throw userError;
-      
-      const user = userData.user;
-      
-      if (!user) {
-        toast.error("You need to be logged in to create a post");
-        return null;
-      }
-      
-      let username = user.email?.split('@')[0] || 'Anonymous';
-      
-      // Try to get username from profiles if table exists
-      try {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('username, full_name')
-          .eq('id', user.id)
-          .single();
-          
-        if (profileData) {
-          username = profileData.username || profileData.full_name || username;
-        }
-      } catch (profileError) {
-        // If profiles table doesn't exist or error occurs, continue with email username
-        console.log('Could not fetch profile data', profileError);
-      }
-      
-      const { data, error } = await supabase
-        .from('apl_job_posts')
-        .insert([
-          { 
-            title, 
-            description, 
-            code, 
-            user_id: user.id,
-            username
-          }
-        ])
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      // Add the post to the list
-      const newPost = { ...data, comment_count: 0 };
-      setPosts(prevPosts => [newPost, ...prevPosts]);
-      
-      return data;
-    } catch (error) {
-      handleApiError(error, "Creating post");
-      return null;
-    } finally {
-      setSubmitting(false);
-    }
   };
-  
+
   const fetchComments = async (postId: string) => {
     setCommentsLoading(true);
     try {
@@ -137,113 +102,148 @@ export const useJobBoard = () => {
         .select('*')
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
-        
-      if (error) throw error;
+
+      if (error) {
+        toast.error('Error fetching comments: ' + error.message);
+        return [];
+      }
+
+      // For comments with user IDs, fetch the usernames
+      const userIds = [...new Set(data.filter(c => c.user_id).map(c => c.user_id))];
       
-      setComments(data || []);
+      if (userIds.length > 0) {
+        try {
+          for (const userId of userIds) {
+            const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+            
+            if (!userError && userData?.user) {
+              const username = userData.user.email?.split('@')[0] || 'User';
+              data.forEach(comment => {
+                if (comment.user_id === userId) {
+                  comment.username = username;
+                }
+              });
+            }
+          }
+        } catch (err) {
+          console.log('Could not fetch user details for comments, continuing with available data');
+        }
+      }
+
+      setComments(data);
       return data;
-    } catch (error) {
-      handleApiError(error, "Fetching comments");
+    } catch (err: any) {
+      toast.error('Unexpected error fetching comments: ' + err.message);
       return [];
     } finally {
       setCommentsLoading(false);
     }
   };
-  
-  const createComment = async (postId: string, comment: string) => {
-    try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) throw userError;
-      
-      const user = userData.user;
-      
-      if (!user) {
-        toast.error("You need to be logged in to comment");
-        return null;
-      }
-      
-      let username = user.email?.split('@')[0] || 'Anonymous';
-      
-      // Try to get username from profiles if table exists
-      try {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('username, full_name')
-          .eq('id', user.id)
-          .single();
-          
-        if (profileData) {
-          username = profileData.username || profileData.full_name || username;
-        }
-      } catch (profileError) {
-        // If profiles table doesn't exist, continue with email username
-        console.log('Could not fetch profile data', profileError);
-      }
-      
-      const { data, error } = await supabase
-        .from('apl_job_comments')
-        .insert([
-          { 
-            post_id: postId, 
-            comment,
-            user_id: user.id,
-            username
-          }
-        ])
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      // Add the comment to the list
-      setComments(prevComments => [...prevComments, data]);
-      
-      // Update comment count in the posts list
-      setPosts(prevPosts => prevPosts.map(post => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            comment_count: (post.comment_count || 0) + 1
-          };
-        }
-        return post;
-      }));
-      
-      return data;
-    } catch (error) {
-      handleApiError(error, "Creating comment");
-      return null;
+
+  const createPost = async (title: string, description: string, code?: string) => {
+    if (!user) {
+      toast.error('You must be logged in to create a post');
+      return;
     }
-  };
-  
-  const updatePostStatus = async (postId: string, status: string) => {
+
     try {
       const { data, error } = await supabase
         .from('apl_job_posts')
-        .update({ status })
-        .eq('id', postId)
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      // Update the post in the list and selected post
-      setPosts(prevPosts => prevPosts.map(post => 
-        post.id === postId ? { ...post, status } : post
-      ));
-      
-      if (selectedPost && selectedPost.id === postId) {
-        setSelectedPost({ ...selectedPost, status });
+        .insert([
+          {
+            title,
+            description,
+            code,
+            status: 'open',
+            user_id: user.id,
+            username: user.email?.split('@')[0],
+          },
+        ])
+        .select();
+
+      if (error) {
+        toast.error('Error creating post: ' + error.message);
+        return null;
       }
-      
-      return data;
-    } catch (error) {
-      handleApiError(error, "Updating post status");
+
+      toast.success('Post created successfully!');
+      await fetchPosts();
+      return data[0];
+    } catch (err: any) {
+      toast.error('Unexpected error: ' + err.message);
       return null;
     }
   };
-  
+
+  const addComment = async (postId: string, comment: string) => {
+    if (!user) {
+      toast.error('You must be logged in to comment');
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('apl_job_comments')
+        .insert([
+          {
+            post_id: postId,
+            comment,
+            user_id: user.id,
+            username: user.email?.split('@')[0],
+          },
+        ])
+        .select();
+
+      if (error) {
+        toast.error('Error adding comment: ' + error.message);
+        return null;
+      }
+
+      toast.success('Comment added successfully!');
+      await fetchComments(postId);
+      return data[0];
+    } catch (err: any) {
+      toast.error('Unexpected error: ' + err.message);
+      return null;
+    }
+  };
+
+  const updatePostStatus = async (postId: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('apl_job_posts')
+        .update({ status })
+        .eq('id', postId);
+
+      if (error) {
+        toast.error('Error updating post status: ' + error.message);
+        return false;
+      }
+
+      toast.success(`Post marked as ${status}`);
+      // Update the selected post status
+      setSelectedPost(prev => ({ ...prev, status }));
+      
+      // Also update in the posts array
+      setPosts(prev => 
+        prev.map(post => 
+          post.id === postId 
+            ? { ...post, status } 
+            : post
+        )
+      );
+      
+      return true;
+    } catch (err: any) {
+      toast.error('Unexpected error: ' + err.message);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
   return {
     posts,
     loading,
@@ -251,11 +251,10 @@ export const useJobBoard = () => {
     setSelectedPost,
     comments,
     commentsLoading,
-    submitting,
-    createPost,
     fetchComments,
-    createComment,
-    fetchPosts,
-    updatePostStatus
+    createPost,
+    addComment,
+    updatePostStatus,
+    fetchPosts
   };
 };
