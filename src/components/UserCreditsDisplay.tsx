@@ -92,11 +92,14 @@ export function UserCreditsDisplay() {
     }
   };
 
+  // Don't show loading spinner, just return a placeholder that will be populated when data is ready
   if (loading) {
     return (
-      <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 font-geistSans">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>Loading credits...</span>
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1 font-geistSans">
+          <Coins className="h-3.5 w-3.5" />
+          <span>0 credits</span>
+        </Badge>
       </div>
     );
   }
@@ -117,13 +120,12 @@ export function UserCreditsDisplay() {
         <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
           <DialogTrigger asChild>
           <Button 
-  variant="outline" 
-  size="sm" 
-  className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
->
-  Upgrade
-</Button>
-
+            variant="outline" 
+            size="sm" 
+            className="text-xs bg-purple-600 hover:bg-purple-700 text-white hover:text-white border-purple-600 hover:border-purple-700 font-heading px-2 py-1 rounded-md shadow-sm transition-colors duration-200"
+          >
+            Upgrade
+          </Button>
           </DialogTrigger>
           <DialogContent className="font-geistSans">
             <DialogHeader>
