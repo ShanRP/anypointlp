@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useLanguage } from '@/providers/LanguageProvider';
 import { WorkspaceOption, useWorkspaces } from '@/hooks/useWorkspaces';
-import { useWorkspaceTasks, type WorkspaceTask } from '@/hooks/useWorkspaceTasks';
+import { useWorkspaceTasks, type WorkspaceTask } from '@/types';
 import { Button } from '@/components/ui/button';
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import WorkspaceDetailsDialog from './workspace/WorkspaceDetailsDialog';
@@ -137,7 +137,7 @@ interface DashboardSidebarProps {
   onTaskSelect?: (taskId: string) => void;
   selectedWorkspaceId: string;
   onWorkspaceChange: (workspace: any) => void;
-  onRefreshTasks?: () => Promise<void>; // Added this prop
+  onRefreshTasks?: () => Promise<void>; // Add this prop
 }
 
 const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
@@ -157,7 +157,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const [selectedWorkspaceForDetails, setSelectedWorkspaceForDetails] = useState<WorkspaceOption | null>(null);
   const [isCodingAssistantOpen, setIsCodingAssistantOpen] = useState(false);
   const { workspaces, selectedWorkspace, createWorkspace, selectWorkspace, updateWorkspace, deleteWorkspace } = useWorkspaces();
-  const { tasks } = useWorkspaceTasks(selectedWorkspace?.id || '');
+  const { tasks } = useWorkspaceTasks();
   const { fadeIn } = useAnimations();
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
   
@@ -174,9 +174,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
   const handleViewAllActivities = () => {
     setIsActivitySheetOpen(true);
-    if (onViewAllActivities) {
-      onViewAllActivities();
-    }
   };
 
   const handleOpenWorkspaceDetails = (workspace: WorkspaceOption, e: React.MouseEvent) => {

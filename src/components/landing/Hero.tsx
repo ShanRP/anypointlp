@@ -188,9 +188,9 @@ export const Hero = () => {
                   %dw 2.0{'\n'}
                   output application/json{'\n'}
                   ---{'\n'}
-                  payload map ( item, index ) {"{"}
-                  {'\n'}  id: item.id,{'\n'}  name: item.firstName ++ " " ++ item.lastName,{'\n'}  email: item.email,{'\n'}  status: if (item.active) "ACTIVE" else "INACTIVE",{'\n'}  createdDate: item.created as DateTime as String {"{"} format: "yyyy-MM-dd" {"}"}
-                  {'\n'}{"}"}
+                  payload map {'{'}
+                    {'\n'}  id: $.id,{'\n'}  name: $.firstName ++ " " ++ $.lastName,{'\n'}  email: $.email,{'\n'}  status: if ($.active) "ACTIVE" else "INACTIVE",{'\n'}  createdDate: $.created as DateTime as String {'{'}format: "yyyy-MM-dd"{'}'}
+                    {'\n'}{'}'}
                 </code>
               </pre>
             </div>
@@ -288,5 +288,5 @@ export const Hero = () => {
   );
 };
 
-// Remove this line as we're now using export const Hero = above
-// export default Hero;
+// Export both as default and named export for compatibility
+export default Hero;

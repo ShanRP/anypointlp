@@ -1,15 +1,18 @@
+
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TaskDetails, WorkspaceTask } from '@/types';
 import { toast } from 'sonner';
 import { handleApiError } from '@/utils/errorHandler';
 
-export const useWorkspaceTasks = () => {
+export { TaskDetails, WorkspaceTask };
+
+export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
   const [tasks, setTasks] = useState<WorkspaceTask[]>([]);
   const [selectedTask, setSelectedTask] = useState<TaskDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [workspaceId, setWorkspaceId] = useState('');
+  const [workspaceId, setWorkspaceId] = useState(workspaceIdParam);
 
   const fetchWorkspaceTasks = useCallback(async () => {
     setLoading(true);
@@ -17,23 +20,25 @@ export const useWorkspaceTasks = () => {
     try {
       if (!workspaceId) {
         setTasks([]);
-        return;
+        return [];
       }
-      const { data, error } = await supabase
-        .from('apl_workspace_tasks')
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .order('created_at', { ascending: false });
+      
+      // Use RPC function to get workspace tasks
+      const { data, error: fetchError } = await supabase
+        .rpc('apl_get_workspace_tasks', { workspace_id_param: workspaceId });
 
-      if (error) {
-        setError(error.message);
-        toast.error(`Error fetching tasks: ${error.message}`);
+      if (fetchError) {
+        setError(fetchError.message);
+        toast.error(`Error fetching tasks: ${fetchError.message}`);
+        return [];
       } else {
         setTasks(data || []);
+        return data || [];
       }
     } catch (err: any) {
       setError(err.message);
       toast.error(`Unexpected error: ${err.message}`);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -43,15 +48,52 @@ export const useWorkspaceTasks = () => {
     setLoading(true);
     setError('');
     try {
-      const { data, error } = await supabase
-        .from('apl_workspace_tasks')
+      // For task details, we need to determine the task type first
+      const taskInState = tasks.find(t => t.id === taskId);
+      
+      if (!taskInState) {
+        throw new Error("Task not found");
+      }
+      
+      // Based on category, fetch from appropriate table
+      const category = taskInState.category;
+      let table = '';
+      
+      switch(category) {
+        case 'dataweave':
+          table = 'apl_dataweave_tasks';
+          break;
+        case 'integration':
+          table = 'apl_integration_tasks';
+          break;
+        case 'raml':
+          table = 'apl_raml_tasks';
+          break;
+        case 'munit':
+          table = 'apl_munit_tasks';
+          break;
+        case 'sampledata':
+          table = 'apl_sample_data_tasks';
+          break;
+        case 'document':
+          table = 'apl_document_tasks';
+          break;
+        case 'diagram':
+          table = 'apl_diagram_tasks';
+          break;
+        default:
+          throw new Error(`Unknown task category: ${category}`);
+      }
+      
+      const { data, error: fetchError } = await supabase
+        .from(table)
         .select('*')
         .eq('id', taskId)
         .single();
 
-      if (error) {
-        setError(error.message);
-        toast.error(`Error fetching task details: ${error.message}`);
+      if (fetchError) {
+        setError(fetchError.message);
+        toast.error(`Error fetching task details: ${fetchError.message}`);
       } else {
         setSelectedTask(data || null);
       }
@@ -61,7 +103,7 @@ export const useWorkspaceTasks = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tasks]);
 
   const selectTask = (task: TaskDetails) => {
     setSelectedTask(task);

@@ -1,3 +1,4 @@
+
 /* 
   This is the dashboard sidebar component that includes:
   - User avatar and menu
@@ -36,7 +37,8 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaces, WorkspaceOption } from '@/hooks/useWorkspaces';
-import { useWorkspaceTasks, WorkspaceTask } from '@/hooks/useWorkspaceTasks';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+import { WorkspaceTask } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -63,7 +65,7 @@ const AppSidebar = () => {
   const [mobileWidth, setMobileWidth] = useState(false);
   const [visibleTasks, setVisibleTasks] = useState<WorkspaceTask[]>([]);
   
-  const { tasks, loading, error } = useWorkspaceTasks(selectedWorkspace?.id || '');
+  const { tasks, loading, error } = useWorkspaceTasks();
 
   useEffect(() => {
     const handleResize = () => {
