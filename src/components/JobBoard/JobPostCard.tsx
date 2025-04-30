@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { JobPost } from '@/hooks/useJobBoard';
 import { formatDistanceToNow } from 'date-fns';
@@ -69,9 +70,6 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
     }
   };
 
-  // Add comment_count property check with default value
-  const commentCount = post.comment_count !== undefined ? post.comment_count : 0;
-
   return (
     <Card 
       className={`mb-4 transition-all duration-200 hover:shadow-md hover:border-primary/50 cursor-pointer ${
@@ -117,7 +115,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
         <div className="w-full flex justify-between items-center">
           <div className="flex items-center text-sm text-muted-foreground">
             <MessageCircle className="h-4 w-4 mr-1" />
-            {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+            {post.comment_count ?? 0} {post.comment_count === 1 ? 'comment' : 'comments'}
           </div>
           <Button variant="ghost" size="sm" onClick={handleClick}>
             {isSelected ? 'Viewing' : 'View Details'}

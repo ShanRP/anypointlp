@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useJobBoard, JobPost } from '@/hooks/useJobBoard';
 import { motion, AnimatePresence } from "framer-motion";
-import { useJobBoard } from "@/hooks/useJobBoard";
 import JobPostCard from "./JobPostCard";
 import JobPostDetails from "./JobPostDetails";
 import CreateJobPostForm from "./CreateJobPostForm";

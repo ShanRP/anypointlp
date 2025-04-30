@@ -34,7 +34,7 @@ export const useJobBoard = () => {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const { user } = useAuth();
 
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -62,27 +62,17 @@ export const useJobBoard = () => {
         return postWithCount;
       });
 
-      // For posts that have user IDs, fetch the usernames if there is no apl_profiles table
-      const userIds = [...new Set(postsWithComments.filter(p => p.user_id).map(p => p.user_id))];
-      
-      if (userIds.length > 0) {
-        // Try to fetch from auth.users directly since profiles might not be available
-        // This will only work with appropriate permissions
-        try {
-          for (const userId of userIds) {
-            const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-            
-            if (!userError && userData?.user) {
-              const username = userData.user.email?.split('@')[0] || 'User';
-              postsWithComments.forEach(post => {
-                if (post.user_id === userId) {
-                  post.username = username;
-                }
-              });
+      // Fetch usernames if needed
+      for (const post of postsWithComments) {
+        if (post.user_id) {
+          try {
+            const { data: userData } = await supabase.auth.admin.getUserById(post.user_id);
+            if (userData?.user) {
+              post.username = userData.user.email?.split('@')[0] || 'User';
             }
+          } catch (err) {
+            console.log('Could not fetch user details, continuing with available data');
           }
-        } catch (err) {
-          console.log('Could not fetch user details, continuing with available data');
         }
       }
 
@@ -92,9 +82,9 @@ export const useJobBoard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchComments = async (postId: string) => {
+  const fetchComments = useCallback(async (postId: string) => {
     setCommentsLoading(true);
     try {
       const { data, error } = await supabase
@@ -108,25 +98,17 @@ export const useJobBoard = () => {
         return [];
       }
 
-      // For comments with user IDs, fetch the usernames
-      const userIds = [...new Set(data.filter(c => c.user_id).map(c => c.user_id))];
-      
-      if (userIds.length > 0) {
-        try {
-          for (const userId of userIds) {
-            const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-            
-            if (!userError && userData?.user) {
-              const username = userData.user.email?.split('@')[0] || 'User';
-              data.forEach(comment => {
-                if (comment.user_id === userId) {
-                  comment.username = username;
-                }
-              });
+      // Fetch usernames for comments if needed
+      for (const comment of data) {
+        if (comment.user_id) {
+          try {
+            const { data: userData } = await supabase.auth.admin.getUserById(comment.user_id);
+            if (userData?.user) {
+              comment.username = userData.user.email?.split('@')[0] || 'User';
             }
+          } catch (err) {
+            console.log('Could not fetch user details for comments, continuing with available data');
           }
-        } catch (err) {
-          console.log('Could not fetch user details for comments, continuing with available data');
         }
       }
 
@@ -138,12 +120,12 @@ export const useJobBoard = () => {
     } finally {
       setCommentsLoading(false);
     }
-  };
+  }, []);
 
   const createPost = async (title: string, description: string, code?: string) => {
     if (!user) {
       toast.error('You must be logged in to create a post');
-      return;
+      return null;
     }
 
     try {
@@ -156,7 +138,6 @@ export const useJobBoard = () => {
             code,
             status: 'open',
             user_id: user.id,
-            username: user.email?.split('@')[0],
           },
         ])
         .select();
@@ -189,7 +170,6 @@ export const useJobBoard = () => {
             post_id: postId,
             comment,
             user_id: user.id,
-            username: user.email?.split('@')[0],
           },
         ])
         .select();
@@ -242,7 +222,7 @@ export const useJobBoard = () => {
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [fetchPosts]);
 
   return {
     posts,

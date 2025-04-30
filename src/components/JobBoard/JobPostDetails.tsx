@@ -1,4 +1,4 @@
-// Update imports and fix the component structure to use addComment instead of createComment
+
 import React, { useState, useEffect } from 'react';
 import { useJobBoard, JobPost, JobComment } from '@/hooks/useJobBoard';
 import { formatDistanceToNow } from 'date-fns';
@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { MessageCircle, Code } from 'lucide-react';
+import { MessageCircle, Code, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface JobPostDetailsProps {
@@ -16,7 +16,7 @@ interface JobPostDetailsProps {
   onChatInitiated: (userId: string, peerName: string) => void;
 }
 
-const JobPostDetails = ({ post, onBack, onCallInitiated, onChatInitiated }) => {
+const JobPostDetails: React.FC<JobPostDetailsProps> = ({ post, onBack, onCallInitiated, onChatInitiated }) => {
   const [commentInput, setCommentInput] = useState('');
   const { comments, commentsLoading, fetchComments, addComment, updatePostStatus } = useJobBoard();
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -42,7 +42,7 @@ const JobPostDetails = ({ post, onBack, onCallInitiated, onChatInitiated }) => {
     }
   };
 
-  const handleAddComment = async (e) => {
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentInput.trim()) return;
 

@@ -9,9 +9,15 @@ import { toast } from 'sonner';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { generateTaskId } from '@/utils';
+import { generateTaskId } from '@/utils/taskUtils';
 
-const RAMLGenerator: React.FC<{ selectedWorkspaceId: string; onBack: () => void; onSaveTask: (id: string) => void }> = ({ selectedWorkspaceId, onBack, onSaveTask }) => {
+interface RAMLGeneratorProps {
+  selectedWorkspaceId: string;
+  onBack: () => void;
+  onSaveTask: (id: string) => void;
+}
+
+const RAMLGenerator: React.FC<RAMLGeneratorProps> = ({ selectedWorkspaceId, onBack, onSaveTask }) => {
   const [ramlTitle, setRamlTitle] = useState('');
   const [apiName, setApiName] = useState('');
   const [apiVersion, setApiVersion] = useState('');
@@ -87,7 +93,7 @@ description: ${description}
           base_uri: baseUri
         });
         
-        if (taskId && typeof taskId === 'string') {
+        if (taskId) {
           onSaveTask(taskId);
         }
       }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, FileText, Copy, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -154,7 +155,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             result_content: documentResult
           });
           
-          if (taskId && typeof taskId === 'string') {
+          if (taskId) {
             onSaveTask(taskId);
           }
         }
@@ -223,6 +224,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between p-6 border-b">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={onBack}>
@@ -241,6 +243,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         </Badge>
       </div>
 
+      {/* Main content area */}
       <div className="flex-1 overflow-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-1">

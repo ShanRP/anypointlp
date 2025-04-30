@@ -51,45 +51,20 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
     setLoading(true);
     setError('');
     try {
-      // For task details, we need to determine the task type first
+      // First, determine the task category from available tasks
       const taskInState = tasks.find(t => t.id === taskId);
       
       if (!taskInState) {
         throw new Error("Task not found");
       }
       
-      // Based on category, fetch from appropriate table
+      // Based on category, determine correct table name
       const category = taskInState.category;
-      let table = '';
+      const tableName = `apl_${category.toLowerCase()}_tasks`;
       
-      switch(category) {
-        case 'dataweave':
-          table = 'apl_dataweave_tasks';
-          break;
-        case 'integration':
-          table = 'apl_integration_tasks';
-          break;
-        case 'raml':
-          table = 'apl_raml_tasks';
-          break;
-        case 'munit':
-          table = 'apl_munit_tasks';
-          break;
-        case 'sampledata':
-          table = 'apl_sample_data_tasks';
-          break;
-        case 'document':
-          table = 'apl_document_tasks';
-          break;
-        case 'diagram':
-          table = 'apl_diagram_tasks';
-          break;
-        default:
-          throw new Error(`Unknown task category: ${category}`);
-      }
-      
+      // Fetch the detailed task data
       const { data, error: fetchError } = await supabase
-        .from(table)
+        .from(tableName)
         .select('*')
         .eq('id', taskId)
         .single();
@@ -97,24 +72,21 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
       if (fetchError) {
         setError(fetchError.message);
         toast.error(`Error fetching task details: ${fetchError.message}`);
+        return null;
       } else if (data) {
-        setSelectedTask(data as TaskDetails);
+        const taskDetails = data as TaskDetails;
+        setSelectedTask(taskDetails);
+        return taskDetails;
       }
+      return null;
     } catch (err: any) {
       setError(err.message);
       toast.error(`Unexpected error: ${err.message}`);
+      return null;
     } finally {
       setLoading(false);
     }
   }, [tasks]);
-
-  const selectTask = (task: TaskDetails) => {
-    setSelectedTask(task);
-  };
-
-  const clearSelectedTask = () => {
-    setSelectedTask(null);
-  };
 
   const createTask = async (
     title: string,
@@ -126,7 +98,10 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
     setLoading(true);
     setError('');
     try {
-      // Assuming apl_workspace_tasks table exists
+      const user = await supabase.auth.getUser();
+      const userId = user?.data?.user?.id || '';
+
+      // Create task data
       const taskData = {
         title,
         description,
@@ -134,24 +109,26 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
         type,
         status,
         workspace_id: workspaceId,
-        user_id: supabase.auth.getUser().then(res => res.data.user?.id) || '',
+        user_id: userId,
       };
 
+      // Insert into the workspace tasks table
       const { data, error } = await supabase
         .from('apl_workspace_tasks')
         .insert([taskData])
-        .select()
-        .single();
+        .select();
 
       if (error) {
         setError(error.message);
         toast.error(`Error creating task: ${error.message}`);
         return null;
-      } else {
-        setTasks((prevTasks) => [...prevTasks, data as WorkspaceTask]);
+      } else if (data && data.length > 0) {
+        const newTask = data[0] as WorkspaceTask;
+        setTasks((prevTasks) => [...prevTasks, newTask]);
         toast.success('Task created successfully!');
-        return data;
+        return data[0].id;
       }
+      return null;
     } catch (err: any) {
       setError(err.message);
       toast.error(`Unexpected error: ${err.message}`);
@@ -172,23 +149,24 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
         .from('apl_workspace_tasks')
         .update(updates)
         .eq('id', taskId)
-        .select()
-        .single();
+        .select();
 
       if (error) {
         setError(error.message);
         toast.error(`Error updating task: ${error.message}`);
         return null;
-      } else {
+      } else if (data && data.length > 0) {
+        const updatedTask = data[0] as WorkspaceTask;
         setTasks((prevTasks) =>
-          prevTasks.map((task) => (task.id === taskId ? { ...task, ...data } as WorkspaceTask : task))
+          prevTasks.map((task) => (task.id === taskId ? updatedTask : task))
         );
         if (selectedTask && selectedTask.id === taskId) {
-          setSelectedTask({...selectedTask, ...data} as TaskDetails);
+          setSelectedTask({...selectedTask, ...updatedTask} as TaskDetails);
         }
         toast.success('Task updated successfully!');
-        return data;
+        return data[0].id;
       }
+      return null;
     } catch (err: any) {
       setError(err.message);
       toast.error(`Unexpected error: ${err.message}`);
@@ -228,28 +206,33 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
     }
   };
 
-  // Add task saving functions for different task types
+  // Task saving functions for different task types
   const saveDiagramTask = async (taskData: Partial<TaskDetails>) => {
     try {
+      const user = await supabase.auth.getUser();
+      const userId = user?.data?.user?.id || '';
+      
       const { data, error } = await supabase
         .from('apl_diagram_tasks')
         .insert([{
           ...taskData,
-          user_id: supabase.auth.getUser().then(res => res.data.user?.id) || '',
+          user_id: userId,
           workspace_id: workspaceId,
           category: 'diagram'
         }])
-        .select()
-        .single();
+        .select();
         
       if (error) {
         toast.error(`Error saving diagram task: ${error.message}`);
         return null;
       }
       
-      toast.success('Diagram task saved successfully!');
-      await fetchWorkspaceTasks();
-      return data.id;
+      if (data && data.length > 0) {
+        toast.success('Diagram task saved successfully!');
+        await fetchWorkspaceTasks();
+        return data[0].id;
+      }
+      return null;
     } catch (err: any) {
       toast.error(`Unexpected error: ${err.message}`);
       return null;
@@ -258,25 +241,30 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
 
   const saveDocumentTask = async (taskData: Partial<TaskDetails>) => {
     try {
+      const user = await supabase.auth.getUser();
+      const userId = user?.data?.user?.id || '';
+      
       const { data, error } = await supabase
         .from('apl_document_tasks')
         .insert([{
           ...taskData,
-          user_id: supabase.auth.getUser().then(res => res.data.user?.id) || '',
+          user_id: userId,
           workspace_id: workspaceId,
           category: 'document'
         }])
-        .select()
-        .single();
+        .select();
         
       if (error) {
         toast.error(`Error saving document task: ${error.message}`);
         return null;
       }
       
-      toast.success('Document task saved successfully!');
-      await fetchWorkspaceTasks();
-      return data.id;
+      if (data && data.length > 0) {
+        toast.success('Document task saved successfully!');
+        await fetchWorkspaceTasks();
+        return data[0].id;
+      }
+      return null;
     } catch (err: any) {
       toast.error(`Unexpected error: ${err.message}`);
       return null;
@@ -285,25 +273,30 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
 
   const saveMunitTask = async (taskData: Partial<TaskDetails>) => {
     try {
+      const user = await supabase.auth.getUser();
+      const userId = user?.data?.user?.id || '';
+      
       const { data, error } = await supabase
         .from('apl_munit_tasks')
         .insert([{
           ...taskData,
-          user_id: supabase.auth.getUser().then(res => res.data.user?.id) || '',
+          user_id: userId,
           workspace_id: workspaceId,
           category: 'munit'
         }])
-        .select()
-        .single();
+        .select();
         
       if (error) {
         toast.error(`Error saving MUnit task: ${error.message}`);
         return null;
       }
       
-      toast.success('MUnit task saved successfully!');
-      await fetchWorkspaceTasks();
-      return data.id;
+      if (data && data.length > 0) {
+        toast.success('MUnit task saved successfully!');
+        await fetchWorkspaceTasks();
+        return data[0].id;
+      }
+      return null;
     } catch (err: any) {
       toast.error(`Unexpected error: ${err.message}`);
       return null;
@@ -312,25 +305,30 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
 
   const saveRamlTask = async (taskData: Partial<TaskDetails>) => {
     try {
+      const user = await supabase.auth.getUser();
+      const userId = user?.data?.user?.id || '';
+      
       const { data, error } = await supabase
         .from('apl_raml_tasks')
         .insert([{
           ...taskData,
-          user_id: supabase.auth.getUser().then(res => res.data.user?.id) || '',
+          user_id: userId,
           workspace_id: workspaceId,
           category: 'raml'
         }])
-        .select()
-        .single();
+        .select();
         
       if (error) {
         toast.error(`Error saving RAML task: ${error.message}`);
         return null;
       }
       
-      toast.success('RAML task saved successfully!');
-      await fetchWorkspaceTasks();
-      return data.id;
+      if (data && data.length > 0) {
+        toast.success('RAML task saved successfully!');
+        await fetchWorkspaceTasks();
+        return data[0].id;
+      }
+      return null;
     } catch (err: any) {
       toast.error(`Unexpected error: ${err.message}`);
       return null;
@@ -339,25 +337,30 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
 
   const saveSampleDataTask = async (taskData: Partial<TaskDetails>) => {
     try {
+      const user = await supabase.auth.getUser();
+      const userId = user?.data?.user?.id || '';
+      
       const { data, error } = await supabase
         .from('apl_sample_data_tasks')
         .insert([{
           ...taskData,
-          user_id: supabase.auth.getUser().then(res => res.data.user?.id) || '',
+          user_id: userId,
           workspace_id: workspaceId,
           category: 'sampledata'
         }])
-        .select()
-        .single();
+        .select();
         
       if (error) {
         toast.error(`Error saving sample data task: ${error.message}`);
         return null;
       }
       
-      toast.success('Sample data task saved successfully!');
-      await fetchWorkspaceTasks();
-      return data.id;
+      if (data && data.length > 0) {
+        toast.success('Sample data task saved successfully!');
+        await fetchWorkspaceTasks();
+        return data[0].id;
+      }
+      return null;
     } catch (err: any) {
       toast.error(`Unexpected error: ${err.message}`);
       return null;
@@ -373,8 +376,8 @@ export const useWorkspaceTasks = (workspaceIdParam: string = '') => {
     error,
     fetchTaskDetails,
     fetchWorkspaceTasks,
-    selectTask,
-    clearSelectedTask,
+    selectTask: (task: TaskDetails) => setSelectedTask(task),
+    clearSelectedTask: () => setSelectedTask(null),
     createTask,
     updateTask,
     deleteTask,

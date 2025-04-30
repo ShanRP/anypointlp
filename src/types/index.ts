@@ -1,4 +1,5 @@
 
+// Export TaskDetails interface
 export interface TaskDetails {
   id: string;
   task_id: string;
@@ -11,6 +12,7 @@ export interface TaskDetails {
   [key: string]: any; // For additional properties specific to different task types
 }
 
+// Export WorkspaceTask interface
 export interface WorkspaceTask {
   id: string;
   task_id: string;
@@ -23,5 +25,5 @@ export interface WorkspaceTask {
   [key: string]: any; // For additional properties specific to different task types
 }
 
-// Re-export the useWorkspaceTasks hook for convenience
+// Export the useWorkspaceTasks hook type for convenience
 export { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
