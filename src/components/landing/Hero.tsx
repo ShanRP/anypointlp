@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
@@ -43,7 +42,7 @@ const FeatureCard = ({ title, description, icon, delay = 0 }) => {
   );
 };
 
-const Hero = () => {
+export const Hero = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -289,4 +288,5 @@ const Hero = () => {
   );
 };
 
-export default Hero;
+// Remove this line as we're now using export const Hero = above
+// export default Hero;

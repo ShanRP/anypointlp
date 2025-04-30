@@ -1,249 +1,189 @@
 
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "./useAuth";
-import { toast } from "sonner";
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { handleApiError } from '@/utils/errorHandler';
 
 export type JobPost = {
   id: string;
   title: string;
   description: string;
   code?: string;
-  status: "open" | "in-progress" | "closed";
+  status: string;
   created_at: string;
   user_id: string;
   username?: string;
-  comment_count?: number;
 };
 
 export type JobComment = {
   id: string;
   post_id: string;
   user_id: string;
-  username?: string;
   comment: string;
   created_at: string;
+  username?: string;
 };
 
-export function useJobBoard() {
+export const useJobBoard = () => {
   const [posts, setPosts] = useState<JobPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPost, setSelectedPost] = useState<JobPost | null>(null);
   const [comments, setComments] = useState<JobComment[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const { user } = useAuth();
-  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<JobPost | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Added fetchPosts function that was missing
+  const fetchPosts = useCallback(async () => {
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('apl_job_posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      setPosts(data || []);
+      return data;
+    } catch (error) {
+      handleApiError(error, "Error fetching posts");
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchPosts();
+  }, [fetchPosts]);
 
-    // Set up real-time subscription for posts
-    const postsChannel = supabase
-      .channel("job-posts-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "apl_job_posts" },
-        () => {
-          fetchPosts();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(postsChannel);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (selectedPost) {
-      fetchComments(selectedPost.id);
-
-      // Set up real-time subscription for comments
-      const commentsChannel = supabase
-        .channel("job-comments-changes")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "apl_job_comments",
-            filter: `post_id=eq.${selectedPost.id}`,
-          },
-          () => {
-            fetchComments(selectedPost.id);
-          },
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(commentsChannel);
-      };
-    }
-  }, [selectedPost]);
-
-  const fetchPosts = async () => {
+  const createPost = async (title: string, description: string, code?: string) => {
+    setSubmitting(true);
+    
     try {
-      setLoading(true);
-
-      // First get posts
-      const { data: postsData, error: postsError } = await supabase
-        .from("apl_job_posts")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (postsError) throw postsError;
-
-      // Create a postsWithCommentCounts array to store our final result
-      const postsWithCommentCounts = [];
-
-      // Process each post individually to get its comment count
-      for (const post of postsData || []) {
-        // Count comments for this post
-        const { count, error } = await supabase
-          .from("apl_job_comments")
-          .select("*", { count: "exact", head: true })
-          .eq("post_id", post.id);
-
-        if (error) {
-          console.error("Error counting comments for post", post.id, error);
-          // Continue with next post even if there's an error
-          postsWithCommentCounts.push({
-            ...post,
-            comment_count: 0,
-          });
-        } else {
-          // Add the post with its comment count
-          postsWithCommentCounts.push({
-            ...post,
-            comment_count: count || 0,
-          });
-        }
-      }
-
-      setPosts(postsWithCommentCounts as JobPost[]);
-    } catch (error) {
-      console.error("Error fetching job posts:", error);
+      const { data: userData, error: userError } = await supabase.auth.getUser();
       
-      // Only show toast on first load if it's not a connectivity/permission issue
-      if (!isFirstLoad) {
-        toast.error("Failed to load job posts");
+      if (userError) throw userError;
+      
+      const user = userData.user;
+      
+      if (!user) {
+        toast.error("You need to be logged in to create a post");
+        return null;
       }
-    } finally {
-      setLoading(false);
-      setIsFirstLoad(false);
-    }
-  };
-
-  const fetchComments = useCallback(async (postId: string) => {
-    try {
-      setCommentsLoading(true);
-      const { data, error } = await supabase
-        .from("apl_job_comments")
-        .select("*")
-        .eq("post_id", postId)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      setComments((data as JobComment[]) || []);
-    } catch (error) {
-      console.error("Error fetching comments:", error);
-      // Don't show toast errors for background fetches
-    } finally {
-      setCommentsLoading(false);
-    }
-  }, []);
-
-  const createPost = async (
-    title: string,
-    description: string,
-    code?: string,
-  ) => {
-    if (!user) {
-      toast.error("You must be logged in to create a post");
-      return null;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from("apl_job_posts")
-        .insert({
-          title,
-          description,
-          code,
-          user_id: user.id,
-          username: user.email?.split("@")[0] || "Anonymous",
-          status: "open",
-        })
-        .select("*")
+      
+      // Get username
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('username, full_name')
+        .eq('id', user.id)
         .single();
-
+        
+      const username = profileData?.username || profileData?.full_name || user.email?.split('@')[0] || 'Anonymous';
+      
+      const { data, error } = await supabase
+        .from('apl_job_posts')
+        .insert([
+          { 
+            title, 
+            description, 
+            code, 
+            user_id: user.id,
+            username
+          }
+        ])
+        .select()
+        .single();
+        
       if (error) throw error;
-      toast.success("Job post created successfully");
-      return data as JobPost;
+      
+      // Add the post to the list
+      setPosts(prevPosts => [data, ...prevPosts]);
+      
+      return data;
     } catch (error) {
-      console.error("Error creating job post:", error);
-      // toast.error("Failed to create job post");
+      handleApiError(error, "Creating post");
       return null;
+    } finally {
+      setSubmitting(false);
     }
   };
-
-  const updatePostStatus = async (
-    postId: string,
-    status: "open" | "in-progress" | "closed",
-  ) => {
-    try {
-      const { error } = await supabase
-        .from("apl_job_posts")
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq("id", postId);
-
-      if (error) throw error;
-      toast.success(`Status updated to ${status}`);
-      return true;
-    } catch (error) {
-      console.error("Error updating post status:", error);
-      // toast.error("Failed to update status");
-      return false;
-    }
-  };
-
-  const addComment = async (postId: string, comment: string) => {
-    if (!user) {
-      toast.error("You must be logged in to comment");
-      return null;
-    }
-
+  
+  const fetchComments = async (postId: string) => {
     try {
       const { data, error } = await supabase
-        .from("apl_job_comments")
-        .insert({
-          post_id: postId,
-          comment,
-          user_id: user.id,
-          username: user.email?.split("@")[0] || "Anonymous",
-        })
-        .select("*")
-        .single();
-
+        .from('apl_job_comments')
+        .select('*')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+        
       if (error) throw error;
-      return data as JobComment;
+      
+      setComments(data || []);
+      return data;
     } catch (error) {
-      console.error("Error adding comment:", error);
-      toast.error("Failed to add comment");
+      handleApiError(error, "Fetching comments");
+      return [];
+    }
+  };
+  
+  const createComment = async (postId: string, comment: string) => {
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) throw userError;
+      
+      const user = userData.user;
+      
+      if (!user) {
+        toast.error("You need to be logged in to comment");
+        return null;
+      }
+      
+      // Get username
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('username, full_name')
+        .eq('id', user.id)
+        .single();
+        
+      const username = profileData?.username || profileData?.full_name || user.email?.split('@')[0] || 'Anonymous';
+      
+      const { data, error } = await supabase
+        .from('apl_job_comments')
+        .insert([
+          { 
+            post_id: postId, 
+            comment,
+            user_id: user.id,
+            username
+          }
+        ])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      // Add the comment to the list
+      setComments(prevComments => [...prevComments, data]);
+      
+      return data;
+    } catch (error) {
+      handleApiError(error, "Creating comment");
       return null;
     }
   };
-
+  
   return {
     posts,
     loading,
     selectedPost,
     setSelectedPost,
     comments,
-    commentsLoading,
+    submitting,
     createPost,
-    updatePostStatus,
-    addComment,
     fetchComments,
+    createComment,
+    fetchPosts // Add fetchPosts to the return object
   };
-}
+};

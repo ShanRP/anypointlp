@@ -135,9 +135,9 @@ interface DashboardSidebarProps {
   onNavigate: (page: string) => void;
   currentPage: string;
   onTaskSelect?: (taskId: string) => void;
-  selectedWorkspaceId?: string;
-  onWorkspaceChange?: (workspace: WorkspaceOption) => void;
-  onViewAllActivities?: () => void;
+  selectedWorkspaceId: string;
+  onWorkspaceChange: (workspace: any) => void;
+  onRefreshTasks?: () => Promise<void>; // Added this prop
 }
 
 const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
@@ -146,7 +146,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   onTaskSelect,
   selectedWorkspaceId,
   onWorkspaceChange,
-  onViewAllActivities
+  onRefreshTasks
 }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
