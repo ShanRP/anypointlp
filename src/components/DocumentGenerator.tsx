@@ -1,594 +1,388 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, RotateCcw, FileText, RefreshCw, Copy, FolderTree, Upload, File, Folder, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, FileText, Copy, Download, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import MonacoEditor from './MonacoEditor';
-import { BackButton } from './ui/BackButton';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Separator } from './ui/separator';
-import { Textarea } from './ui/textarea';
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Label } from "./ui/label";
-import { useGithubApi } from '@/hooks/useGithubApi';
-import { useRepositoryData } from '@/hooks/useRepositoryData';
 import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
-import { useAuth } from '@/hooks/useAuth';
-import { useUserCredits } from '@/hooks/useUserCredits';
-import { documentGeneratorPrompt } from '@/prompts/documentGeneratorPrompt';
-
-
-type SourceType = 'no-repository' | 'with-repository' | 'upload';
-type DocumentType = 'flow-implementation' | 'flow-endpoints';
+import MonacoEditor from './MonacoEditor';
+import { generateTaskId } from '@/utils/taskUtils';
+import { useCredits } from '@/hooks/useCredits';
+import { useLanguage } from '@/providers/LanguageProvider';
+import { useAIAssistant } from '@/hooks/useAIAssistant';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { motion } from 'framer-motion';
 
 interface DocumentGeneratorProps {
   onBack: () => void;
   selectedWorkspaceId?: string;
-  onSaveTask?: (taskId: string) => void;
+  onSaveTask: (id: string) => void;
 }
 
-const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({ 
-  onBack, 
-  selectedWorkspaceId = 'default',
-  onSaveTask 
+const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
+  onBack,
+  selectedWorkspaceId,
+  onSaveTask
 }) => {
-  const [sourceType, setSourceType] = useState<SourceType>('no-repository');
-  const [documentType, setDocumentType] = useState<DocumentType>('flow-implementation');
-  const [description, setDescription] = useState('');
-  const [code, setCode] = useState('');
-  const [result, setResult] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [documentType, setDocumentType] = useState<string>('api');
+  const [sourceType, setSourceType] = useState<string>('raml');
+  const [inputCode, setInputCode] = useState<string>('');
+  const [documentTitle, setDocumentTitle] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [documentResult, setDocumentResult] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('input');
-  
-  const { repositories, loadingRepositories, fetchRepositories, 
-          fileStructure, loadingFileStructure, fetchFileStructure,
-          fetchFileContent } = useGithubApi();
-  const { selectedRepository, repositoryFileStructure, toggleFileSelection } = useRepositoryData();
-  const { user } = useAuth();
-  const { saveDocumentTask } = useWorkspaceTasks(selectedWorkspaceId || '');
-  const { useCredit } = useUserCredits();
-  
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [fileContent, setFileContent] = useState<string>('');
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [currentDirectory, setCurrentDirectory] = useState<string>('/');
-  
-  const handleReset = () => {
-    setSourceType('no-repository');
-    setDocumentType('flow-implementation');
-    setDescription('');
-    setCode('');
-    setResult('');
-    setActiveTab('input');
-    setUploadedFiles([]);
-    setFileContent('');
-    setSelectedFile(null);
-  };
+  const [language, setLanguage] = useState<string>('xml');
+  const [resultLanguage, setResultLanguage] = useState<string>('markdown');
+  const workspaceTasks = useWorkspaceTasks(selectedWorkspaceId);
+  const { t } = useLanguage();
+  const { checkCredits, deductCredits } = useCredits();
+  const { generateDocument } = useAIAssistant();
+  const taskIdRef = useRef<string>(generateTaskId());
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      const files = Array.from(event.target.files);
-      setUploadedFiles(files);
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          setFileContent(e.target.result as string);
-          setCode(e.target.result as string);
-        }
-      };
-      reader.readAsText(files[0]);
-      
-      toast.success(`${files.length} files uploaded successfully`);
+  useEffect(() => {
+    // Set the appropriate language based on source type
+    switch (sourceType) {
+      case 'raml':
+        setLanguage('yaml');
+        break;
+      case 'xml':
+        setLanguage('xml');
+        break;
+      case 'java':
+        setLanguage('java');
+        break;
+      case 'json':
+        setLanguage('json');
+        break;
+      default:
+        setLanguage('plaintext');
     }
-  };
+  }, [sourceType]);
 
-  const handleSelectRepository = async (repo: any) => {
-    try {
-      await fetchFileStructure(repo);
-      toast.success(`Repository ${repo.name} loaded successfully`);
-    } catch (error) {
-      toast.error('Failed to load repository structure');
+  useEffect(() => {
+    // Set the appropriate result language based on document type
+    switch (documentType) {
+      case 'api':
+      case 'flow':
+      case 'component':
+        setResultLanguage('markdown');
+        break;
+      case 'html':
+        setResultLanguage('html');
+        break;
+      default:
+        setResultLanguage('markdown');
     }
+  }, [documentType]);
+
+  const handleCopyToClipboard = () => {
+    navigator.clipboard.writeText(documentResult);
+    toast.success('Document copied to clipboard');
   };
 
-  const getCurrentDirectoryContents = () => {
-    if (currentDirectory === '/') {
-      return fileStructure;
+  const handleDownload = () => {
+    const element = document.createElement('a');
+    let filename = `${documentTitle || 'document'}.`;
+    
+    if (resultLanguage === 'markdown') {
+      filename += 'md';
+    } else if (resultLanguage === 'html') {
+      filename += 'html';
+    } else {
+      filename += 'txt';
     }
     
-    const findDirectory = (nodes: any[], path: string): any[] | null => {
-      for (const node of nodes) {
-        if (node.path === path && node.type === 'directory') {
-          return node.children || [];
-        }
-        if (node.children) {
-          const result = findDirectory(node.children, path);
-          if (result) return result;
-        }
-      }
-      return null;
-    };
-    
-    const dirContents = findDirectory(fileStructure, currentDirectory);
-    return dirContents || [];
+    const file = new Blob([documentResult], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    toast.success(`Document downloaded as ${filename}`);
   };
 
-  const navigateDirectory = (dir: any) => {
-    if (dir.type === 'directory') {
-      setCurrentDirectory(dir.path);
-      toast.success(`Navigated to ${dir.name}`);
-    }
-  };
-  
-  const goUpDirectory = () => {
-    if (currentDirectory === '/') return;
-    
-    const pathParts = currentDirectory.split('/');
-    pathParts.pop();
-    const parentPath = pathParts.length === 1 ? '/' : pathParts.join('/');
-    
-    setCurrentDirectory(parentPath);
-  };
-
-  const handleFileSelect = async (file: any) => {
-    if (file.type === 'file') {
-      setSelectedFile(file.path);
-      
-      if (selectedRepository) {
-        const content = await fetchFileContent(selectedRepository, file.path);
-        if (content) {
-          setFileContent(content);
-          setCode(content);
-          toast.success(`File "${file.name}" loaded successfully`);
-        }
-      }
-    }
-  };
-
-  const handleGenerateDocument = async () => {
-    if (!code.trim()) {
-      toast.error('Please provide source code or description');
+  const handleSubmit = async () => {
+    if (!inputCode.trim()) {
+      toast.error('Please provide source code to document');
       return;
     }
-    
-    const canUseCredit = await useCredit();
-    if (!canUseCredit) {
+
+    if (!documentTitle.trim()) {
+      toast.error('Please provide a title for the document');
       return;
     }
-    
-    setIsLoading(true);
+
+    // Check if user has enough credits
+    const hasCredits = await checkCredits(1);
+    if (!hasCredits) {
+      toast.error('Not enough credits to generate document');
+      return;
+    }
+
+    setIsGenerating(true);
+    setActiveTab('result');
+
     try {
-      let prompt = `Generate a detailed document for a ${documentType === 'flow-implementation' ? 'Flow Implementation' : 'Flow Endpoints'}.`;
-      
-      if (description) {
-        prompt += ` Description: ${description}`;
-      }
-      
-      prompt += ` Here is the code to document:\n\n${code}`;
-      
-      if (sourceType === 'with-repository' && selectedRepository) {
-        prompt += ` Based on the repository: ${selectedRepository.name}`;
-      } else if (sourceType === 'upload' && fileContent) {
-        prompt += ` Based on the uploaded file .`;
-      }
-      
-      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer CG0eH5ViBtkYjgubdeia5Au5tZHxsL1E'
-        },
-        body: JSON.stringify({
-          model: 'mistral-large-latest',
-          messages: [
-            {
-              role: 'system',
-              content: documentGeneratorPrompt
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.2,
-          max_tokens: 2000
-        })
+      const result = await generateDocument({
+        documentType,
+        sourceType,
+        code: inputCode,
+        title: documentTitle,
+        description
       });
 
-      const data = await response.json();
-      if (data.choices && data.choices.length > 0) {
-        const generatedResult = data.choices[0].message.content.trim();
-        setResult(generatedResult);
-        setActiveTab('result');
+      if (result) {
+        setDocumentResult(result);
+        await deductCredits(1);
+        toast.success('Document generated successfully');
         
-        if (selectedWorkspaceId && user) {
-          const taskName = documentType === 'flow-implementation' 
-            ? 'Flow Implementation Document' 
-            : 'Flow Endpoints Document';
-            
-          try {
-            const savedTask = await saveDocumentTask({
-              workspace_id: selectedWorkspaceId,
-              task_name: taskName,
-              user_id: user.id,
-              description: description,
-              document_type: documentType,
-              source_type: sourceType,
-              code: code,
-              result_content: generatedResult
-            });
-            
-            if (savedTask && savedTask.length > 0 && onSaveTask) {
-              onSaveTask(savedTask[0].id);
-            }
-            
-            toast.success('Document saved to workspace!');
-          } catch (error) {
-            console.error('Error saving document task:', error);
+        // Save task to workspace
+        if (selectedWorkspaceId) {
+          const taskId = await workspaceTasks.saveDocumentTask({
+            task_id: taskIdRef.current || generateTaskId(),
+            task_name: documentTitle,
+            description: description,
+            document_type: documentType,
+            source_type: sourceType,
+            code: inputCode,
+            result_content: documentResult
+          });
+          
+          if (taskId && typeof taskId === 'string') {
+            onSaveTask(taskId);
           }
         }
       } else {
-        throw new Error('No response received from API');
+        toast.error('Failed to generate document');
       }
     } catch (error) {
       console.error('Error generating document:', error);
-      toast.error('Failed to generate document. Please try again.');
+      toast.error('An error occurred while generating the document');
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
-  const handleCopyToClipboard = () => {
-    navigator.clipboard.writeText(result);
-    toast.success('Document copied to clipboard!');
+  const getDocumentTypeOptions = () => {
+    return [
+      { value: 'api', label: 'API Documentation' },
+      { value: 'flow', label: 'Flow Documentation' },
+      { value: 'component', label: 'Component Documentation' },
+      { value: 'html', label: 'HTML Documentation' },
+    ];
   };
 
-  const saveGeneratedTask = async () => {
-    if (!selectedWorkspaceId || !user) {
-      toast.error('You must be logged in to save a task.');
-      return;
+  const getSourceTypeOptions = () => {
+    switch (documentType) {
+      case 'api':
+        return [
+          { value: 'raml', label: 'RAML' },
+          { value: 'json', label: 'JSON Schema' },
+          { value: 'openapi', label: 'OpenAPI' },
+        ];
+      case 'flow':
+        return [
+          { value: 'xml', label: 'XML Flow' },
+          { value: 'json', label: 'JSON Flow' },
+        ];
+      case 'component':
+        return [
+          { value: 'java', label: 'Java' },
+          { value: 'xml', label: 'XML Component' },
+        ];
+      default:
+        return [
+          { value: 'raml', label: 'RAML' },
+          { value: 'xml', label: 'XML' },
+          { value: 'java', label: 'Java' },
+          { value: 'json', label: 'JSON' },
+        ];
     }
-    
-    try {
-      // Ensure we have a valid task name
-      const taskTitle = documentType === 'flow-implementation' 
-        ? 'Flow Implementation Document' 
-        : 'Flow Endpoints Document';
-      
-      const documentData = {
-        workspace_id: selectedWorkspaceId,
-        task_name: taskTitle,
-        user_id: user.id,
-        description: description || '',
-        document_type: documentType,
-        source_type: sourceType,
-        code: code || '',
-        result_content: result || ''
-      };
-      
-      // Save the task using the useWorkspaceTasks hook
-      const savedTask = await saveDocumentTask(documentData);
-      
-      // Check if the task was saved successfully
-      if (savedTask && savedTask.length > 0 && onSaveTask) {
-        onSaveTask(savedTask[0].task_id);
-        toast.success('Document saved to workspace!');
-      } else {
-        toast.error('Failed to save document task.');
-      }
-    } catch (err: any) {
-      console.error('Error saving document task:', err);
-      toast.error('Failed to save document task');
+  };
+
+  const getPlaceholderText = () => {
+    switch (sourceType) {
+      case 'raml':
+        return '#%RAML 1.0\ntitle: Example API\nversion: v1\n/users:\n  get:\n    description: Get all users\n    responses:\n      200:\n        body:\n          application/json:\n            example: |\n              [\n                { "id": 1, "name": "User 1" },\n                { "id": 2, "name": "User 2" }\n              ]';
+      case 'xml':
+        return '<flow name="example-flow">\n  <http:listener path="/api" />\n  <logger message="Request received" />\n  <transform>\n    <dw:transform-message>\n      <dw:set-payload><![CDATA[%dw 2.0\noutput application/json\n---\n{\n  "message": "Hello World"\n}]]></dw:set-payload>\n    </dw:transform-message>\n  </transform>\n</flow>';
+      case 'java':
+        return 'public class ExampleComponent {\n  /**\n   * Process the incoming message\n   * @param payload The input payload\n   * @return The processed result\n   */\n  public Object process(Object payload) {\n    // Process the payload\n    return payload;\n  }\n}';
+      case 'json':
+        return '{\n  "openapi": "3.0.0",\n  "info": {\n    "title": "Example API",\n    "version": "1.0.0"\n  },\n  "paths": {\n    "/users": {\n      "get": {\n        "summary": "Get all users",\n        "responses": {\n          "200": {\n            "description": "Successful response",\n            "content": {\n              "application/json": {\n                "example": [\n                  { "id": 1, "name": "User 1" },\n                  { "id": 2, "name": "User 2" }\n                ]\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n}';
+      default:
+        return '';
     }
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <BackButton onBack={onBack} label="Back to Dashboard" />
-      
-      <Card className="mt-4 border border-gray-200 shadow-sm overflow-hidden">
-        <CardHeader className="bg-gray-50 border-b border-gray-200">
-          <CardTitle className="text-xl font-semibold">Document Generator</CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <motion.div 
-            className="mb-6 h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
-            initial={{ width: '0%' }}
-            animate={{ width: '100%' }}
-            transition={{ duration: 0.5 }}
-          />
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Document Generator</h1>
+            <p className="text-sm text-muted-foreground">
+              Generate comprehensive documentation from your code
+            </p>
+          </div>
+        </div>
+        <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+          <FileText className="h-3.5 w-3.5 mr-1" />
+          Documentation
+        </Badge>
+      </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-4">
-              <TabsTrigger value="input">Input</TabsTrigger>
-              <TabsTrigger value="result">Result</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="input" className="space-y-6">
+      <div className="flex-1 overflow-auto p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle>Document Configuration</CardTitle>
+              <CardDescription>
+                Configure the type of documentation you want to generate
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Source Type</label>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant={sourceType === 'no-repository' ? 'default' : 'outline'}
-                    onClick={() => setSourceType('no-repository')}
-                    className="flex-1 min-w-[180px]"
-                  >
-                    No Repository
-                  </Button>
-                  <Button
-                    variant={sourceType === 'with-repository' ? 'default' : 'outline'}
-                    onClick={() => setSourceType('with-repository')}
-                    className="flex-1 min-w-[180px] flex items-center gap-2"
-                  >
-                    <FolderTree size={16} />
-                    With Repository
-                  </Button>
-                  <Button
-                    variant={sourceType === 'upload' ? 'default' : 'outline'}
-                    onClick={() => setSourceType('upload')}
-                    className="flex-1 min-w-[180px] flex items-center gap-2"
-                  >
-                    <Upload size={16} />
-                    Upload from Computer
-                  </Button>
-                </div>
-              </div>
-
-              {sourceType === 'with-repository' && (
-                <div className="space-y-2 border p-4 rounded-md bg-gray-50">
-                  <h3 className="font-medium text-gray-900">Repository Selection</h3>
-                  {loadingRepositories ? (
-                    <div className="py-4 text-center">
-                      <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
-                      <p>Loading repositories...</p>
-                    </div>
-                  ) : repositories.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-2 mt-2">
-                      {repositories.map((repo) => (
-                        <div 
-                          key={repo.id}
-                          onClick={() => handleSelectRepository(repo)}
-                          className={`p-3 rounded-md cursor-pointer border ${
-                            selectedRepository?.id === repo.id 
-                              ? 'border-purple-500 bg-purple-50' 
-                              : 'border-gray-200 hover:bg-gray-100'
-                          }`}
-                        >
-                          <div className="font-medium">{repo.name}</div>
-                          <div className="text-xs text-gray-500">{repo.full_name}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center">
-                      <p>No repositories found. Connect your GitHub account in settings.</p>
-                      <Button 
-                        variant="outline" 
-                        onClick={fetchRepositories}
-                        className="mt-2"
-                      >
-                        Refresh Repositories
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {selectedRepository && (
-                    <div className="mt-4">
-                      <h4 className="font-medium mb-2">Files</h4>
-                      <div className="border rounded-md overflow-hidden">
-                        <div className="bg-gray-100 p-2 flex items-center border-b">
-                          <button 
-                            onClick={goUpDirectory}
-                            disabled={currentDirectory === '/'} 
-                            className={`p-1 rounded mr-2 ${currentDirectory === '/' ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-                          >
-                            <ArrowLeft size={16} />
-                          </button>
-                          <span className="text-sm font-medium truncate">
-                            {currentDirectory === '/' ? 'Root' : currentDirectory}
-                          </span>
-                        </div>
-                        
-                        <div className="max-h-60 overflow-y-auto">
-                          {getCurrentDirectoryContents().length === 0 ? (
-                            <div className="p-4 text-center text-gray-500">
-                              No files found in this directory
-                            </div>
-                          ) : (
-                            <div className="divide-y">
-                              {getCurrentDirectoryContents().map((item: any, index: number) => (
-                                <div 
-                                  key={index}
-                                  onClick={() => item.type === 'directory' ? navigateDirectory(item) : handleFileSelect(item)}
-                                  className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
-                                    selectedFile === item.path
-                                      ? 'bg-purple-50' 
-                                      : ''
-                                  }`}
-                                >
-                                  {item.type === 'directory' ? (
-                                    <Folder className="h-4 w-4 mr-2 text-blue-500" />
-                                  ) : (
-                                    <File className="h-4 w-4 mr-2 text-gray-500" />
-                                  )}
-                                  <span className="truncate">{item.name}</span>
-                                  {selectedFile === item.path && (
-                                    <Check className="h-4 w-4 ml-auto text-purple-600" />
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {sourceType === 'upload' && (
-                <div className="space-y-2 border p-4 rounded-md bg-gray-50">
-                  <h3 className="font-medium text-gray-900">Upload Files</h3>
-                  <div className="mt-2">
-                    <label 
-                      htmlFor="file-upload" 
-                      className="cursor-pointer bg-white py-6 px-4 border-2 border-dashed border-gray-300 rounded-md flex justify-center items-center flex-col text-center"
-                    >
-                      <Upload size={24} className="mb-2 text-gray-400" />
-                      <span className="text-sm text-gray-600">Drag and drop files here, or click to browse</span>
-                      <input 
-                        id="file-upload" 
-                        type="file" 
-                        multiple 
-                        onChange={handleFileUpload} 
-                        className="hidden" 
-                      />
-                    </label>
-                  </div>
-                  
-                  {uploadedFiles.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="font-medium mb-2">Uploaded Files ({uploadedFiles.length})</h4>
-                      <div className="bg-gray-100 p-2 rounded text-sm max-h-40 overflow-y-auto">
-                        {uploadedFiles.map((file, index) => (
-                          <div key={index} className="py-1">{file.name}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Code <span className="text-red-500">*</span></label>
-                <div className="border rounded-md h-full" style={{ minHeight: '400px' }}>
-                  <MonacoEditor
-                    value={code}
-                    onChange={(value) => setCode(value || '')}
-                    language="xml"
-                    height="400px"
-                    options={{
-                      minimap: { enabled: false },
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Description (Optional)</label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Add a description of what you'd like to document..."
-                  className="min-h-[100px] resize-none border-gray-300 focus:ring-purple-500 focus:border-purple-500"
+                <Label htmlFor="title">Document Title</Label>
+                <Input
+                  id="title"
+                  placeholder="Enter document title"
+                  value={documentTitle}
+                  onChange={(e) => setDocumentTitle(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Document Type <span className="text-red-500">*</span>
-                </label>
-                <RadioGroup 
-                  value={documentType} 
-                  onValueChange={(value) => setDocumentType(value as DocumentType)}
-                  className="flex flex-col space-y-2"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="flow-implementation" id="flow-implementation" />
-                    <Label htmlFor="flow-implementation">Flow Implementation</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="flow-endpoints" id="flow-endpoints" />
-                    <Label htmlFor="flow-endpoints">Flow Endpoints</Label>
-                  </div>
-                </RadioGroup>
+                <Label htmlFor="description">Description (Optional)</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Enter a brief description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                />
               </div>
 
-              <div className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={handleReset}
-                  className="flex items-center gap-2"
-                >
-                  <RotateCcw size={16} />
-                  Reset
-                </Button>
-                <Button 
-                  onClick={handleGenerateDocument}
-                  disabled={isLoading || !documentType || !code.trim()}
-                  className="flex items-center gap-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <RefreshCw size={16} className="animate-spin mr-2" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <FileText size={16} />
-                      Generate Document
-                    </>
-                  )}
-                </Button>
+              <div className="space-y-2">
+                <Label htmlFor="documentType">Document Type</Label>
+                <Select value={documentType} onValueChange={setDocumentType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select document type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getDocumentTypeOptions().map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </TabsContent>
 
-            <TabsContent value="result" className="space-y-6">
-              {result ? (
-                <div className="space-y-4">
-                  <Card className="p-4">
-                    <h3 className="font-semibold text-lg mb-2">Generated Document</h3>
-                    <Separator className="my-2" />
-                    <div className="border rounded-md" style={{ minHeight: '400px' }}>
-                      <MonacoEditor
-                        value={result}
-                        language="markdown"
-                        options={{
-                          readOnly: true,
-                          minimap: { enabled: false },
-                          scrollBeyondLastLine: false,
-                          automaticLayout: true,
-                        }}
-                        height="400px"
-                      />
-                    </div>
-                  </Card>
-                  <div className="flex justify-end space-x-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setActiveTab('input')}
-                    >
-                      Back to Input
-                    </Button>
-                    <Button 
-                      onClick={handleCopyToClipboard}
-                      className="flex items-center gap-2"
-                    >
-                      <Copy size={16} />
-                      Copy to Clipboard
-                    </Button>
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="sourceType">Source Type</Label>
+                <Select value={sourceType} onValueChange={setSourceType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select source type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getSourceTypeOptions().map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button 
+                className="w-full mt-4" 
+                onClick={handleSubmit}
+                disabled={isGenerating || !inputCode.trim() || !documentTitle.trim()}
+              >
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  'Generate Documentation'
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-0">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid grid-cols-2">
+                  <TabsTrigger value="input">Source Code</TabsTrigger>
+                  <TabsTrigger value="result">Generated Document</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <TabsContent value="input" className="mt-0">
+                <div className="border rounded-md h-[500px] overflow-hidden">
+                  <MonacoEditor
+                    language={language}
+                    value={inputCode}
+                    onChange={setInputCode}
+                    placeholder={getPlaceholderText()}
+                  />
                 </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No document generated yet. Generate a document first.</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setActiveTab('input')}
-                    className="mt-4"
+              </TabsContent>
+              <TabsContent value="result" className="mt-0">
+                <div className="border rounded-md h-[500px] overflow-hidden">
+                  {isGenerating ? (
+                    <div className="p-4 space-y-3">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-2/3" />
+                    </div>
+                  ) : (
+                    <MonacoEditor
+                      language={resultLanguage}
+                      value={documentResult}
+                      onChange={setDocumentResult}
+                      readOnly={false}
+                    />
+                  )}
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={handleCopyToClipboard}
+                    disabled={!documentResult}
                   >
-                    Back to Input
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownload}
+                    disabled={!documentResult}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
                   </Button>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              </TabsContent>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

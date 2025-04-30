@@ -6,6 +6,8 @@ export interface TaskDetails {
   category: string;
   description?: string;
   created_at: string;
+  workspace_id: string;
+  user_id: string;
   [key: string]: any; // For additional properties specific to different task types
 }
 
@@ -20,3 +22,6 @@ export interface WorkspaceTask {
   user_id: string;
   [key: string]: any; // For additional properties specific to different task types
 }
+
+// Re-export the useWorkspaceTasks hook for convenience
+export { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';

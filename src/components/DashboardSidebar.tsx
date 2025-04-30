@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,7 +29,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useLanguage } from '@/providers/LanguageProvider';
 import { WorkspaceOption, useWorkspaces } from '@/hooks/useWorkspaces';
-import { useWorkspaceTasks, type WorkspaceTask } from '@/types';
+import { useWorkspaceTasks } from '@/hooks/useWorkspaceTasks';
+import { WorkspaceTask } from '@/types';
 import { Button } from '@/components/ui/button';
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import WorkspaceDetailsDialog from './workspace/WorkspaceDetailsDialog';

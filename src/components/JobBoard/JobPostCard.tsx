@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { JobPost } from '@/hooks/useJobBoard';
 import { formatDistanceToNow } from 'date-fns';
@@ -20,13 +19,17 @@ export interface JobPostCardProps {
   onSelect: (post: JobPost) => void;
   isSelected?: boolean;
   onClick?: () => void;
+  onCallInitiated?: (type: "audio" | "video", userId: string, peerName: string) => void;
+  onChatInitiated?: (userId: string, peerName: string) => void;
 }
 
 const JobPostCard: React.FC<JobPostCardProps> = ({
   post,
   onSelect,
   isSelected = false,
-  onClick
+  onClick,
+  onCallInitiated,
+  onChatInitiated
 }) => {
   const handleClick = () => {
     if (onClick) {
@@ -66,7 +69,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
     }
   };
 
-  // Add comment_count property if it doesn't exist
+  // Add comment_count property check with default value
   const commentCount = post.comment_count !== undefined ? post.comment_count : 0;
 
   return (

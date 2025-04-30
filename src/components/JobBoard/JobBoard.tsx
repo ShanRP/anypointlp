@@ -1,5 +1,5 @@
-
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from 'react';
+import { useJobBoard, JobPost } from '@/hooks/useJobBoard';
 import { motion, AnimatePresence } from "framer-motion";
 import { useJobBoard } from "@/hooks/useJobBoard";
 import JobPostCard from "./JobPostCard";
@@ -26,6 +26,7 @@ export default function JobBoard() {
   
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showPostDetails, setShowPostDetails] = useState(false);
   const {
     videoRef,
     remoteVideoRef,
@@ -147,8 +148,13 @@ export default function JobBoard() {
     }
   };
 
+  const handleSelectPost = useCallback((post: JobPost) => {
+    setSelectedPost(post);
+    setShowPostDetails(true);
+  }, [setSelectedPost]);
+
   return (
-    <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-12">
+    <div className="flex flex-col h-full overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -228,8 +234,8 @@ export default function JobBoard() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <JobPostDetails
-              post={selectedPost}
+            <JobPostDetails 
+              post={selectedPost} 
               onBack={handleBackToList}
               onCallInitiated={handleCallInitiated}
               onChatInitiated={handleChatInitiated}
@@ -251,7 +257,8 @@ export default function JobBoard() {
                   <JobPostCard
                     key={post.id}
                     post={post}
-                    onClick={() => setSelectedPost(post)}
+                    onSelect={handleSelectPost}
+                    onClick={() => handleSelectPost(post)}
                     onCallInitiated={handleCallInitiated}
                     onChatInitiated={handleChatInitiated}
                   />
