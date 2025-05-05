@@ -1,8 +1,9 @@
+
 import React, { useRef, useEffect } from 'react';
 import * as monaco from 'monaco-editor';
 import { useTheme } from '@/providers/ThemeProvider';
 
-interface MonacoEditorProps {
+export interface MonacoEditorProps {
   value: string;
   language?: string;
   theme?: string;

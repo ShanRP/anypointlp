@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-// import { useWorkspaces } from '@/hooks/useWorkspaces';
-
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkspaces } from './WorkspaceProvider';
@@ -19,6 +17,7 @@ export interface WorkspaceTask {
   input_format?: string;
   notes?: string;
   generated_scripts?: any[];
+  reference_id?: string;
   [key: string]: any; // Allow for additional properties
 }
 
@@ -54,6 +53,7 @@ export interface TaskDetails {
   flow_diagram?: string;
   connection_steps?: string;
   endpoints?: any[];
+  reference_id?: string;
 }
 
 interface WorkspaceTasksContextType {
@@ -92,73 +92,111 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
   const fetchInProgress = useRef(false);
   const backgroundRefreshTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Consolidated fetch function that uses a single RPC call instead of multiple table queries
+  // Fetch workspace tasks using the new consolidated table
   const fetchWorkspaceTasks = useCallback(async (forceRefresh = false) => {
-    // function body...
-  }, [user]); // Remove selectedWorkspace from the dependency array
-
-  // Use a single RPC call to get all tasks instead of querying multiple tables
-  const fetchTasksFromRPC = async (workspaceId: string, updateLoadingState = true) => {
-    if (!user || !workspaceId) return;
+    if (!user || !selectedWorkspace) return;
+    if (fetchInProgress.current && !forceRefresh) return;
     
-    console.log('Fetching all workspace tasks with single RPC call for workspace:', workspaceId);
+    // Don't fetch if we've already fetched for this workspace unless force refresh
+    if (!forceRefresh && 
+        initialFetchDone.current && 
+        currentWorkspaceId.current === selectedWorkspace.id) {
+      return;
+    }
+    
+    fetchInProgress.current = true;
+    
+    if (!isRefreshing) {
+      setLoading(true);
+    }
+    
+    setError(null);
     
     try {
-      // Use a single RPC function that consolidates all task types in the database
-      const { data, error } = await supabase.rpc('apl_get_all_workspace_tasks', {
-        workspace_id_param: workspaceId
+      console.log('Fetching workspace tasks for workspace:', selectedWorkspace.id);
+      
+      // Try to use cached data first if not forcing refresh
+      if (!forceRefresh) {
+        const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${selectedWorkspace.id}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        
+        if (cachedData) {
+          try {
+            const { data, timestamp } = JSON.parse(cachedData);
+            const now = Date.now();
+            
+            if (now - timestamp < CACHE_EXPIRY) {
+              console.log('Using cached workspace tasks data');
+              setWorkspaceTasks(data);
+              initialFetchDone.current = true;
+              currentWorkspaceId.current = selectedWorkspace.id;
+              return;
+            }
+          } catch (e) {
+            console.warn('Error parsing cached data:', e);
+          }
+        }
+      }
+      
+      // Fetch tasks from the new consolidated table using the RPC function
+      const { data, error } = await supabase.rpc('apl_get_workspace_tasks', {
+        workspace_id_param: selectedWorkspace.id
       });
+      
       if (error) {
-        console.error('Error in RPC call:', error);
         throw error;
       }
-      console.log(`Fetched ${data?.length || 0} tasks with single RPC call`);
       
-      // Format and normalize the tasks
       const formattedTasks = (data || []).map((task: any) => ({
         id: task.id,
         task_id: task.task_id || `T-${task.id.substring(0, 8).toUpperCase()}`,
-        task_name: task.task_name || task.title || 'Untitled Task',
+        task_name: task.task_name || 'Untitled Task',
         category: task.category || 'dataweave',
         created_at: task.created_at,
-        workspace_id: workspaceId,
-        description: task.description || ''
+        workspace_id: selectedWorkspace.id,
+        description: task.description || '',
+        reference_id: task.reference_id
       }));
+      
       // Sort tasks by creation date (newest first)
       const sortedTasks = formattedTasks.sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
+      
       // Cache the tasks data
-      localStorage.setItem(`${WORKSPACE_TASKS_CACHE_KEY}_${workspaceId}`, JSON.stringify({
+      const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${selectedWorkspace.id}`;
+      localStorage.setItem(cacheKey, JSON.stringify({
         data: sortedTasks,
         timestamp: Date.now()
       }));
+      
       setWorkspaceTasks(sortedTasks);
       initialFetchDone.current = true;
-      currentWorkspaceId.current = workspaceId;
-    
-    } catch (error) {
-      console.error('Error fetching workspace tasks from RPC:', error);
+      currentWorkspaceId.current = selectedWorkspace.id;
+      
+    } catch (err: any) {
+      console.error('Error fetching workspace tasks:', err);
       setError('Failed to load workspace tasks');
       
-      // If RPC fails, try to use cached data as fallback
-      const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${workspaceId}`;
+      // Try to use cached data as fallback
+      const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${selectedWorkspace.id}`;
       const cachedData = localStorage.getItem(cacheKey);
+      
       if (cachedData) {
         try {
           const { data } = JSON.parse(cachedData);
-          console.log('Using cached data as fallback after RPC failure');
+          console.log('Using cached data as fallback after error');
           setWorkspaceTasks(data);
         } catch (e) {
           console.error("Error parsing cached fallback data:", e);
         }
       }
     } finally {
-      if (updateLoadingState) {
-        setLoading(false);
-      }
+      fetchInProgress.current = false;
+      setLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, [user, selectedWorkspace, isRefreshing]);
 
   // Reset state when user changes or logs out
   useEffect(() => {
@@ -203,6 +241,7 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
     await fetchWorkspaceTasks(true); // Force refresh
   };
 
+  // Keep the existing task details fetch mechanism for backward compatibility
   const fetchTaskDetails = async (taskId: string) => {
     if (!user || !selectedWorkspace) {
       setError('You must be logged in and have a workspace selected to view task details');
@@ -219,7 +258,7 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
       }
       // Use a single RPC call to get task details by ID and category
       const { data, error } = await supabase.rpc('apl_get_task_details', {
-        task_id_param: task.id,
+        task_id_param: task.reference_id || task.id,
         category_param: task.category
       });
       if (error) throw error;
@@ -238,7 +277,9 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
     }
   };
 
+  // Keep existing delete, save methods the same
   const deleteTask = async (taskId: string): Promise<boolean> => {
+    // ... keep existing code
     if (!user || !selectedWorkspace) {
       toast.error('You must be logged in and have a workspace selected to delete tasks');
       return false;
@@ -252,7 +293,7 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
       }
       // Use a single RPC call to delete the task
       const { error } = await supabase.rpc('apl_delete_task', {
-        task_id_param: task.id,
+        task_id_param: task.reference_id || task.id,
         category_param: task.category
       });
       if (error) throw error;
@@ -281,8 +322,9 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
     }
   };
 
-  // Save functions for different task types
+  // Keep existing save methods but add code to update the cache
   const saveDocumentTask = async (documentData: any) => {
+    // ... keep existing code
     if (!user || !selectedWorkspace) {
       toast.error('You must be logged in and have a workspace selected to save tasks');
       return null;
@@ -322,43 +364,10 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
         if (error) throw error;
         result = data;
       }
-      // Update local state with the new task
-      const newTask = {
-        id: result.id,
-        task_id: result.task_id,
-        task_name: result.task_name,
-        category: 'document',
-        created_at: result.created_at,
-        workspace_id: selectedWorkspace.id,
-        description: result.description || ''
-      };
-      // Update local state without refetching
-      if (documentData.id) {
-        setWorkspaceTasks(prev =>
-          prev.map(task => task.id === result.id ? newTask : task)
-        );
-      } else {
-        setWorkspaceTasks(prev => [newTask, ...prev]);
-      }
-      // Update cache
-      const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${selectedWorkspace.id}`;
-      const cachedData = localStorage.getItem(cacheKey);
       
-      if (cachedData) {
-        try {
-          const { data, timestamp } = JSON.parse(cachedData);
-          const updatedCache = documentData.id
-            ? data.map((task: any) => task.id === result.id ? newTask : task)
-            : [newTask, ...data];
-          
-          localStorage.setItem(cacheKey, JSON.stringify({
-            data: updatedCache,
-            timestamp
-          }));
-        } catch (e) {
-          console.error("Error updating task cache:", e);
-        }
-      }
+      // The trigger will automatically update the apl_workspace_tasks table
+      // Just need to refresh our local state
+      refreshWorkspaceTasks();
       
       return result;
     } catch (error) {
@@ -369,6 +378,7 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
   };
 
   const saveDiagramTask = async (diagramData: any) => {
+    // ... keep existing code with similar changes to refresh cache after save
     if (!user || !selectedWorkspace) {
       toast.error('You must be logged in and have a workspace selected to save tasks');
       return null;
@@ -408,43 +418,10 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
         if (error) throw error;
         result = data;
       }
-      // Update local state with the new task
-      const newTask = {
-        id: result.id,
-        task_id: result.task_id,
-        task_name: result.task_name,
-        category: 'diagram',
-        created_at: result.created_at,
-        workspace_id: selectedWorkspace.id,
-        description: result.description || ''
-      };
-      // Update local state without refetching
-      if (diagramData.id) {
-        setWorkspaceTasks(prev =>
-          prev.map(task => task.id === result.id ? newTask : task)
-        );
-      } else {
-        setWorkspaceTasks(prev => [newTask, ...prev]);
-      }
-      // Update cache
-      const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${selectedWorkspace.id}`;
-      const cachedData = localStorage.getItem(cacheKey);
       
-      if (cachedData) {
-        try {
-          const { data, timestamp } = JSON.parse(cachedData);
-          const updatedCache = diagramData.id
-            ? data.map((task: any) => task.id === result.id ? newTask : task)
-            : [newTask, ...data];
-          
-          localStorage.setItem(cacheKey, JSON.stringify({
-            data: updatedCache,
-            timestamp
-          }));
-        } catch (e) {
-          console.error("Error updating task cache:", e);
-        }
-      }
+      // The trigger will automatically update the apl_workspace_tasks table
+      // Just need to refresh our local state
+      refreshWorkspaceTasks();
       
       return result;
     } catch (error) {
@@ -455,6 +432,7 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
   };
 
   const saveSampleDataTask = async (sampleDataInfo: any) => {
+    // ... keep existing code with similar changes to refresh cache after save
     if (!user || !selectedWorkspace) {
       toast.error('You must be logged in and have a workspace selected to save tasks');
       return null;
@@ -463,250 +441,112 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
       const taskId = sampleDataInfo.id || uuidv4();
       const taskData = {
         ...sampleDataInfo,
-        id: taskId,
         task_id: sampleDataInfo.task_id || `SD-${taskId.substring(0, 8)}`,
         workspace_id: selectedWorkspace.id,
-        user_id: user.id,
-        created_at: sampleDataInfo.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        user_id: user.id
       };
-      let result;
+
+      const { data, error } = await supabase.rpc('apl_insert_sample_data_task', taskData);
       
-      if (sampleDataInfo.id) {
-        // Update existing task
-        const { data, error } = await supabase
-          .from('apl_sample_data_tasks')
-          .update(taskData)
-          .eq('id', sampleDataInfo.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        result = data;
-      } else {
-        // Create new task
-        const { data, error } = await supabase
-          .from('apl_sample_data_tasks')
-          .insert([taskData])
-          .select()
-          .single();
-        
-        if (error) throw error;
-        result = data;
-      }
-      // Update local state with the new task
-      const newTask = {
-        id: result.id,
-        task_id: result.task_id,
-        task_name: result.task_name,
-        category: 'sampledata',
-        created_at: result.created_at,
-        workspace_id: selectedWorkspace.id,
-        description: result.description || ''
-      };
-      // Update local state without refetching
-      if (sampleDataInfo.id) {
-        setWorkspaceTasks(prev =>
-          prev.map(task => task.id === result.id ? newTask : task)
-        );
-      } else {
-        setWorkspaceTasks(prev => [newTask, ...prev]);
-      }
-      // Update cache
-      const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${selectedWorkspace.id}`;
-      const cachedData = localStorage.getItem(cacheKey);
-      
-      if (cachedData) {
-        try {
-          const { data, timestamp } = JSON.parse(cachedData);
-          const updatedCache = sampleDataInfo.id
-            ? data.map((task: any) => task.id === result.id ? newTask : task)
-            : [newTask, ...data];
-          
-          localStorage.setItem(cacheKey, JSON.stringify({
-            data: updatedCache,
-            timestamp
-          }));
-        } catch (e) {
-          console.error("Error updating task cache:", e);
-        }
+      if (error) {
+        console.error('Error saving sample data task:', error);
+        throw error;
       }
       
-      return result;
+      // The trigger will automatically update the apl_workspace_tasks table
+      // Just need to refresh our local state
+      refreshWorkspaceTasks();
+      
+      return data;
     } catch (error) {
-      console.error('Error saving sample data task:', error);
+      console.error('Error in saveSampleDataTask:', error);
       toast.error('Failed to save sample data task');
       return null;
     }
   };
 
   const saveRamlTask = async (ramlData: any) => {
+    // ... keep existing code with similar changes to refresh cache after save
     if (!user || !selectedWorkspace) {
       toast.error('You must be logged in and have a workspace selected to save tasks');
       return null;
     }
     try {
-      const taskId = ramlData.id || uuidv4();
-      const taskData = {
-        ...ramlData,
-        id: taskId,
-        task_id: ramlData.task_id || `RAML-${taskId.substring(0, 8)}`,
-        workspace_id: selectedWorkspace.id,
-        user_id: user.id,
-        created_at: ramlData.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      let result;
+      console.log('Saving RAML task:', ramlData);
       
-      if (ramlData.id) {
-        // Update existing task
-        const { data, error } = await supabase
-          .from('apl_raml_tasks')
-          .update(taskData)
-          .eq('id', ramlData.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        result = data;
-      } else {
-        // Create new task
-        const { data, error } = await supabase
-          .from('apl_raml_tasks')
-          .insert([taskData])
-          .select()
-          .single();
-        
-        if (error) throw error;
-        result = data;
-      }
-      // Update local state with the new task
-      const newTask = {
-        id: result.id,
-        task_id: result.task_id,
-        task_name: result.task_name,
-        category: 'raml',
-        created_at: result.created_at,
-        workspace_id: selectedWorkspace.id,
-        description: result.description || ''
-      };
-      // Update local state without refetching
-      if (ramlData.id) {
-        setWorkspaceTasks(prev =>
-          prev.map(task => task.id === result.id ? newTask : task)
-        );
-      } else {
-        setWorkspaceTasks(prev => [newTask, ...prev]);
-      }
-      // Update cache
-      const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${selectedWorkspace.id}`;
-      const cachedData = localStorage.getItem(cacheKey);
+      const { data, error } = await supabase
+        .from('apl_raml_tasks')
+        .insert({
+          task_id: ramlData.task_id,
+          task_name: ramlData.task_name,
+          workspace_id: ramlData.workspace_id,
+          user_id: ramlData.user_id,
+          description: ramlData.description || '',
+          api_name: ramlData.api_name || '',
+          api_version: ramlData.api_version || '',
+          base_uri: ramlData.base_uri || '',
+          endpoints: ramlData.endpoints || [],
+          raml_content: ramlData.raml_content || '',
+          documentation: ramlData.documentation || '',
+          category: 'raml'
+        }).select();
       
-      if (cachedData) {
-        try {
-          const { data, timestamp } = JSON.parse(cachedData);
-          const updatedCache = ramlData.id
-            ? data.map((task: any) => task.id === result.id ? newTask : task)
-            : [newTask, ...data];
-          
-          localStorage.setItem(cacheKey, JSON.stringify({
-            data: updatedCache,
-            timestamp
-          }));
-        } catch (e) {
-          console.error("Error updating task cache:", e);
-        }
+      if (error) {
+        console.error('Error saving RAML task:', error);
+        throw error;
       }
       
-      return result;
+      console.log('RAML task saved successfully:', data);
+      
+      // The trigger will automatically update the apl_workspace_tasks table
+      // Just need to refresh our local state
+      refreshWorkspaceTasks();
+      
+      return data;
     } catch (error) {
-      console.error('Error saving RAML task:', error);
+      console.error('Error in saveRamlTask:', error);
       toast.error('Failed to save RAML task');
       return null;
     }
   };
 
   const saveMunitTask = async (munitData: any) => {
+    // ... keep existing code with similar changes to refresh cache after save
     if (!user || !selectedWorkspace) {
       toast.error('You must be logged in and have a workspace selected to save tasks');
       return null;
     }
     try {
-      const taskId = munitData.id || uuidv4();
-      const taskData = {
-        ...munitData,
-        id: taskId,
-        task_id: munitData.task_id || `MU-${taskId.substring(0, 8)}`,
-        workspace_id: selectedWorkspace.id,
-        user_id: user.id,
-        created_at: munitData.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      let result;
+      console.log('Saving MUnit task:', munitData);
       
-      if (munitData.id) {
-        // Update existing task
-        const { data, error } = await supabase
-          .from('apl_munit_tasks')
-          .update(taskData)
-          .eq('id', munitData.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        result = data;
-      } else {
-        // Create new task
-        const { data, error } = await supabase
-          .from('apl_munit_tasks')
-          .insert([taskData])
-          .select()
-          .single();
-        
-        if (error) throw error;
-        result = data;
-      }
-      // Update local state with the new task
-      const newTask = {
-        id: result.id,
-        task_id: result.task_id,
-        task_name: result.task_name,
-        category: 'munit',
-        created_at: result.created_at,
-        workspace_id: selectedWorkspace.id,
-        description: result.description || ''
-      };
-      // Update local state without refetching
-      if (munitData.id) {
-        setWorkspaceTasks(prev =>
-          prev.map(task => task.id === result.id ? newTask : task)
-        );
-      } else {
-        setWorkspaceTasks(prev => [newTask, ...prev]);
-      }
-      // Update cache
-      const cacheKey = `${WORKSPACE_TASKS_CACHE_KEY}_${selectedWorkspace.id}`;
-      const cachedData = localStorage.getItem(cacheKey);
+      const { data, error } = await supabase.rpc('apl_insert_munit_task', {
+        workspace_id: munitData.workspace_id,
+        task_id: munitData.task_id,
+        task_name: munitData.task_name,
+        user_id: munitData.user_id,
+        description: munitData.description || '',
+        flow_description: munitData.flow_description || '',
+        flow_implementation: munitData.flow_implementation || '',
+        munit_content: munitData.munit_content || '',
+        runtime: munitData.runtime || '',
+        number_of_scenarios: munitData.number_of_scenarios || 1,
+        category: 'munit'
+      });
       
-      if (cachedData) {
-        try {
-          const { data, timestamp } = JSON.parse(cachedData);
-          const updatedCache = munitData.id
-            ? data.map((task: any) => task.id === result.id ? newTask : task)
-            : [newTask, ...data];
-          
-          localStorage.setItem(cacheKey, JSON.stringify({
-            data: updatedCache,
-            timestamp
-          }));
-        } catch (e) {
-          console.error("Error updating task cache:", e);
-        }
+      if (error) {
+        console.error('Error saving MUnit task:', error);
+        throw error;
       }
       
-      return result;
+      console.log('MUnit task saved successfully:', data);
+      
+      // The trigger will automatically update the apl_workspace_tasks table
+      // Just need to refresh our local state
+      refreshWorkspaceTasks();
+      
+      return data;
     } catch (error) {
-      console.error('Error saving MUnit task:', error);
+      console.error('Error in saveMunitTask:', error);
       toast.error('Failed to save MUnit task');
       return null;
     }
@@ -716,59 +556,21 @@ export const WorkspaceTasksProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     if (!user || !selectedWorkspace) return;
     
-    // Create a single channel to listen for changes to any task table
+    // Create a single channel to listen for changes to the consolidated task table
     const channel = supabase
-      .channel('all-tasks-changes')
+      .channel('apl-workspace-tasks-changes')
       .on(
         'postgres_changes',
-        [
-          {
-            event: '*',
-            schema: 'public',
-            table: 'apl_integration_tasks',
-            filter: `workspace_id=eq.${selectedWorkspace.id}`,
-          },
-          {
-            event: '*',
-            schema: 'public',
-            table: 'apl_raml_tasks',
-            filter: `workspace_id=eq.${selectedWorkspace.id}`,
-          },
-          {
-            event: '*',
-            schema: 'public',
-            table: 'apl_munit_tasks',
-            filter: `workspace_id=eq.${selectedWorkspace.id}`,
-          },
-          {
-            event: '*',
-            schema: 'public',
-            table: 'apl_sample_data_tasks',
-            filter: `workspace_id=eq.${selectedWorkspace.id}`,
-          },
-          {
-            event: '*',
-            schema: 'public',
-            table: 'apl_document_tasks',
-            filter: `workspace_id=eq.${selectedWorkspace.id}`,
-          },
-          {
-            event: '*',
-            schema: 'public',
-            table: 'apl_diagram_tasks',
-            filter: `workspace_id=eq.${selectedWorkspace.id}`,
-          },
-          {
-            event: '*',
-            schema: 'public',
-            table: 'apl_dataweave_history',
-            filter: `workspace_id=eq.${selectedWorkspace.id}`,
-          }
-        ],
+        {
+          event: '*',
+          schema: 'public',
+          table: 'apl_workspace_tasks',
+          filter: `workspace_id=eq.${selectedWorkspace.id}`,
+        },
         (payload) => {
-          console.log('Task change detected:', payload.eventType, payload.table);
+          console.log('Workspace tasks change detected:', payload.eventType);
           
-          // Instead of immediately refreshing, debounce the refresh
+          // Debounce the refresh to avoid multiple refreshes for batch operations
           if (backgroundRefreshTimeout.current) {
             clearTimeout(backgroundRefreshTimeout.current);
           }

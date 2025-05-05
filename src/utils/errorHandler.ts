@@ -1,101 +1,71 @@
+
 import { toast } from 'sonner';
 
-// Error storage to prevent duplicate toasts
-const errorCache: Record<string, number> = {};
-
 /**
- * Helper function to handle API errors with deduplication
- * @param error The error object or message
- * @param context Optional context for the error
- * @param dedupKey Optional key to prevent duplicate error messages
+ * Handles API errors and presents appropriate messages to the user
+ * @param error The error object from the API call
+ * @param context A string describing the operation context
  */
-export const handleApiError = (
-  error: any,
-  context: string = 'Operation',
-  dedupKey: string = ''
-) => {
-  // Extract the error message
-  const errorMessage = error?.message || error?.error?.message || 
-    (typeof error === 'string' ? error : 'An unknown error occurred');
+export const handleApiError = (error: any, context?: string) => {
+  console.error(`Error in ${context || 'operation'}:`, error);
   
-  // Create a deduplication key if none provided
-  const key = dedupKey || `${context}-${errorMessage}`;
-  const now = Date.now();
+  // Extract error message
+  const errorMessage = error?.message || error?.error?.message || 'An unknown error occurred';
   
-  // Only show errors once per minute
-  if (!errorCache[key] || now - errorCache[key] > 60000) {
-    console.error(`${context} error:`, error);
-    
-    // Special handling for auth errors
-    if (context.includes('password') || context.includes('Password')) {
-      if (errorMessage.includes('weak')) {
-        toast.error('Password is too weak. Please use a stronger password.');
-      } else if (errorMessage.includes('match')) {
-        toast.error('Passwords do not match');
-      } else {
-        toast.error(`${context} failed: ${errorMessage}`);
-      }
-    }
-    // Don't show "no rows returned" errors for new users
-    else if (errorMessage.includes('no rows returned') || 
-        errorMessage.includes('not found')) {
-      // For settings page and similar scenarios, just log it
-      console.log(`Suppressed error toast for new user: ${errorMessage}`);
-    } else {
-      // Show other errors to the user
-      toast.error(`${context} failed: ${errorMessage}`);
-    }
-    
-    // Update the error cache
-    errorCache[key] = now;
+  // Determine if this is a network error
+  if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Network Error')) {
+    toast.error('Network connection issue. Please check your internet connection.');
+    return;
+  }
+  
+  // Handle authentication errors
+  if (errorMessage.includes('Not authenticated') || errorMessage.includes('JWT')) {
+    toast.error('Your session has expired. Please log in again.');
+    return;
+  }
+  
+  // Handle permission errors
+  if (errorMessage.includes('permission denied') || errorMessage.toLowerCase().includes('not authorized')) {
+    toast.error('You do not have permission to perform this action.');
+    return;
+  }
+  
+  // Display appropriate error message based on context
+  if (context) {
+    toast.error(`Error ${context.toLowerCase()}: ${errorMessage}`);
   } else {
-    // Just log duplicate errors
-    console.log(`Suppressed duplicate error: ${errorMessage}`);
+    toast.error(errorMessage);
   }
-
-  return errorMessage; // Return the error message for potential chaining
 };
 
 /**
- * Helper function to handle data loading errors
- * Suppresses common "not found" errors for new users
+ * Formats and displays validation errors
+ * @param errors Object containing validation errors
  */
-export const handleDataLoadingError = (
-  error: any,
-  context: string = 'Data loading'
-) => {
-  // Extract the error message
-  const errorMessage = error?.message || error?.error?.message || 
-    (typeof error === 'string' ? error : 'An unknown error occurred');
+export const handleValidationErrors = (errors: Record<string, string[]>) => {
+  const errorMessages = Object.entries(errors).map(([field, messages]) => {
+    const fieldName = field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1');
+    return `${fieldName}: ${messages.join(', ')}`;
+  });
   
-  // For new user data loading, suppress common "not found" errors
-  if (errorMessage.includes('no rows returned') || 
-      errorMessage.includes('not found')) {
-    console.log(`New user data not found: ${errorMessage}`);
-    return null;
-  }
-  
-  // Otherwise handle normally
-  handleApiError(error, context);
-  return null;
+  errorMessages.forEach(message => {
+    toast.error(message);
+  });
 };
 
 /**
- * Helper function to handle errors in a try-catch block
- * @param fn The async function to execute
- * @param context The context for error messages
- * @param dedupKey Optional key to prevent duplicate error messages
- * @returns The result of the function or null on error
+ * Wraps an async function with error handling
+ * @param fn The async function to wrap
+ * @param context Context description for error messages
+ * @returns A new function that handles errors
  */
-export const tryAsync = async <T>(
-  fn: () => Promise<T>, 
-  context: string = 'Operation',
-  dedupKey: string = ''
-): Promise<T | null> => {
-  try {
-    return await fn();
-  } catch (error) {
-    handleApiError(error, context, dedupKey);
-    return null;
-  }
+export const withErrorHandling = (fn: Function, context?: string) => {
+  return async (...args: any[]) => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      handleApiError(error, context);
+      throw error;
+    }
+  };
 };

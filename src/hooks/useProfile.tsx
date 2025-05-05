@@ -1,78 +1,111 @@
 
-import React, { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
-import { toast } from 'sonner';
-import { handleApiError } from '@/utils/errorHandler';
+import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from './useAuth';
+
+export interface Profile {
+  id: string;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export const useProfile = () => {
   const { user } = useAuth();
-  const { toast: legacyToast } = useToast();
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const updateUsername = async (newUsername: string) => {
-    if (!user) return;
-    
-    setIsUpdating(true);
+  const fetchProfile = useCallback(async () => {
+    if (!user) return null;
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { username: newUsername }
-      });
+      // Get profile from existing profiles
+      const { data, error } = await supabase
+        .from('apl_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Profile not found, create a new one
+          const newProfile = {
+            id: user.id,
+            avatar_url: null,
+          };
+          
+          const { data: createdProfile, error: createError } = await supabase
+            .from('apl_profiles')
+            .insert([newProfile])
+            .select('*')
+            .single();
 
-      legacyToast({
-        title: "Success",
-        description: "Username updated successfully",
-      });
-    } catch (error) {
-      legacyToast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update username",
-      });
+          if (createError) {
+            throw createError;
+          }
+
+          setProfile(createdProfile || null);
+        } else {
+          throw error;
+        }
+      } else {
+        setProfile(data);
+      }
+    } catch (err: any) {
+      setError(err.message);
+      console.error('Error fetching profile:', err);
     } finally {
-      setIsUpdating(false);
+      setLoading(false);
     }
-  };
-  
-  const changePassword = async (currentPassword: string, newPassword: string) => {
-    if (!user) return { success: false, error: "You must be logged in to change your password" };
+  }, [user]);
+
+  const updateAvatar = async (avatarUrl: string) => {
+    if (!user || !profile) return false;
     
-    setIsUpdating(true);
+    setLoading(true);
+    setError(null);
+    
     try {
-      // First verify the current password by attempting to sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email!,
-        password: currentPassword
-      });
+      const { error } = await supabase
+        .from('apl_profiles')
+        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
       
-      if (signInError) {
-        setIsUpdating(false);
-        return { success: false, error: "Current password is incorrect" };
+      if (error) {
+        throw error;
       }
       
-      // Now update the password
-      const { error } = await supabase.auth.updateUser({ 
-        password: newPassword 
-      });
-
-      if (error) throw error;
+      // Update local state
+      setProfile(prev => prev ? { ...prev, avatar_url: avatarUrl } : null);
       
-      toast.success("Password changed successfully");
-      setIsUpdating(false);
-      return { success: true, error: null };
-    } catch (error) {
-      const message = handleApiError(error, "Password change");
-      setIsUpdating(false);
-      return { success: false, error: message || "Failed to change password" };
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      console.error('Error updating avatar:', err);
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Call fetchProfile on component mount
+  useEffect(() => {
+    if (user) {
+      // Using void to properly handle the Promise without causing truthiness check issues
+      void fetchProfile();
+    }
+  }, [user, fetchProfile]);
+
   return {
-    updateUsername,
-    changePassword,
-    isUpdating
+    profile,
+    loading,
+    error,
+    fetchProfile,
+    updateAvatar
   };
 };

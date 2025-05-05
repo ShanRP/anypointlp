@@ -853,6 +853,69 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_integration_tasks: {
+        Row: {
+          category: string | null
+          compilation_check: string | null
+          created_at: string | null
+          description: string | null
+          diagrams: Json | null
+          flow_constants: string | null
+          flow_implementation: string | null
+          flow_summary: string | null
+          generated_code: string | null
+          id: string
+          pom_dependencies: string | null
+          raml_content: string | null
+          runtime: string | null
+          task_id: string
+          task_name: string
+          updated_at: string | null
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          category?: string | null
+          compilation_check?: string | null
+          created_at?: string | null
+          description?: string | null
+          diagrams?: Json | null
+          flow_constants?: string | null
+          flow_implementation?: string | null
+          flow_summary?: string | null
+          generated_code?: string | null
+          id?: string
+          pom_dependencies?: string | null
+          raml_content?: string | null
+          runtime?: string | null
+          task_id: string
+          task_name: string
+          updated_at?: string | null
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          category?: string | null
+          compilation_check?: string | null
+          created_at?: string | null
+          description?: string | null
+          diagrams?: Json | null
+          flow_constants?: string | null
+          flow_implementation?: string | null
+          flow_summary?: string | null
+          generated_code?: string | null
+          id?: string
+          pom_dependencies?: string | null
+          raml_content?: string | null
+          runtime?: string | null
+          task_id?: string
+          task_name?: string
+          updated_at?: string | null
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -861,6 +924,14 @@ export type Database = {
       apl_accept_workspace_invitation: {
         Args: { workspace_id_param: string; user_id_param: string }
         Returns: boolean
+      }
+      apl_delete_task: {
+        Args: { task_id_param: string; category_param: string }
+        Returns: boolean
+      }
+      apl_get_all_workspace_tasks: {
+        Args: { workspace_id_param: string }
+        Returns: Json[]
       }
       apl_get_munit_task_details: {
         Args: { task_id_param: string }
@@ -977,7 +1048,9 @@ export type Database = {
         }[]
       }
       apl_get_task_details: {
-        Args: { task_id_param: string }
+        Args:
+          | { task_id_param: string }
+          | { task_id_param: string; category_param: string }
         Returns: {
           id: string
           task_id: string
